@@ -1,3 +1,4 @@
 /.idea
 /Backend/bin
 /Backend/obj
+/Backend/appsettings.Local.json
