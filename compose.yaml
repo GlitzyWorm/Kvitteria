@@ -1,0 +1,32 @@
+﻿services:
+  backend:
+    image: backend
+    build:
+      context: ./Kvitteria
+      dockerfile: Backend/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Ollama__BaseUrl=http://ollama:11434
+      # Supabase's local Postgres runs on the host (`supabase start`), not in this compose
+      # project — 127.0.0.1 (the DatabaseOptions default, for host-side `dotnet run`) would
+      # resolve to this container.
+      - Database__ConnectionString=Host=host.docker.internal;Port=54322;Database=postgres;Username=postgres;Password=postgres
+    volumes:
+      # Gitignored secrets file — must exist before `docker compose up`,
+      # or Docker creates a directory with this name instead.
+      - ./Kvitteria/Backend/appsettings.Local.json:/app/appsettings.Local.json:ro
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 3 && ollama pull qwen3:4b && wait"]
+
+volumes:
+  ollama_data:
