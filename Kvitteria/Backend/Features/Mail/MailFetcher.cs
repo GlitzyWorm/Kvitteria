@@ -17,7 +17,7 @@ public sealed partial class MailFetcher(
 {
 	private readonly HtmlToText _converter = new HtmlToText();
 	
-	public async Task<IReadOnlyList<ReceiptEmail>> FetchUnseenAsync(CancellationToken ct)
+	public async Task<IReadOnlyList<Receipt>> FetchUnseenAsync(CancellationToken ct)
 	{
 		ImapOptions imap = options.CurrentValue;
 
@@ -29,7 +29,7 @@ public sealed partial class MailFetcher(
 		}
 
 		using var client = new ImapClient();
-		List<ReceiptEmail> results = [];
+		List<Receipt> results = [];
 		
 		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
 		{
@@ -44,7 +44,7 @@ public sealed partial class MailFetcher(
 				MimeMessage message = await folder.GetMessageAsync(id, ct);
 				string bodyText = ExtractBody(message, out string bodySource);
 				
-				results.Add(new ReceiptEmail(
+				results.Add(new Receipt(
 					message.MessageId,
 					message.From.ToString(),
 					message.Subject ?? "",
@@ -55,7 +55,7 @@ public sealed partial class MailFetcher(
 				));
 				
 				await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
-				
+
 				logger.LogDebug(
 					"Fetched receipt mail from {Folder} for {Member}: subject='{Subject}', from='{From}', date={Date:O}, bodySource={BodySource}, preview: {Preview}",
 					folder.FullName, folderOptions.MemberName, message.Subject, message.From, message.Date, bodySource,
@@ -116,13 +116,54 @@ public sealed partial class MailFetcher(
 		if (!string.IsNullOrWhiteSpace(message.HtmlBody))
 		{
 			bodySource = "html";
-			return NormalizeWhitespace(_converter.Convert(message.HtmlBody));
+			return NormalizeWhitespace(HtmlToPlainText(message.HtmlBody));
 		}
 		
 		logger.LogWarning("Message '{Subject}' has no text or HTML body; skipping body extraction", message.Subject);
 		bodySource = "none";
 		return "";
 	}
+	
+	private static string HtmlToPlainText(string html)
+	{
+		var text = new StringBuilder();
+		var tokenizer = new HtmlTokenizer(new StringReader(html)) { DecodeCharacterReferences = true };
+		var skipContent = false;
+
+		while (tokenizer.ReadNextToken(out HtmlToken? token))
+		{
+			switch (token)
+			{
+				case HtmlTagToken tag:
+					if (tag.Id is HtmlTagId.Script or HtmlTagId.Style or HtmlTagId.Head)
+					{
+						skipContent = !tag.IsEndTag;
+					}
+					else if (IsBlockLevel(tag.Id))
+					{
+						text.Append('\n');
+					}
+					else if (tag.Id == HtmlTagId.TD)
+					{
+						text.Append('\t');
+					}
+					break;
+
+				case HtmlDataToken data when !skipContent:
+					text.Append(data.Data);
+					break;
+			}
+		}
+
+		return text.ToString();
+	}
+
+	private static bool IsBlockLevel(HtmlTagId id) => id is
+	HtmlTagId.P or HtmlTagId.Div or HtmlTagId.Br or HtmlTagId.TR or HtmlTagId.Table or
+	HtmlTagId.LI or HtmlTagId.UL or HtmlTagId.OL or HtmlTagId.H1 or HtmlTagId.H2 or
+	HtmlTagId.H3 or HtmlTagId.H4 or HtmlTagId.H5 or HtmlTagId.H6 or HtmlTagId.HR or
+	HtmlTagId.BlockQuote or HtmlTagId.Section or HtmlTagId.Article or HtmlTagId.Header or
+	HtmlTagId.Footer;
 
 	private static string NormalizeWhitespace(string text)
 	{

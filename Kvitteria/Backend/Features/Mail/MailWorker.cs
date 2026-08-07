@@ -1,37 +1,41 @@
 ﻿using System.Security.Authentication;
+using Backend.Features.Extraction;
 using MailKit.Net.Imap;
 using Microsoft.Extensions.Options;
 namespace Backend.Features.Mail;
 
 public class MailWorker(
 	MailFetcher fetcher,
+	ExtractionQueue queue,
 	IOptionsMonitor<ImapOptions> options,
 	ILogger<MailWorker> logger
 ) : BackgroundService
 {
-	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+	protected override async Task ExecuteAsync(CancellationToken ct)
 	{
 		try
 		{
-			while (!stoppingToken.IsCancellationRequested)
+			while (!ct.IsCancellationRequested)
 			{
 				try
 				{
-					IReadOnlyList<ReceiptEmail> receipts = await fetcher.FetchUnseenAsync(stoppingToken);
-					logger.LogDebug("Fetched {Count} unseen receipts", receipts.Count);
-					/*foreach (ReceiptEmail email in receipts)
+					IReadOnlyList<Receipt> receipts = await fetcher.FetchUnseenAsync(ct);
+
+					foreach (Receipt email in receipts)
 					{
-						
-					}*/
+						await queue.EnqueueAsync(email, ct);
+					}
+
+					logger.LogDebug("Fetched {Count} unseen receipts", receipts.Count);
 				} catch (Exception ex) when (ex is AuthenticationException or ImapProtocolException
 				or ImapCommandException or InvalidOperationException)
 				{
 					logger.LogError(ex, "Mail poller failed to fetch unseen receipts");
 				}
 
-				await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollIntervalSeconds), stoppingToken);
+				await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollIntervalSeconds), ct);
 			}
-		} catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+		} catch (OperationCanceledException) when (ct.IsCancellationRequested)
 		{
 			// TODO: Graceful shutdown.
 		}

@@ -1,0 +1,35 @@
+﻿using Backend.Features.Extraction;
+namespace Backend.Features.Mail;
+
+public sealed class Receipt(
+	string? messageId,
+	string from,
+	string subject,
+	DateTimeOffset date,
+	string bodyText,
+	string bodySource,
+	string memberEmail
+)
+{
+	/*
+	 *  Immutable values
+	 */
+	public string? MessageId { get; } = messageId;
+	public string From { get; } = from;
+	public string Subject { get; } = subject;
+	public DateTimeOffset Date { get; } = date;
+	public string BodyText { get; } = bodyText;
+	public string BodySource { get; } = bodySource; // "text" | "html" | "none"
+	public string MemberEmail { get; } = memberEmail;
+
+	/*
+	 * Mutable values
+	 */
+	public ExtractionStatus Status { get; set; } = ExtractionStatus.Queued;
+	public ExtractedReceipt? Extracted { get; set; }
+	public int Attempts { get; set; }
+	public bool Reconciled { get; set; }
+	public string? Error { get; set; } // TODO: Add Error types
+	public DateTimeOffset EnqueuedAt { get; init; }
+	public DateTimeOffset? CompletedAt { get; set; }
+}
