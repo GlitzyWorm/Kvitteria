@@ -1,11 +1,19 @@
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
+using Backend.Features.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // TODO: Testing config.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
+builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
+	DatabaseOptions databaseOptions = sp.GetRequiredService<IOptionsMonitor<DatabaseOptions>>().CurrentValue;
+	options.UseNpgsql(databaseOptions.ConnectionString);
+});
 
 builder.Services.Configure<ImapOptions>(builder.Configuration.GetSection(ImapOptions.SectionName));
 builder.Services.AddSingleton<MailFetcher>();

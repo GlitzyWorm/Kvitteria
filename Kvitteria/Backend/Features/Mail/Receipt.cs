@@ -1,4 +1,5 @@
 ﻿using Backend.Features.Extraction;
+using Backend.Features.Shared;
 namespace Backend.Features.Mail;
 
 public sealed class Receipt(
@@ -25,7 +26,7 @@ public sealed class Receipt(
 	/*
 	 * Mutable values
 	 */
-	public ExtractionStatus Status { get; set; } = ExtractionStatus.Queued;
+	public ReceiptStatus Status { get; set; } = ReceiptStatus.Queued;
 	public ExtractedReceipt? Extracted { get; set; }
 	public int Attempts { get; set; }
 	public bool Reconciled { get; set; }

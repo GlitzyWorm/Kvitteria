@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
+using Backend.Features.Shared;
 namespace Backend.Features.Extraction;
 
 public class ExtractionWorker(
@@ -16,7 +17,7 @@ public class ExtractionWorker(
 	{
 		await foreach (Receipt mail in queue.DequeueAllAsync(ct))
 		{
-			mail.Status = ExtractionStatus.Extracting;
+			mail.Status = ReceiptStatus.Extracting;
 
 			try
 			{
@@ -25,7 +26,7 @@ public class ExtractionWorker(
 
 				await ExtractWithRetriesAsync(client, mail, ct);
 
-				mail.Status = ExtractionStatus.Extracted;
+				mail.Status = ReceiptStatus.Extracted;
 				
 				logger.LogInformation(
 					"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
@@ -34,14 +35,14 @@ public class ExtractionWorker(
 			}
 			catch (OperationCanceledException) when (ct.IsCancellationRequested)
 			{
-				mail.Status = ExtractionStatus.Failed;
+				mail.Status = ReceiptStatus.Failed;
 				mail.Error = "Extraction interrupted by shutdown";
 				return;
 			}
 			catch (Exception ex)
 			{
 				// One bad receipt must never kill the worker.
-				mail.Status = ExtractionStatus.Failed;
+				mail.Status = ReceiptStatus.Failed;
 				mail.Error = ex.Message;
 				mail.CompletedAt = DateTimeOffset.UtcNow;
 				logger.LogError(ex, "Extraction failed for '{Subject}' ({Id})", mail.Subject, mail.MessageId);
