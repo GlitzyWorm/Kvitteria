@@ -1,3 +1,4 @@
+using Backend.Features.Endpoints.ReceiptEndpoints;
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
@@ -10,7 +11,7 @@ using Microsoft.Extensions.Options;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // TODO: Testing config.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
@@ -23,8 +24,7 @@ builder.Services.AddSingleton<MailFetcher>();
 builder.Services.AddHostedService<MailWorker>();
 
 builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection(OllamaOptions.SectionName));
-builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
-{
+builder.Services.AddHttpClient<OllamaClient>((sp, client) => {
 	OllamaOptions ollama = sp.GetRequiredService<IOptionsMonitor<OllamaOptions>>().CurrentValue;
 	client.BaseAddress = new Uri(ollama.BaseUrl);
 	client.Timeout = TimeSpan.FromSeconds(ollama.RequestTimeoutSeconds);
@@ -37,7 +37,8 @@ builder.Services.AddSingleton<PersistenceQueue>();
 builder.Services.AddHostedService<ReceiptFactoryWorker>();
 
 WebApplication app = builder.Build();
+RouteGroupBuilder group = app.MapGroup("/api");
 
-app.MapGet("/", () => "Hello World!");
+group.MapReceiptEndpoints();
 
 app.Run();
