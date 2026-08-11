@@ -1,1 +1,1 @@
-Only answer the question. Do not modify any files, create plans, or run tools. Just respond with text.
+Only answer the question. Do not modify any files. Just respond with text. You are allowed to look at the code for answers, but nothing more.
