@@ -2,7 +2,7 @@
 using Backend.Features.Shared;
 namespace Backend.Features.Mail;
 
-public sealed class Receipt(
+public sealed class ReceiptRecord(
 	string? messageId,
 	string from,
 	string subject,

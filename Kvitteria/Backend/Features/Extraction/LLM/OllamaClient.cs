@@ -32,6 +32,7 @@ public sealed class OllamaClient(
 		var request = new OllamaChatRequest(
 			ollamaOptions.Model,
 			messages,
+			Think: ollamaOptions.ThinkingMode,
 			Stream: false,
 			Format: ReceiptExtractionPrompt.Schema,
 			Options: new OllamaChatOptions(temperature, ollamaOptions.NumCtx),
@@ -56,13 +57,23 @@ public sealed class OllamaClient(
 			"Ollama extraction took {TotalMs} ms ({EvalCount} tokens evaluated) for {PromptLength} chars of receipt text",
 			(chat!.TotalDuration ?? 0) / 1_000_000, chat.EvalCount, receiptText.Length);
 		
-		var receipt = JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions);
+		ExtractedReceipt? receipt;
+		try
+		{
+			receipt = JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions);
+		}
+		catch (JsonException ex)
+		{
+			logger.LogWarning(ex, "Ollama returned non-JSON extraction content: {Content}", content);
+			throw;
+		}
 		return receipt ?? throw new InvalidOperationException("Ollama message content was not a receipt JSON document");
 	}
 	
 	private sealed record OllamaChatRequest(
 		string Model,
 		IReadOnlyList<OllamaChatMessage> Messages,
+		bool Think,
 		bool Stream,
 		JsonElement Format,
 		OllamaChatOptions Options,

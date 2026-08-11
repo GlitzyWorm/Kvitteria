@@ -1,11 +1,13 @@
 ﻿using System.Globalization;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
+using Backend.Features.Persistence.Factory;
 using Backend.Features.Shared;
 namespace Backend.Features.Extraction;
 
 public class ExtractionWorker(
 	ExtractionQueue queue,
+	PersistenceQueue persistenceQueue,
 	IServiceScopeFactory scopeFactory,
 	ILogger<ExtractionWorker> logger
 ) : BackgroundService
@@ -15,7 +17,7 @@ public class ExtractionWorker(
 
 	protected override async Task ExecuteAsync(CancellationToken ct)
 	{
-		await foreach (Receipt mail in queue.DequeueAllAsync(ct))
+		await foreach (ReceiptRecord mail in queue.DequeueAllAsync(ct))
 		{
 			mail.Status = ReceiptStatus.Extracting;
 
@@ -27,6 +29,8 @@ public class ExtractionWorker(
 				await ExtractWithRetriesAsync(client, mail, ct);
 
 				mail.Status = ReceiptStatus.Extracted;
+				
+				await persistenceQueue.EnqueueAsync(mail, ct);
 				
 				logger.LogInformation(
 					"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
@@ -50,7 +54,7 @@ public class ExtractionWorker(
 		}
 	}
 
-	private async Task ExtractWithRetriesAsync(OllamaClient client, Receipt mail, CancellationToken ct)
+	private async Task ExtractWithRetriesAsync(OllamaClient client, ReceiptRecord mail, CancellationToken ct)
 	{
 		ExtractedReceipt? best = null;
 		var bestDelta = decimal.MaxValue;
@@ -62,10 +66,22 @@ public class ExtractionWorker(
 		{
 			attempt++;
 			double temperature = attempt == 1 ? 0 : RetryTemperature;
-			ExtractedReceipt result = await client.ExtractAsync(mail.BodyText, hint, temperature, ct);
+			ExtractedReceipt result;
+			try
+			{
+				result = await client.ExtractAsync(mail.BodyText, hint, temperature, ct);
+			}
+			catch (Exception ex) when (ex is not OperationCanceledException)
+			{
+				logger.LogWarning(ex,
+					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' did not produce a parseable extraction",
+					attempt, MaxAttempts, mail.Subject);
+				hint = "Your previous response could not be parsed as valid JSON matching the schema. " +
+					"Respond with ONLY the JSON object, no extra commentary.";
+				continue;
+			}
 
-			decimal delta = 0; // TODO: Fix Grand total extraction
-			// decimal delta = result.GrandTotal-result.LineItems.Sum(l => l.LineTotal)+result.PantTotal;
+			decimal delta = result.GrandTotal-result.LineItems.Sum(l => l.LineTotal)-result.PantTotal;
 
 			reconciled = Math.Abs(delta) == 0;
 
@@ -82,15 +98,21 @@ public class ExtractionWorker(
 					"\nGrand total: {GrandTotal}"+
 					"\nList of items: {Items}"+
 					"\nLine totals: {LineTotals}",
-					attempt, MaxAttempts, mail.Subject, delta, result.GrandTotal, result.LineItems.Select(l => new { l.RawName, l.Qty, l.LineTotal }), result.LineItems.Sum(l => l.LineTotal));
+					attempt, MaxAttempts, mail.Subject, delta, result.GrandTotal, result.LineItems.Select(l => new { l.RawName,
+						l.Quantity, l.LineTotal }), result.LineItems.Sum(l => l.LineTotal));
 				hint = string.Create(CultureInfo.InvariantCulture,
 					$"Your previous extraction of this receipt was rejected: the line totals plus pant summed to {result.LineItems.Sum(l => l.LineTotal)+result.PantTotal:0.00}, but the receipt's grand total is {result.GrandTotal:0.00}. You probably missed a product, duplicated one, or got an amount wrong. Re-read the receipt and extract it again — especially check the FIRST product right after the store header and the LAST product right before the totals section, and check that no printed amount was multiplied by its quantity.");
 			}
 		}
 
+		if (best is null)
+		{
+			throw new InvalidOperationException($"Failed to extract any valid data after {attempt} attempt(s).");
+		}
+
 		if (!reconciled)
 		{
-			mail.Error = "Failed to reconcile receipt after {MaxAttempts} attempts. Best delta: {bestDelta:0.00}.";
+			mail.Error = $"Failed to reconcile receipt after {MaxAttempts} attempts. Best delta: {bestDelta:0.00}.";
 		}
 
 		mail.Extracted = best;

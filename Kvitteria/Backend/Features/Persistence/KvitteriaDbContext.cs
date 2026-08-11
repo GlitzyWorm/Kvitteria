@@ -1,4 +1,4 @@
-﻿using Backend.Features.Persistence.Models.Receipts;
+﻿using Backend.Features.Persistence.Model.Receipts;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Persistence;
 

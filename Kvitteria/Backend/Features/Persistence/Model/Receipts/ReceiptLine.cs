@@ -1,4 +1,4 @@
-﻿namespace Backend.Features.Persistence.Models.Receipts;
+﻿namespace Backend.Features.Persistence.Model.Receipts;
 
 public sealed class ReceiptLine
 {
@@ -7,7 +7,9 @@ public sealed class ReceiptLine
 	public required string RawName { get; set; }
 	public Guid? CanonicalItemId { get; set; }
 	public short Quantity { get; set; }
+	public decimal UnitPrice { get; set; }
 	public decimal LineTotal { get; set; }
 	
 	public CanonicalItem? CanonicalItem { get; set; }
+	public Receipt? Receipt { get; set; }
 }

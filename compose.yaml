@@ -26,7 +26,7 @@
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 3 && ollama pull qwen3:4b && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 3 && ollama pull qwen3.5:4b && wait"]
 
 volumes:
   ollama_data:

@@ -22,7 +22,7 @@ namespace Backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.CanonicalItem", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -37,22 +37,7 @@ namespace Backend.Migrations
                     b.ToTable("CanonicalItems");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.CanonicalItemCategory", b =>
-                {
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CanonicalItemId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CategoryId", "CanonicalItemId");
-
-                    b.HasIndex("CanonicalItemId");
-
-                    b.ToTable("ItemCategories");
-                });
-
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Category", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Category", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -72,7 +57,7 @@ namespace Backend.Migrations
                     b.ToTable("Categories");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.ItemAlias", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ItemAlias", b =>
                 {
                     b.Property<string>("RawName")
                         .HasColumnType("text");
@@ -87,22 +72,7 @@ namespace Backend.Migrations
                     b.ToTable("ItemAliases");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Merchant", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Merchants");
-                });
-
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Receipt", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -133,7 +103,7 @@ namespace Backend.Migrations
                     b.ToTable("Receipts");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.ReceiptLine", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ReceiptLine", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -155,6 +125,9 @@ namespace Backend.Migrations
                     b.Property<Guid>("ReceiptId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CanonicalItemId");
@@ -166,35 +139,46 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.CanonicalItemCategory", b =>
                 {
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.CanonicalItem", "CanonicalItem")
-                        .WithMany()
-                        .HasForeignKey("CanonicalItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
 
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Property<Guid>("CanonicalItemId")
+                        .HasColumnType("uuid");
 
-                    b.Navigation("CanonicalItem");
+                    b.HasKey("CategoryId", "CanonicalItemId");
 
-                    b.Navigation("Category");
+                    b.HasIndex("CanonicalItemId");
+
+                    b.ToTable("ItemCategories");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Category", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Merchant", b =>
                 {
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.Category", "ParentCategory")
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Merchants");
+                });
+
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Category", b =>
+                {
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "ParentCategory")
                         .WithMany()
                         .HasForeignKey("ParentCategoryId");
 
                     b.Navigation("ParentCategory");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.ItemAlias", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ItemAlias", b =>
                 {
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.CanonicalItem", "CanonicalItem")
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.CanonicalItem", "CanonicalItem")
                         .WithMany()
                         .HasForeignKey("CanonicalItemId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -203,7 +187,7 @@ namespace Backend.Migrations
                     b.Navigation("CanonicalItem");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Receipt", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
                     b.HasOne("Backend.Features.Persistence.Models.Receipts.Merchant", "Merchant")
                         .WithMany()
@@ -214,22 +198,43 @@ namespace Backend.Migrations
                     b.Navigation("Merchant");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.ReceiptLine", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ReceiptLine", b =>
                 {
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.CanonicalItem", "CanonicalItem")
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.CanonicalItem", "CanonicalItem")
                         .WithMany()
                         .HasForeignKey("CanonicalItemId");
 
-                    b.HasOne("Backend.Features.Persistence.Models.Receipts.Receipt", null)
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", "Receipt")
                         .WithMany("ReceiptLines")
                         .HasForeignKey("ReceiptId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("CanonicalItem");
+
+                    b.Navigation("Receipt");
                 });
 
-            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.Receipt", b =>
+            modelBuilder.Entity("Backend.Features.Persistence.Models.Receipts.CanonicalItemCategory", b =>
+                {
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.CanonicalItem", "CanonicalItem")
+                        .WithMany()
+                        .HasForeignKey("CanonicalItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CanonicalItem");
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
                     b.Navigation("ReceiptLines");
                 });

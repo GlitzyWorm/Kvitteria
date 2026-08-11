@@ -1,4 +1,4 @@
-﻿namespace Backend.Features.Persistence.Models.Receipts;
+﻿namespace Backend.Features.Persistence.Model.Receipts;
 
 public sealed class ItemAlias
 {

@@ -1,9 +1,9 @@
 ﻿using Backend.Features.Shared;
-namespace Backend.Features.Persistence.Models.Receipts;
+namespace Backend.Features.Persistence.Model.Receipts;
 
 public sealed class Receipt
 {
-	public required Guid Id { get; set; }
+	public Guid Id { get; set; }
 	public Guid MerchantId { get; set; }
 	public DateTime PurchaseDate { get; set; }
 	public decimal GrandTotal { get; set; }

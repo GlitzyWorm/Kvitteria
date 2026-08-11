@@ -1,4 +1,4 @@
-﻿namespace Backend.Features.Persistence.Models.Receipts;
+﻿namespace Backend.Features.Persistence.Model.Receipts;
 
 // Maps the relationships between each CanonicalItem and one or more Categories
 public class CanonicalItemCategory

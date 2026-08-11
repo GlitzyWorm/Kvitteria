@@ -18,12 +18,12 @@ public static class ReceiptExtractionPrompt
 						"type": "object",
 						"properties": {
 							"raw_name": { "type": "string" },
-							"qty": { "type": "number" },
+							"quantity": { "type": "number" },
 							"unit": { "type": "string" },
 							"unit_price": { "type": "number" },
 							"line_total": { "type": "number" }
 						},
-						"required": ["raw_name", "qty", "unit", "unit_price", "line_total"]
+						"required": ["raw_name", "quantity", "unit", "unit_price", "line_total"]
 					}
 				}
 			},
@@ -33,15 +33,14 @@ public static class ReceiptExtractionPrompt
 
 	public static readonly JsonElement Schema = ParseSchema();
 	
-	// TODO: Grand total is always assigned MOMS value
 	public const string SystemPrompt = """
 		You extract structured data from Danish grocery receipts received as plain-text emails
 		(Netto, Rema 1000, Føtex, Bilka, Lidl, Coop 365, Kvickly, SuperBrugsen, etc.).
 		Return only data actually present on the receipt.
 
 		Rules:
-		- merchant: the store name as printed, without address, CVR number, or phone number.
-		- purchase_date: format YYYY-MM-DD. Danish receipts print dates like "4. juli 2026" or "04-07-2026"; convert.
+		- merchant: the store name as printed, without address, CVR number, or phone number. Also remove parts like "Scan&Go", "Scan og betal", or similar.
+		- purchase_date: format YYYY-MM-DD HH:MM:SS. Danish receipts print dates like "4. juli 2026", "04-07-2026", or "Tidspunkt: 09-08-2026 11:17:40"; convert, keeping both date and time.
 		- currency: ISO 4217 code. "kr", "kr." and "DKK" all mean DKK.
 		- Danish numbers use a decimal comma: "12,95" means 12.95.
 		- grand_total: the final amount paid ("Total", "I alt", "At betale"), after all discounts and neither the "HERAF PANT IALT" or "HERAF MOMS".
@@ -60,7 +59,7 @@ public static class ReceiptExtractionPrompt
 		    This also holds when the quantity is 2 or more: line_total is the printed amount unchanged —
 		    never multiply the printed amount by the quantity.
 		  - raw_name: the product name exactly as printed, without the quantity.
-		  - qty: number of units; default 1.
+		  - quantity: number of units; default 1.
 		  - unit: the unit if printed ("stk", "kg", "g", "l", "ml"); otherwise "stk".
 		  - unit_price: line_total divided by qty.
 		  - Discount lines ("RABAT", "Tilbud", "Mængderabat") are separate line items with a negative line_total.

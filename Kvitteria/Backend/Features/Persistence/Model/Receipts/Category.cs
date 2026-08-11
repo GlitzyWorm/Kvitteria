@@ -1,8 +1,8 @@
-﻿namespace Backend.Features.Persistence.Models.Receipts;
+﻿namespace Backend.Features.Persistence.Model.Receipts;
 
 public class Category
 {
-	public required Guid Id { get; set; }
+	public Guid Id { get; set; }
 	public Guid? ParentCategoryId { get; set; }
 	public required string DisplayName { get; set; }
 	

@@ -2,6 +2,9 @@ using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
 using Backend.Features.Persistence;
+using Backend.Features.Persistence.Factory;
+using Backend.Features.Persistence.Repository.Implementation;
+using Backend.Features.Persistence.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -28,6 +31,10 @@ builder.Services.AddHttpClient<OllamaClient>((sp, client) =>
 });
 builder.Services.AddSingleton<ExtractionQueue>();
 builder.Services.AddHostedService<ExtractionWorker>();
+
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddSingleton<PersistenceQueue>();
+builder.Services.AddHostedService<ReceiptFactoryWorker>();
 
 WebApplication app = builder.Build();
 

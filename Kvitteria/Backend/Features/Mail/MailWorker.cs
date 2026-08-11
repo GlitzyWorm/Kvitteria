@@ -19,9 +19,9 @@ public class MailWorker(
 			{
 				try
 				{
-					IReadOnlyList<Receipt> receipts = await fetcher.FetchUnseenAsync(ct);
+					IReadOnlyList<ReceiptRecord> receipts = await fetcher.FetchUnseenAsync(ct);
 
-					foreach (Receipt email in receipts)
+					foreach (ReceiptRecord email in receipts)
 					{
 						await queue.EnqueueAsync(email, ct);
 					}

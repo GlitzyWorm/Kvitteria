@@ -17,7 +17,7 @@ public sealed partial class MailFetcher(
 {
 	private readonly HtmlToText _converter = new HtmlToText();
 	
-	public async Task<IReadOnlyList<Receipt>> FetchUnseenAsync(CancellationToken ct)
+	public async Task<IReadOnlyList<ReceiptRecord>> FetchUnseenAsync(CancellationToken ct)
 	{
 		ImapOptions imap = options.CurrentValue;
 
@@ -29,7 +29,7 @@ public sealed partial class MailFetcher(
 		}
 
 		using var client = new ImapClient();
-		List<Receipt> results = [];
+		List<ReceiptRecord> results = [];
 		
 		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
 		{
@@ -44,7 +44,7 @@ public sealed partial class MailFetcher(
 				MimeMessage message = await folder.GetMessageAsync(id, ct);
 				string bodyText = ExtractBody(message, out string bodySource);
 				
-				results.Add(new Receipt(
+				results.Add(new ReceiptRecord(
 					message.MessageId,
 					message.From.ToString(),
 					message.Subject ?? "",
