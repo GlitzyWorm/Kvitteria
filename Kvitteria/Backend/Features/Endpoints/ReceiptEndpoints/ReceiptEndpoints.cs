@@ -28,7 +28,8 @@ public static class ReceiptEndpoints
 			            try
 			            {
 				            receiptStatus = ReceiptStatusExtension.FromIntToReceiptStatus(status);
-			            } catch (Exception e)
+			            } 
+			            catch (Exception e)
 			            {
 				            return Results.BadRequest(e.Message);
 			            }
@@ -48,23 +49,27 @@ public static class ReceiptEndpoints
 			                                                 .OrderByDescending(r => r.PurchaseDate)
 			                                                 .Skip((page-1)*pageSize)
 			                                                 .Take(pageSize)
-			                                                 .Select(r => new ReceiptDto(
-				                                                 r.Id,
-				                                                 r.Merchant!.Name,
-				                                                 r.PurchaseDate,
-				                                                 r.GrandTotal,
-				                                                 r.PantTotal,
-				                                                 r.Reconciled,
-				                                                 r.Status,
-				                                                 r.ReceiptLines.Select(rl => new ReceiptLineDto(
-					                                                 rl.Id, rl.RawName, rl.Quantity, rl.UnitPrice, rl.LineTotal,
-					                                                 rl.CanonicalItemId, rl.CanonicalItem == null ? null : rl.CanonicalItem.DisplayName)).ToList()
-			                                                 ))
+			                                                 .Select(r => r.ToDto())
 			                                                 .ToListAsync(ct);
 
 			            return Results.Ok(new PagedResult<ReceiptDto>(receiptDtos, page, pageSize, totalCount));
 		            })
 		            .WithName("GetReceipts")
 		            .Produces<PagedResult<ReceiptDto>>();
+
+		// GET /receipts/{id}
+		receiptGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			Receipt? receipt = await dbContext.Receipts
+			                                  .Include(r => r.Merchant)
+			                                  .Include(r => r.ReceiptLines)
+			                                  .ThenInclude(rl => rl.CanonicalItem)
+			                                  .AsNoTracking()
+			                                  .FirstOrDefaultAsync(r => r.Id == id, ct);
+			
+			if (receipt == null)
+				return Results.NotFound($"Receipt with id {id} not found");
+			
+			return Results.Ok(receipt.ToDto());
+		});
 	}
 }
