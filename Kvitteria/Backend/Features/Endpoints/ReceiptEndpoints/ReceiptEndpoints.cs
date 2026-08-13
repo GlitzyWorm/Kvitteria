@@ -24,19 +24,20 @@ public static class ReceiptEndpoints
 			            if (page < 1 || pageSize < 1 || pageSize > 100)
 				            return Results.BadRequest("page must be >= 1 and pageSize must be between 1 and 100");
 
-			            ReceiptStatus? receiptStatus = null;
-			            if (status is not null)
+			            ReceiptStatus receiptStatus;
+			            try
 			            {
-				            if (!Enum.IsDefined(typeof(ReceiptStatus), status.Value))
-					            return Results.BadRequest($"Invalid status value: {status}");
-				            receiptStatus = (ReceiptStatus)status.Value;
+				            receiptStatus = ReceiptStatusExtension.FromIntToReceiptStatus(status);
+			            } catch (Exception e)
+			            {
+				            return Results.BadRequest(e.Message);
 			            }
 
 			            IQueryable<Receipt> query = dbContext.Receipts
 			                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
 			                                                             (from == null || r.PurchaseDate >= from) &&
 			                                                             (to == null || r.PurchaseDate <= to) &&
-			                                                             (receiptStatus == null || r.Status == receiptStatus))
+			                                                             r.Status == receiptStatus)
 			                                                 .AsNoTracking();
 
 			            int totalCount = await query.CountAsync(ct);
