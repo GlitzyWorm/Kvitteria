@@ -29,7 +29,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		});
 		
 		modelBuilder.Entity<ItemAlias>(entity => {
-			entity.HasKey(e => new {e.RawName});
+			entity.HasKey(e => new {e.Id});
 		});
 		
 		modelBuilder.Entity<Category>(entity => {
