@@ -1,4 +1,4 @@
-using Backend.Features.Endpoints.ReceiptEndpoints;
+using Backend.Features.Endpoints;
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;

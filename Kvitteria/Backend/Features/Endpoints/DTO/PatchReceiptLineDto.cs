@@ -1,4 +1,4 @@
-﻿namespace Backend.Features.Endpoints.ReceiptEndpoints.DTO;
+﻿namespace Backend.Features.Endpoints.DTO;
 
 public record PatchReceiptLineDto(
 	string? RawName,

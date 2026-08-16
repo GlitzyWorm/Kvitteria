@@ -1,3 +1,3 @@
-﻿namespace Backend.Features.Endpoints.ReceiptEndpoints.DTO;
+﻿namespace Backend.Features.Endpoints.DTO;
 
 public record PutCanonicalItemDto(Guid? CanonicalItemId, bool CreateOrUpdateAlias);

@@ -1,8 +1,8 @@
-using Backend.Features.Endpoints.ReceiptEndpoints.DTO;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Microsoft.EntityFrameworkCore;
-namespace Backend.Features.Endpoints.ReceiptEndpoints;
+namespace Backend.Features.Endpoints;
 
 static class ReceiptLineEndpoints
 {

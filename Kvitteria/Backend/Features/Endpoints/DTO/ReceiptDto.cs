@@ -1,6 +1,6 @@
 ﻿using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
-namespace Backend.Features.Endpoints.ReceiptEndpoints.DTO;
+namespace Backend.Features.Endpoints.DTO;
 
 public record ReceiptDto(
 	Guid Id,

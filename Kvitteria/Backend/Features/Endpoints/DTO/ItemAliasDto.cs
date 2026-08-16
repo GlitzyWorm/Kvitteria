@@ -1,5 +1,5 @@
 ﻿using Backend.Features.Persistence.Model.Receipts;
-namespace Backend.Features.Endpoints.ReceiptEndpoints.DTO;
+namespace Backend.Features.Endpoints.DTO;
 
 public record ItemAliasDto(Guid Id, string Alias, CanonicalItemDto CanonicalItem);
 
