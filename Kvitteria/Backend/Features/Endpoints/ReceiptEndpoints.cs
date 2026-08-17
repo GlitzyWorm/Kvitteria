@@ -15,6 +15,7 @@ public static class ReceiptEndpoints
 			app.MapReceiptLineEndpoints();
 			app.MapCanonicalItemEndpoints();
 			app.MapItemAliasEndpoints();
+			app.MapCategoryEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()

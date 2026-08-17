@@ -9,7 +9,11 @@ public sealed class ReceiptLine
 	public short Quantity { get; set; }
 	public decimal UnitPrice { get; set; }
 	public decimal LineTotal { get; set; }
+	public Guid? CategoryId { get; set; }
+	public Guid? MealId { get; set; }
 	
 	public CanonicalItem? CanonicalItem { get; set; }
 	public Receipt? Receipt { get; set; }
+	public Category? Category { get; set; }
+	public Meal? Meal { get; set; }
 }
