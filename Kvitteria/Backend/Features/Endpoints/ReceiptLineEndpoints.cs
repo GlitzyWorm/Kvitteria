@@ -68,10 +68,11 @@ static class ReceiptLineEndpoints
 
 				                try
 				                {
+					                string normalizedRawName = receiptLine.RawName.Normalize();
 					                if (canonicalItem != null && putCanonicalItemDto.CreateOrUpdateAlias)
 					                {
 						                ItemAlias? existingAlias = await dbContext.ItemAliases
-						                                                          .FirstOrDefaultAsync(ia => ia.RawName == receiptLine.RawName, ct);
+						                                                          .FirstOrDefaultAsync(ia => ia.RawName == normalizedRawName, ct);
 
 						                if (existingAlias != null)
 						                {
@@ -80,7 +81,7 @@ static class ReceiptLineEndpoints
 						                else
 						                {
 							                var newAlias = new ItemAlias {
-								                RawName = receiptLine.RawName,
+								                RawName = normalizedRawName,
 								                CanonicalItemId = canonicalItem?.Id ?? throw new InvalidOperationException("Canonical item must not be null when creating alias")
 							                };
 							                dbContext.ItemAliases.Add(newAlias);

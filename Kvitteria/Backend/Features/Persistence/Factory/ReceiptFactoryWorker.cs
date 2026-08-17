@@ -67,7 +67,7 @@ public class ReceiptFactoryWorker(
 	private async Task<Receipt> ResolveCanonicalItemAsync(IReceiptRepository receiptRepository, Receipt receipt, CancellationToken ct)
 	{
 		string[] normalizedNames = receipt.ReceiptLines
-		                                  .Select(l => Normalize(l.RawName))
+		                                  .Select(l => l.RawName.Normalize())
 		                                  .Distinct()
 		                                  .ToArray();
 
@@ -75,7 +75,7 @@ public class ReceiptFactoryWorker(
 
 		foreach (ReceiptLine line in receipt.ReceiptLines)
 		{
-			if (canonicalIdByAlias.TryGetValue(Normalize(line.RawName), out Guid canonicalId))
+			if (canonicalIdByAlias.TryGetValue(line.RawName.Normalize(), out Guid canonicalId))
 			{
 				line.CanonicalItemId = canonicalId;
 			}
@@ -87,8 +87,6 @@ public class ReceiptFactoryWorker(
 
 		return receipt;
 	}
-
-	private static string Normalize(string rawName) => rawName.Trim().ToLower();
 
 	private static DateTime ParsePurchaseDateUtc(string purchaseDate)
 	{
