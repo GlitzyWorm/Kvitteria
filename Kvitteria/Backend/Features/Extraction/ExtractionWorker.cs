@@ -1,20 +1,18 @@
-﻿using System.Globalization;
-using Backend.Features.Extraction.LLM;
+﻿using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
 using Backend.Features.Persistence.Factory;
 using Backend.Features.Shared;
+using Microsoft.Extensions.Options;
 namespace Backend.Features.Extraction;
 
-public class ExtractionWorker(
+public sealed class ExtractionWorker(
 	ExtractionQueue queue,
 	PersistenceQueue persistenceQueue,
 	IServiceScopeFactory scopeFactory,
+	IOptionsMonitor<OllamaOptions> options,
 	ILogger<ExtractionWorker> logger
 ) : BackgroundService
 {
-	private const int MaxAttempts = 3;
-	private const double RetryTemperature = 0.3;
-
 	protected override async Task ExecuteAsync(CancellationToken ct)
 	{
 		await foreach (ReceiptRecord mail in queue.DequeueAllAsync(ct))
@@ -23,24 +21,31 @@ public class ExtractionWorker(
 
 			try
 			{
+				// OllamaClient is a transient typed HttpClient. Resolving it per item — rather than
+				// injecting it into this singleton worker — keeps the pooled handler rotating.
 				using IServiceScope scope = scopeFactory.CreateScope();
 				var client = scope.ServiceProvider.GetRequiredService<OllamaClient>();
 
-				await ExtractWithRetriesAsync(client, mail, ct);
+				ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, mail.BodyText, mail.Subject, ct);
 
+				mail.Extracted = outcome.Receipt;
+				mail.Reconciled = outcome.Reconciled;
+				mail.Attempts = outcome.Attempts;
+				mail.Error = outcome.Warning;
 				mail.Status = ReceiptStatus.Extracted;
-				
+
 				await persistenceQueue.EnqueueAsync(mail, ct);
-				
+
 				logger.LogInformation(
 					"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
-					mail.Subject, mail.Extracted!.Merchant, mail.Extracted.GrandTotal, mail.Extracted.Currency,
-					mail.Extracted.LineItems.Count, mail.Reconciled, mail.Attempts);
+					mail.Subject, outcome.Receipt.Merchant, outcome.Receipt.GrandTotal, outcome.Receipt.Currency,
+					outcome.Receipt.LineItems.Count, outcome.Reconciled, outcome.Attempts);
 			}
 			catch (OperationCanceledException) when (ct.IsCancellationRequested)
 			{
 				mail.Status = ReceiptStatus.Failed;
 				mail.Error = "Extraction interrupted by shutdown";
+				logger.LogInformation("Extraction worker stopped by shutdown while handling '{Subject}'.", mail.Subject);
 				return;
 			}
 			catch (Exception ex)
@@ -54,36 +59,65 @@ public class ExtractionWorker(
 		}
 	}
 
-	private async Task ExtractWithRetriesAsync(OllamaClient client, ReceiptRecord mail, CancellationToken ct)
-	{
-		ExtractedReceipt? best = null;
-		var bestDelta = decimal.MaxValue;
-		var attempt = 0;
-		var reconciled = false;
-		string? hint = null;
+	/// <summary>
+	/// Result of the retry loop. <paramref name="Warning"/> is set when the extraction succeeded but
+	/// never reconciled — the receipt is still usable, so this is not a failure.
+	/// </summary>
+	private readonly record struct ExtractionOutcome(
+		ExtractedReceipt Receipt,
+		bool Reconciled,
+		int Attempts,
+		string? Warning);
 
-		while (attempt < MaxAttempts && !reconciled)
+	private async Task<ExtractionOutcome> ExtractWithRetriesAsync(
+		OllamaClient client, string bodyText, string subject, CancellationToken ct)
+	{
+		OllamaOptions ollamaOptions = options.CurrentValue;
+		int maxAttempts = Math.Max(1, ollamaOptions.MaxExtractionAttempts);
+		decimal tolerance = Math.Abs(ollamaOptions.ReconciliationToleranceKr);
+
+		ExtractedReceipt? best = null;
+		decimal bestDelta = decimal.MaxValue;
+		int attempt = 0;
+		bool reconciled = false;
+		string? hint = null;
+		Exception? lastFailure = null;
+
+		while (attempt < maxAttempts && !reconciled)
 		{
 			attempt++;
-			double temperature = attempt == 1 ? 0 : RetryTemperature;
+			double temperature = attempt == 1 ? 0 : ollamaOptions.RetryTemperature;
 			ExtractedReceipt result;
+
 			try
 			{
-				result = await client.ExtractAsync(mail.BodyText, hint, temperature, ct);
+				result = await client.ExtractAsync(bodyText, hint, temperature, ct);
 			}
-			catch (Exception ex) when (ex is not OperationCanceledException)
+			catch (OllamaResponseException ex)
 			{
+				// The model answered with something unusable, so telling it so is truthful.
+				lastFailure = ex;
 				logger.LogWarning(ex,
 					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' did not produce a parseable extraction",
-					attempt, MaxAttempts, mail.Subject);
-				hint = "Your previous response could not be parsed as valid JSON matching the schema. " +
-					"Respond with ONLY the JSON object, no extra commentary.";
+					attempt, maxAttempts, subject);
+				hint = ReceiptExtractionPrompt.MalformedJsonHint;
+				continue;
+			}
+			catch (OllamaTransportException ex)
+			{
+				// The model never saw the prompt. Retry the same request unchanged — carrying a
+				// "your JSON was malformed" hint forward here would poison the next attempt.
+				lastFailure = ex;
+				logger.LogWarning(ex,
+					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' failed to reach Ollama; retrying without a hint",
+					attempt, maxAttempts, subject);
 				continue;
 			}
 
-			decimal delta = result.GrandTotal-result.LineItems.Sum(l => l.LineTotal)-result.PantTotal;
+			decimal lineSum = result.LineItems.Sum(l => l.LineTotal);
+			decimal delta = result.GrandTotal-lineSum-result.PantTotal;
 
-			reconciled = Math.Abs(delta) == 0;
+			reconciled = Math.Abs(delta) <= tolerance;
 
 			if (best is null || reconciled || Math.Abs(delta) < Math.Abs(bestDelta))
 			{
@@ -91,32 +125,31 @@ public class ExtractionWorker(
 				bestDelta = delta;
 			}
 
-			if (!reconciled)
+			if (reconciled)
+				break;
+
+			if (logger.IsEnabled(LogLevel.Debug))
 			{
 				logger.LogDebug(
-					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' did not reconcile (delta {Delta}). "+
-					"\nGrand total: {GrandTotal}"+
-					"\nList of items: {Items}"+
-					"\nLine totals: {LineTotals}",
-					attempt, MaxAttempts, mail.Subject, delta, result.GrandTotal, result.LineItems.Select(l => new { l.RawName,
-						l.Quantity, l.LineTotal }), result.LineItems.Sum(l => l.LineTotal));
-				hint = string.Create(CultureInfo.InvariantCulture,
-					$"Your previous extraction of this receipt was rejected: the line totals plus pant summed to {result.LineItems.Sum(l => l.LineTotal)+result.PantTotal:0.00}, but the receipt's grand total is {result.GrandTotal:0.00}. You probably missed a product, duplicated one, or got an amount wrong. Re-read the receipt and extract it again — especially check the FIRST product right after the store header and the LAST product right before the totals section, and check that no printed amount was multiplied by its quantity.");
+					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' did not reconcile: delta {Delta}, "+
+					"grand total {GrandTotal}, line totals {LineTotals}, items {Items}",
+					attempt, maxAttempts, subject, delta, result.GrandTotal, lineSum,
+					result.LineItems.Select(l => new { l.RawName, l.Quantity, l.LineTotal }));
 			}
+
+			hint = ReceiptExtractionPrompt.ReconciliationHint(lineSum+result.PantTotal, result.GrandTotal);
 		}
 
 		if (best is null)
 		{
-			throw new InvalidOperationException($"Failed to extract any valid data after {attempt} attempt(s).");
+			throw new InvalidOperationException(
+				$"Failed to extract any valid data after {attempt} attempt(s).", lastFailure);
 		}
 
-		if (!reconciled)
-		{
-			mail.Error = $"Failed to reconcile receipt after {MaxAttempts} attempts. Best delta: {bestDelta:0.00}.";
-		}
+		string? warning = reconciled
+			? null
+			: $"Failed to reconcile receipt after {attempt} attempt(s). Best delta: {bestDelta:0.00}.";
 
-		mail.Extracted = best;
-		mail.Reconciled = reconciled;
-		mail.Attempts = attempt;
+		return new ExtractionOutcome(best, reconciled, attempt, warning);
 	}
 }

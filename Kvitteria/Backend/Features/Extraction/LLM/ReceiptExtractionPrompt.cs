@@ -1,3 +1,4 @@
+﻿using System.Globalization;
 using System.Text.Json;
 namespace Backend.Features.Extraction.LLM;
 
@@ -66,6 +67,19 @@ public static class ReceiptExtractionPrompt
 		  - Do NOT include summary lines (subtotal, "HERAF PANT IALT", "HERAF MOMS", "I ALT"), payment method,
 		    card details, change ("Byttepenge"), or loyalty-point lines as line items.
 		""";
+
+	/// <summary>
+	/// Sent only when Ollama's content genuinely was not parseable receipt JSON. Sending this after a
+	/// transport failure would tell the model its previous answer was malformed when it never answered.
+	/// </summary>
+	public const string MalformedJsonHint =
+		"Your previous response could not be parsed as valid JSON matching the schema. "+
+		"Respond with ONLY the JSON object, no extra commentary.";
+
+	/// <summary>Sent when an extraction parsed cleanly but its totals did not reconcile.</summary>
+	public static string ReconciliationHint(decimal claimedTotal, decimal grandTotal) =>
+		string.Create(CultureInfo.InvariantCulture,
+			$"Your previous extraction of this receipt was rejected: the line totals plus pant summed to {claimedTotal:0.00}, but the receipt's grand total is {grandTotal:0.00}. You probably missed a product, duplicated one, or got an amount wrong. Re-read the receipt and extract it again — especially check the FIRST product right after the store header and the LAST product right before the totals section, and check that no printed amount was multiplied by its quantity.");
 
 	private static JsonElement ParseSchema()
 	{

@@ -1,4 +1,4 @@
-using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -66,40 +66,36 @@ static class ReceiptLineEndpoints
 				                if (receiptLine == null)
 					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
 
-				                CanonicalItem? canonicalItem = await dbContext.CanonicalItems
-				                                                              .FirstOrDefaultAsync(ci => ci.Id == putCanonicalItemDto.CanonicalItemId, ct);
+				                // Only look the item up when one was actually requested; a null id used to issue a
+				                // guaranteed-empty query before the null check below.
+				                CanonicalItem? canonicalItem = null;
 
-				                if (putCanonicalItemDto.CanonicalItemId != null && canonicalItem == null)
-					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Canonical item with id {putCanonicalItemDto.CanonicalItemId} not found");
+				                if (putCanonicalItemDto.CanonicalItemId != null)
+				                {
+					                canonicalItem = await dbContext.CanonicalItems
+					                                               .FirstOrDefaultAsync(ci => ci.Id == putCanonicalItemDto.CanonicalItemId, ct);
+
+					                if (canonicalItem == null)
+						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Canonical item with id {putCanonicalItemDto.CanonicalItemId} not found");
+				                }
 
 				                receiptLine.CanonicalItemId = canonicalItem?.Id;
 				                receiptLine.CanonicalItem = canonicalItem;
 
-				                try
+				                if (canonicalItem != null && putCanonicalItemDto.CreateOrUpdateAlias)
 				                {
 					                string normalizedRawName = receiptLine.RawName.NormalizeString();
-					                if (canonicalItem != null && putCanonicalItemDto.CreateOrUpdateAlias)
-					                {
-						                ItemAlias? existingAlias = await dbContext.ItemAliases
-						                                                          .FirstOrDefaultAsync(ia => ia.RawName == normalizedRawName, ct);
 
-						                if (existingAlias != null)
-						                {
-							                existingAlias.CanonicalItemId = canonicalItem?.Id ?? throw new InvalidOperationException("Canonical item must not be null when updating alias");
-						                }
-						                else
-						                {
-							                var newAlias = new ItemAlias {
-								                RawName = normalizedRawName,
-								                CanonicalItemId = canonicalItem?.Id ?? throw new InvalidOperationException("Canonical item must not be null when creating alias")
-							                };
-							                dbContext.ItemAliases.Add(newAlias);
-						                }
+					                ItemAlias? existingAlias = await dbContext.ItemAliases
+					                                          .FirstOrDefaultAsync(ia => ia.RawName == normalizedRawName, ct);
 
-					                }
-				                } catch (InvalidOperationException e)
-				                {
-					                return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:e.Message);
+					                if (existingAlias != null)
+						                existingAlias.CanonicalItemId = canonicalItem.Id;
+					                else
+						                dbContext.ItemAliases.Add(new ItemAlias {
+							                RawName = normalizedRawName,
+							                CanonicalItemId = canonicalItem.Id
+						                });
 				                }
 
 				                await dbContext.SaveChangesAsync(ct);
@@ -107,7 +103,6 @@ static class ReceiptLineEndpoints
 			                })
 			                .WithName("UpdateReceiptLineCanonicalItem")
 			                .Produces<ReceiptLineDto>()
-			                .ProducesProblem(StatusCodes.Status400BadRequest)
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PUT /receipt-lines/id/category
@@ -133,8 +128,6 @@ static class ReceiptLineEndpoints
 				                if (dto.SetAsDefault && receiptLine.CanonicalItemId == null)
 					                return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"SetAsDefault requires the receipt line to have a canonical item.");
 
-				                Guid? previousCategoryId = receiptLine.CategoryId;
-
 				                receiptLine.CategoryId = category?.Id;
 				                receiptLine.Category = category;
 
@@ -149,7 +142,6 @@ static class ReceiptLineEndpoints
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status400BadRequest)
 			                .ProducesProblem(StatusCodes.Status404NotFound);
-			;
 
 			// PUT /receipt-lines/id/meal
 			receiptLineGroup.MapPut("/{receiptLineId:guid}/meal", async (Guid receiptLineId, PutReceiptLineMealDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {

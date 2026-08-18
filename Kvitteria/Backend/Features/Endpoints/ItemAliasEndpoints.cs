@@ -1,4 +1,4 @@
-using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -25,9 +25,6 @@ static class ItemAliasEndpoints
 
 				          int totalCount = await query.CountAsync(ct);
 
-				          if (totalCount == 0)
-					          return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No item aliases found");
-
 				          List<ItemAliasDto> itemAliasDtos = await query
 				                                                   .OrderBy(ia => ia.RawName)
 				                                                   .Skip((page-1)*pageSize)
@@ -39,8 +36,7 @@ static class ItemAliasEndpoints
 			          })
 			          .WithName("GetItemAliases")
 			          .Produces<PagedResult<ItemAliasDto>>()
-			          .ProducesProblem(StatusCodes.Status400BadRequest)
-			          .ProducesProblem(StatusCodes.Status404NotFound);
+			          .ProducesProblem(StatusCodes.Status400BadRequest);
 
 			// DELETE /aliases/{id}
 			aliasGroup.MapDelete("/{aliasId:guid}", async (Guid aliasId, KvitteriaDbContext dbContext, CancellationToken ct) => {

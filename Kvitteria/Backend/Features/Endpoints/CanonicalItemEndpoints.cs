@@ -1,4 +1,4 @@
-using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -24,9 +24,6 @@ static class CanonicalItemEndpoints
 
 				                  int totalCount = await query.CountAsync(ct);
 
-				                  if (totalCount == 0)
-					                  return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No canonical items found");
-
 				                  List<CanonicalItemDto> canonicalItemDtos = await query
 				                                                                   .OrderBy(ci => ci.DisplayName)
 				                                                                   .Skip((page-1)*pageSize)
@@ -38,8 +35,7 @@ static class CanonicalItemEndpoints
 			                  })
 			                  .WithName("GetCanonicalItems")
 			                  .Produces<PagedResult<CanonicalItemDto>>()
-			                  .ProducesProblem(StatusCodes.Status400BadRequest)
-			                  .ProducesProblem(StatusCodes.Status404NotFound);
+			                  .ProducesProblem(StatusCodes.Status400BadRequest);
 
 			// GET /canonical-items/{id}
 			canonicalItemGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -90,7 +86,28 @@ static class CanonicalItemEndpoints
 						                  return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"ClearDefaultMeal cannot be combined with a DefaultMealId.");
 				                  }
 
+				                  if (dto.CategoryId != null &&
+				                      !await dbContext.Categories.AnyAsync(cat => cat.Id == dto.CategoryId, ct))
+					                  return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {dto.CategoryId} not found");
+
+				                  if (dto.DefaultMealId != null &&
+				                      !await dbContext.Meals.AnyAsync(m => m.Id == dto.DefaultMealId, ct))
+					                  return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Meal with id {dto.DefaultMealId} not found");
+
 				                  canonicalItem.DisplayName = dto.DisplayName;
+
+				                  // Previously validated and then discarded: only DisplayName was ever written, so category
+				                  // and default meal were unreachable through this endpoint.
+				                  if (dto.ClearCategory)
+					                  canonicalItem.CategoryId = null;
+				                  else if (dto.CategoryId != null)
+					                  canonicalItem.CategoryId = dto.CategoryId;
+
+				                  if (dto.ClearDefaultMeal)
+					                  canonicalItem.DefaultMealId = null;
+				                  else if (dto.DefaultMealId != null)
+					                  canonicalItem.DefaultMealId = dto.DefaultMealId;
+
 				                  await dbContext.SaveChangesAsync(ct);
 
 				                  return Results.Ok(canonicalItem.ToDto());

@@ -20,13 +20,10 @@ static class MealEndpoints
 				                                           .ThenBy(m => m.DisplayName)
 				                                           .ToListAsync(ct);
 
-				         return meals.Count != 0
-				         ? Results.Ok(meals.Select(m => m.ToDto()).ToList())
-				         : Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No meal categories found");
+				         return Results.Ok(meals.Select(m => m.ToDto()).ToList());
 			         })
 			         .WithName("GetMeals")
-			         .Produces<List<MealDto>>()
-			         .ProducesProblem(StatusCodes.Status404NotFound);
+			         .Produces<List<MealDto>>();
 
 			// GET /meals/id
 			mealGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -44,13 +41,18 @@ static class MealEndpoints
 
 			// PUT /meals/order
 			mealGroup.MapPut("/order", async (PutMealOrderDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				         if (dto.OrderedIds == null || dto.OrderedIds.Count == 0)
+					         return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds is required and must not be empty.");
+
 				         List<Meal> meals = await dbContext.Meals.ToListAsync(ct);
 
 				         if (meals.Count != dto.OrderedIds.Count || !meals.All(m => dto.OrderedIds.Contains(m.Id)))
 					         return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds must contain all meal ids");
 
+				         Dictionary<Guid, Meal> mealsById = meals.ToDictionary(m => m.Id);
+
 				         for (var i = 0; i < dto.OrderedIds.Count; i++)
-					         meals.First(m => m.Id == dto.OrderedIds[i]).SortOrder = i;
+					         mealsById[dto.OrderedIds[i]].SortOrder = i;
 
 				         await dbContext.SaveChangesAsync(ct);
 

@@ -4,6 +4,6 @@ public static class Utils
 {
 	extension(string rawName)
 	{
-		public string NormalizeString() => rawName.Trim().ToLower();
+		public string NormalizeString() => rawName.Trim().ToLowerInvariant();
 	}
 }

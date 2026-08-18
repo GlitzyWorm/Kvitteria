@@ -13,21 +13,6 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<Category> Categories { get; set; }
 	public DbSet<Merchant> Merchants { get; set; }
 
-	private static readonly (string Name, bool TracksDayCoverage)[] SeedMeals = [("Morgenmad", false), ("Frokost", false), ("Aftensmad", true), ("Snacks", false)];
-
-	private static readonly (string Name, string[] Children)[] SeedCategories = [
-		("Fødevarer", ["Frugt & Grønt", "Kød & Fisk", "Mejeri & Æg", "Brød & Bageri", "Kolonial", "Frost", "Færdigretter", "Slik & Snacks"]),
-		("Drikkevarer", ["Vand & Sodavand", "Juice & Saft", "Kaffe & Te", "Øl & Vin", "Spiritus"]),
-		("Husholdning", ["Rengøring", "Vask", "Papirvarer", "Poser & Folie", "Batterier & El"]),
-		("Personlig Pleje", ["Hår", "Hud & Krop", "Tandpleje", "Barbering", "Hygiejne", "Kosmetik"]),
-		("Sundhed", ["Medicin", "Vitaminer & Kosttilskud", "Førstehjælp"]),
-		("Køkken", ["Køkkenredskaber", "Gryder & Pander", "Servise & Glas", "Opbevaring"]),
-		("Tøj & Tekstiler", ["Tøj", "Sko", "Sengetøj & Håndklæder", "Tilbehør"]),
-		("Dyr", ["Dyrefoder", "Dyretilbehør"]),
-		("Fritid & Fornøjelser", ["Bøger & Blade", "Legetøj & Spil", "Sport & Udendørs", "Elektronik", "Blomster & Planter"]),
-		("Andet", [])
-	];
-
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
 		base.OnModelCreating(modelBuilder);
@@ -97,7 +82,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			entity.HasKey(e => new { e.ReceiptId, e.MealId });
 
 			entity.HasOne(e => e.Receipt)
-			      .WithMany()
+			      .WithMany(r => r.MealCoverage)
 			      .HasForeignKey(e => e.ReceiptId)
 			      .OnDelete(DeleteBehavior.Cascade);
 
@@ -109,52 +94,6 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 
 		modelBuilder.Entity<Merchant>(entity => {
 			entity.HasKey(e => new { e.Id });
-		});
-	}
-
-	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-	{
-		base.OnConfiguring(optionsBuilder);
-
-		// TODO: This could be part of onboarding flow
-		optionsBuilder.UseSeeding((context, _) => {
-			if (!context.Set<Meal>().Any())
-			{
-				for (var i = 0; i < SeedMeals.Length; i++)
-				{
-					context.Set<Meal>().Add(new Meal {
-						DisplayName = SeedMeals[i].Name,
-						TracksDayCoverage = SeedMeals[i].TracksDayCoverage,
-						SortOrder = i
-					});
-				}
-
-				context.SaveChanges();
-			}
-
-			if (context.Set<Category>().Any()) return;
-
-			for (var i = 0; i < SeedCategories.Length; i++)
-			{
-				(string name, string[] children) = SeedCategories[i];
-
-				var root = new Category {
-					DisplayName = name,
-					SortOrder = i
-				};
-
-				for (var j = 0; j < children.Length; j++)
-				{
-					root.ChildCategories.Add(new Category {
-						DisplayName = children[j],
-						SortOrder = j
-					});
-				}
-
-				context.Set<Category>().Add(root);
-			}
-
-			context.SaveChanges();
 		});
 	}
 }

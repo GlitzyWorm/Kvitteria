@@ -1,7 +1,5 @@
-﻿using System.Reflection.Metadata.Ecma335;
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
-using Backend.Utils;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
@@ -15,8 +13,8 @@ public sealed partial class MailFetcher(
 	IOptionsMonitor<ImapOptions> options,
 	ILogger<MailFetcher> logger)
 {
-	private readonly HtmlToText _converter = new HtmlToText();
-	
+	private const int PreviewLength = 100;
+
 	public async Task<IReadOnlyList<ReceiptRecord>> FetchUnseenAsync(CancellationToken ct)
 	{
 		ImapOptions imap = options.CurrentValue;
@@ -28,45 +26,78 @@ public sealed partial class MailFetcher(
 				"entry per member's receipt folder (e.g. INBOX.Netto).");
 		}
 
-		using var client = new ImapClient();
 		List<ReceiptRecord> results = [];
-		
+
 		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
 		{
-			await client.ConnectAsync(folderOptions.Host, folderOptions.Port, folderOptions.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable, ct);
-			await client.AuthenticateAsync(folderOptions.Username, folderOptions.Password, ct);
-			
-			IMailFolder folder = await OpenFolderAsync(client, folderOptions.Folder, ct);
-			IList<UniqueId> uids = await folder.SearchAsync(SearchQuery.NotSeen, ct);
-			
-			foreach (UniqueId id in uids)
-			{
-				MimeMessage message = await folder.GetMessageAsync(id, ct);
-				string bodyText = ExtractBody(message, out string bodySource);
-				
-				results.Add(new ReceiptRecord(
-					message.MessageId,
-					message.From.ToString(),
-					message.Subject ?? "",
-					message.Date,
-					bodyText,
-					bodySource,
-					folderOptions.MemberEmail
-				));
-				
-				await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
+			// One client per folder. Each entry is a different household member's account, so the
+			// connection cannot be shared — and reconnecting an already-connected client throws,
+			// which is why configuring a second folder previously broke the whole poll.
+			using var client = new ImapClient();
 
+			try
+			{
+				await client.ConnectAsync(folderOptions.Host, folderOptions.Port, folderOptions.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable, ct);
+				await client.AuthenticateAsync(folderOptions.Username, folderOptions.Password, ct);
+
+				IMailFolder folder = await OpenFolderAsync(client, folderOptions.Folder, ct);
+
+				try
+				{
+					await FetchFolderAsync(folder, folderOptions, results, ct);
+				}
+				finally
+				{
+					if (folder.IsOpen && !ct.IsCancellationRequested)
+						await folder.CloseAsync(expunge: false, ct);
+				}
+			}
+			finally
+			{
+				// Disposing the client closes the socket but never sends LOGOUT. Doing it here means a
+				// throw mid-fetch still ends the session cleanly rather than leaving the server to time
+				// it out. Skipped on shutdown so cancellation cannot block on the network.
+				if (client.IsConnected && !ct.IsCancellationRequested)
+					await client.DisconnectAsync(quit: true, ct);
+			}
+		}
+
+		return results;
+	}
+
+	private async Task FetchFolderAsync(
+		IMailFolder folder,
+		ImapFolderOptions folderOptions,
+		List<ReceiptRecord> results,
+		CancellationToken ct)
+	{
+		IList<UniqueId> uids = await folder.SearchAsync(SearchQuery.NotSeen, ct);
+
+		foreach (UniqueId id in uids)
+		{
+			MimeMessage message = await folder.GetMessageAsync(id, ct);
+			string bodyText = ExtractBody(message, out string bodySource);
+
+			results.Add(new ReceiptRecord(
+				message.MessageId,
+				message.From.ToString(),
+				message.Subject ?? "",
+				message.Date,
+				bodyText,
+				bodySource,
+				folderOptions.MemberEmail
+			));
+
+			await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
+
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
 				logger.LogDebug(
 					"Fetched receipt mail from {Folder} for {Member}: subject='{Subject}', from='{From}', date={Date:O}, bodySource={BodySource}, preview: {Preview}",
 					folder.FullName, folderOptions.MemberName, message.Subject, message.From, message.Date, bodySource,
-					bodyText.Length > 100 ? string.Concat(bodyText.AsSpan(0, 100), "...") : bodyText);
+					bodyText.Length > PreviewLength ? string.Concat(bodyText.AsSpan(0, PreviewLength), "...") : bodyText);
 			}
-			
-			await folder.CloseAsync(expunge: false, ct);
 		}
-		
-		await client.DisconnectAsync(quit: true, ct);
-		return results;
 	}
 
 	private bool CheckIfValid(ImapFolderOptions folder)
@@ -76,8 +107,8 @@ public sealed partial class MailFetcher(
 		    !string.IsNullOrWhiteSpace(folder.Password)) return true;
 		
 		logger.LogWarning(
-			"Imap configuration is missing Host, Username or Password — " +
-			"did you copy appsettings.Local.json.example to appsettings.Local.json and fill it in?");
+			"Skipping Imap:Folders entry (member '{Member}', folder '{Folder}'): Host, Username or Password is missing.",
+			folder.MemberName, folder.Folder);
 				
 		return false;
 	}

@@ -1,4 +1,4 @@
-using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -31,7 +31,7 @@ public static class ReceiptEndpoints
 				            Guid? merchantId,
 				            DateTime? from,
 				            DateTime? to,
-				            int? status,
+				            ReceiptStatus? status,
 				            KvitteriaDbContext dbContext,
 				            CancellationToken ct,
 				            int pageSize = 10,
@@ -39,27 +39,14 @@ public static class ReceiptEndpoints
 				            if (page < 1 || pageSize < 1 || pageSize > 100)
 					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
 
-				            ReceiptStatus? receiptStatus = null;
-				            try
-				            {
-					            if (status != null)
-						            receiptStatus = ReceiptStatusExtension.FromIntToReceiptStatus(status);
-				            } catch (Exception e)
-				            {
-					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:e.Message);
-				            }
-
 				            IQueryable<Receipt> query = dbContext.Receipts
 				                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
 				                                                             (from == null || r.PurchaseDate >= from) &&
 				                                                             (to == null || r.PurchaseDate <= to) &&
-				                                                             (status == null || r.Status == receiptStatus))
+				                                                             (status == null || r.Status == status))
 				                                                 .AsNoTracking();
 
 				            int totalCount = await query.CountAsync(ct);
-
-				            if (totalCount == 0)
-					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No receipts found");
 
 				            List<ReceiptDto> receiptDtos = await query
 				                                                 .Include(r => r.Merchant)
@@ -74,8 +61,7 @@ public static class ReceiptEndpoints
 			            })
 			            .WithName("GetReceipts")
 			            .Produces<PagedResult<ReceiptDto>>()
-			            .ProducesProblem(StatusCodes.Status400BadRequest)
-			            .ProducesProblem(StatusCodes.Status404NotFound);
+			            .ProducesProblem(StatusCodes.Status400BadRequest);
 
 			// GET /receipts/{id}
 			receiptGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -109,7 +95,7 @@ public static class ReceiptEndpoints
 				            Receipt? receipt = await dbContext.Receipts
 				                                              .Include(r => r.ReceiptLines)
 				                                              .Include(r => r.MealCoverage)
-				                                              .FirstOrDefaultAsync(r => r.Id == id);
+				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
 
 				            if (receipt == null)
 					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");

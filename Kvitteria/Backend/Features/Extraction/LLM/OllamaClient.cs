@@ -11,7 +11,12 @@ public sealed class OllamaClient(
 	{
 		PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
 	};
-	
+
+	private const long NanosecondsPerMillisecond = 1_000_000;
+
+	/// <summary>Model output and error bodies are unbounded; cap what reaches logs and exception messages.</summary>
+	private const int MaxQuotedLength = 2_000;
+
 	public async Task<ExtractedReceipt> ExtractAsync(
 		string receiptText,
 		string? retryHint,
@@ -28,7 +33,7 @@ public sealed class OllamaClient(
 		{
 			messages.Add(new OllamaChatMessage("user", retryHint));
 		}
-		
+
 		var request = new OllamaChatRequest(
 			ollamaOptions.Model,
 			messages,
@@ -37,39 +42,76 @@ public sealed class OllamaClient(
 			Format: ReceiptExtractionPrompt.Schema,
 			Options: new OllamaChatOptions(temperature, ollamaOptions.NumCtx),
 			KeepAlive: ollamaOptions.KeepAlive);
-		
-		using HttpResponseMessage response = await httpClient.PostAsJsonAsync("api/chat", request, JsonOptions, ct);
-		string body = await response.Content.ReadAsStringAsync(ct);
-		
-		if (!response.IsSuccessStatusCode)
-		{
-			throw new InvalidOperationException($"Ollama request failed ({(int)response.StatusCode}): {body}");
-		}
-		
-		var chat = JsonSerializer.Deserialize<OllamaChatResponse>(body, JsonOptions);
-		string? content = chat?.Message?.Content;
-		if (string.IsNullOrWhiteSpace(content))
-		{
-			throw new InvalidOperationException("Ollama returned an empty message");
-		}
-		
-		logger.LogDebug(
-			"Ollama extraction took {TotalMs} ms ({EvalCount} tokens evaluated) for {PromptLength} chars of receipt text",
-			(chat!.TotalDuration ?? 0) / 1_000_000, chat.EvalCount, receiptText.Length);
-		
-		ExtractedReceipt? receipt;
+
+		HttpResponseMessage response;
 		try
 		{
-			receipt = JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions);
+			response = await httpClient.PostAsJsonAsync("api/chat", request, JsonOptions, ct);
 		}
-		catch (JsonException ex)
+		catch (HttpRequestException ex)
 		{
-			logger.LogWarning(ex, "Ollama returned non-JSON extraction content: {Content}", content);
-			throw;
+			throw new OllamaTransportException("Ollama request could not be sent.", ex);
 		}
-		return receipt ?? throw new InvalidOperationException("Ollama message content was not a receipt JSON document");
+		catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+		{
+			// HttpClient.Timeout surfaces as TaskCanceledException, never TimeoutException. Without this
+			// filter a request timeout is indistinguishable from a shutdown cancellation.
+			throw new OllamaTransportException($"Ollama request timed out after {httpClient.Timeout}.", ex);
+		}
+
+		using (response)
+		{
+			if (!response.IsSuccessStatusCode)
+			{
+				string body = await response.Content.ReadAsStringAsync(ct);
+				throw new OllamaTransportException($"Ollama request failed ({(int)response.StatusCode}): {Quote(body)}");
+			}
+
+			OllamaChatResponse? chat;
+			try
+			{
+				// Streamed off the response rather than buffered into a string first.
+				chat = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(JsonOptions, ct);
+			}
+			catch (JsonException ex)
+			{
+				throw new OllamaResponseException("Ollama returned a malformed chat envelope.", ex);
+			}
+
+			if (chat is null)
+			{
+				throw new OllamaResponseException("Ollama returned an empty response body.");
+			}
+
+			string? content = chat.Message?.Content;
+			if (string.IsNullOrWhiteSpace(content))
+			{
+				throw new OllamaResponseException("Ollama returned an empty message.");
+			}
+
+			if (logger.IsEnabled(LogLevel.Debug))
+			{
+				logger.LogDebug(
+					"Ollama extraction took {TotalMs} ms ({EvalCount} tokens evaluated) for {PromptLength} chars of receipt text",
+					(chat.TotalDuration ?? 0)/NanosecondsPerMillisecond, chat.EvalCount, receiptText.Length);
+			}
+
+			try
+			{
+				// Not logged here: the caller owns the retry decision and logs the failure once.
+				return JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions)
+					?? throw new OllamaResponseException("Ollama message content was the JSON literal null.");
+			}
+			catch (JsonException ex)
+			{
+				throw new OllamaResponseException($"Ollama returned non-JSON extraction content: {Quote(content)}", ex);
+			}
+		}
 	}
-	
+
+	private static string Quote(string value) =>
+		value.Length <= MaxQuotedLength ? value : string.Concat(value.AsSpan(0, MaxQuotedLength), "... [truncated]");
+
 	private sealed record OllamaChatRequest(
 		string Model,
 		IReadOnlyList<OllamaChatMessage> Messages,
@@ -78,7 +120,7 @@ public sealed class OllamaClient(
 		JsonElement Format,
 		OllamaChatOptions Options,
 		string KeepAlive);
-	
+
 	private sealed record OllamaChatMessage(string Role, string Content);
 
 	private sealed record OllamaChatOptions(double Temperature, int NumCtx);
