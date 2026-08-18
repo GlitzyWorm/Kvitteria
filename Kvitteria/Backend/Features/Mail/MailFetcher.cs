@@ -1,12 +1,10 @@
-﻿using System.Text;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
-using MimeKit.Text;
 namespace Backend.Features.Mail;
 
 public sealed partial class MailFetcher(
@@ -102,12 +100,11 @@ public sealed partial class MailFetcher(
 
 	private bool CheckIfValid(ImapFolderOptions folder)
 	{
-		if (!string.IsNullOrWhiteSpace(folder.Host) &&
-		    !string.IsNullOrWhiteSpace(folder.Username) &&
-		    !string.IsNullOrWhiteSpace(folder.Password)) return true;
+		if (folder.IsComplete())
+			return true;
 		
 		logger.LogWarning(
-			"Skipping Imap:Folders entry (member '{Member}', folder '{Folder}'): Host, Username or Password is missing.",
+			"Skipping Imap:Folders entry (member '{Member}', folder '{Folder}'): Host, Username, Password or Folder is missing.",
 			folder.MemberName, folder.Folder);
 				
 		return false;
@@ -147,7 +144,7 @@ public sealed partial class MailFetcher(
 		if (!string.IsNullOrWhiteSpace(message.HtmlBody))
 		{
 			bodySource = "html";
-			return NormalizeWhitespace(HtmlToPlainText(message.HtmlBody));
+			return NormalizeWhitespace(HtmlToPlainText.Convert(message.HtmlBody));
 		}
 		
 		logger.LogWarning("Message '{Subject}' has no text or HTML body; skipping body extraction", message.Subject);
@@ -155,47 +152,6 @@ public sealed partial class MailFetcher(
 		return "";
 	}
 	
-	private static string HtmlToPlainText(string html)
-	{
-		var text = new StringBuilder();
-		var tokenizer = new HtmlTokenizer(new StringReader(html)) { DecodeCharacterReferences = true };
-		var skipContent = false;
-
-		while (tokenizer.ReadNextToken(out HtmlToken? token))
-		{
-			switch (token)
-			{
-				case HtmlTagToken tag:
-					if (tag.Id is HtmlTagId.Script or HtmlTagId.Style or HtmlTagId.Head)
-					{
-						skipContent = !tag.IsEndTag;
-					}
-					else if (IsBlockLevel(tag.Id))
-					{
-						text.Append('\n');
-					}
-					else if (tag.Id == HtmlTagId.TD)
-					{
-						text.Append('\t');
-					}
-					break;
-
-				case HtmlDataToken data when !skipContent:
-					text.Append(data.Data);
-					break;
-			}
-		}
-
-		return text.ToString();
-	}
-
-	private static bool IsBlockLevel(HtmlTagId id) => id is
-	HtmlTagId.P or HtmlTagId.Div or HtmlTagId.Br or HtmlTagId.TR or HtmlTagId.Table or
-	HtmlTagId.LI or HtmlTagId.UL or HtmlTagId.OL or HtmlTagId.H1 or HtmlTagId.H2 or
-	HtmlTagId.H3 or HtmlTagId.H4 or HtmlTagId.H5 or HtmlTagId.H6 or HtmlTagId.HR or
-	HtmlTagId.BlockQuote or HtmlTagId.Section or HtmlTagId.Article or HtmlTagId.Header or
-	HtmlTagId.Footer;
-
 	private static string NormalizeWhitespace(string text)
 	{
 		string[] lines = text.ReplaceLineEndings("\n").Split('\n');

@@ -1,19 +1,9 @@
-﻿using System.Threading.Channels;
-using Backend.Features.Mail;
+﻿using Backend.Features.Mail;
+using Backend.Features.Shared;
 namespace Backend.Features.Extraction;
 
-public sealed class ExtractionQueue
+/// <summary>Mail waiting to be extracted. Written by MailWorker, read by ExtractionWorker.</summary>
+public sealed class ExtractionQueue() : WorkQueue<ReceiptRecord>(Capacity)
 {
-	private readonly Channel<ReceiptRecord> _channel = Channel.CreateBounded<ReceiptRecord>(
-		new BoundedChannelOptions(100)
-		{
-			FullMode = BoundedChannelFullMode.Wait,
-			SingleReader = true
-		});
-
-	public ValueTask EnqueueAsync(ReceiptRecord record, CancellationToken ct) =>
-	_channel.Writer.WriteAsync(record, ct);
-
-	public IAsyncEnumerable<ReceiptRecord> DequeueAllAsync(CancellationToken ct) =>
-	_channel.Reader.ReadAllAsync(ct);
+	public const int Capacity = 100;
 }

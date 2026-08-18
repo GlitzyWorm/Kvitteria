@@ -1,11 +1,15 @@
-﻿using Backend.Abstractions;
+﻿using System.ComponentModel.DataAnnotations;
+using Backend.Abstractions;
 namespace Backend.Features.Mail;
 
-public sealed class ImapOptions : IOptions
+public sealed class ImapOptions : IOptionsSection
 {
 	public static string SectionName => "Imap";
-	
+
+	[Range(1, 86_400)]
 	public int PollIntervalSeconds { get; set; } = 60;
+
+	/// <summary>One entry per household member's receipt folder.</summary>
 	public List<ImapFolderOptions> Folders { get; set; } = [];
 }
 
@@ -19,4 +23,14 @@ public sealed class ImapFolderOptions
 	public string Folder { get; set; } = "";
 	public string MemberName { get; set; } = "";
 	public string MemberEmail { get; set; } = "";
+
+	/// <summary>
+	/// ValidateDataAnnotations does not recurse into collection elements, so per-entry completeness is
+	/// checked here and reported by MailFetcher, which can name the offending member.
+	/// </summary>
+	public bool IsComplete() =>
+		!string.IsNullOrWhiteSpace(Host) &&
+		!string.IsNullOrWhiteSpace(Username) &&
+		!string.IsNullOrWhiteSpace(Password) &&
+		!string.IsNullOrWhiteSpace(Folder);
 }

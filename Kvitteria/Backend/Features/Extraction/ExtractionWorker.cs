@@ -11,52 +11,42 @@ public sealed class ExtractionWorker(
 	IServiceScopeFactory scopeFactory,
 	IOptionsMonitor<OllamaOptions> options,
 	ILogger<ExtractionWorker> logger
-) : BackgroundService
+) : QueueWorker<ReceiptRecord>(queue, logger)
 {
-	protected override async Task ExecuteAsync(CancellationToken ct)
+	protected override string WorkerName => "Extraction";
+
+	protected override string Describe(ReceiptRecord item) => item.Subject;
+
+	protected override void OnFailed(ReceiptRecord item, string error)
 	{
-		await foreach (ReceiptRecord mail in queue.DequeueAllAsync(ct))
-		{
-			mail.Status = ReceiptStatus.Extracting;
+		item.Status = ReceiptStatus.Failed;
+		item.Error = error;
+		item.CompletedAt = DateTimeOffset.UtcNow;
+	}
 
-			try
-			{
-				// OllamaClient is a transient typed HttpClient. Resolving it per item — rather than
-				// injecting it into this singleton worker — keeps the pooled handler rotating.
-				using IServiceScope scope = scopeFactory.CreateScope();
-				var client = scope.ServiceProvider.GetRequiredService<OllamaClient>();
+	protected override async Task ProcessAsync(ReceiptRecord mail, CancellationToken ct)
+	{
+		mail.Status = ReceiptStatus.Extracting;
 
-				ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, mail.BodyText, mail.Subject, ct);
+		// OllamaClient is a transient typed HttpClient. Resolving it per item — rather than injecting
+		// it into this singleton worker — keeps the pooled handler rotating.
+		using IServiceScope scope = scopeFactory.CreateScope();
+		var client = scope.ServiceProvider.GetRequiredService<OllamaClient>();
 
-				mail.Extracted = outcome.Receipt;
-				mail.Reconciled = outcome.Reconciled;
-				mail.Attempts = outcome.Attempts;
-				mail.Error = outcome.Warning;
-				mail.Status = ReceiptStatus.Extracted;
+		ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, mail.BodyText, mail.Subject, ct);
 
-				await persistenceQueue.EnqueueAsync(mail, ct);
+		mail.Extracted = outcome.Receipt;
+		mail.Reconciled = outcome.Reconciled;
+		mail.Attempts = outcome.Attempts;
+		mail.Error = outcome.Warning;
+		mail.Status = ReceiptStatus.Extracted;
 
-				logger.LogInformation(
-					"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
-					mail.Subject, outcome.Receipt.Merchant, outcome.Receipt.GrandTotal, outcome.Receipt.Currency,
-					outcome.Receipt.LineItems.Count, outcome.Reconciled, outcome.Attempts);
-			}
-			catch (OperationCanceledException) when (ct.IsCancellationRequested)
-			{
-				mail.Status = ReceiptStatus.Failed;
-				mail.Error = "Extraction interrupted by shutdown";
-				logger.LogInformation("Extraction worker stopped by shutdown while handling '{Subject}'.", mail.Subject);
-				return;
-			}
-			catch (Exception ex)
-			{
-				// One bad receipt must never kill the worker.
-				mail.Status = ReceiptStatus.Failed;
-				mail.Error = ex.Message;
-				mail.CompletedAt = DateTimeOffset.UtcNow;
-				logger.LogError(ex, "Extraction failed for '{Subject}' ({Id})", mail.Subject, mail.MessageId);
-			}
-		}
+		await persistenceQueue.EnqueueAsync(mail, ct);
+
+		logger.LogInformation(
+			"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
+			mail.Subject, outcome.Receipt.Merchant, outcome.Receipt.GrandTotal, outcome.Receipt.Currency,
+			outcome.Receipt.LineItems.Count, outcome.Reconciled, outcome.Attempts);
 	}
 
 	/// <summary>
