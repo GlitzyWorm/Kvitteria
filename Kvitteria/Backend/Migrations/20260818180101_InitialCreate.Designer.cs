@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Backend.Migrations
 {
     [DbContext(typeof(KvitteriaDbContext))]
-    [Migration("20260818095559_AddMealCoverage")]
-    partial class AddMealCoverage
+    [Migration("20260818180101_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
