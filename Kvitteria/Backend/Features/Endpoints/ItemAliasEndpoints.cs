@@ -39,14 +39,14 @@ static class ItemAliasEndpoints
 			          .ProducesProblem(StatusCodes.Status400BadRequest);
 
 			// DELETE /aliases/{id}
-			aliasGroup.MapDelete("/{aliasId:guid}", async (Guid aliasId, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			aliasGroup.MapDelete("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				// One statement rather than load-then-delete; the affected-row count gives us the 404.
 				int deleted = await dbContext.ItemAliases
-				                            .Where(ia => ia.Id == aliasId)
+				                            .Where(ia => ia.Id == id)
 				                            .ExecuteDeleteAsync(ct);
 
 				if (deleted == 0)
-					return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Item alias with id {aliasId} not found");
+					return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Item alias with id {id} not found");
 
 				return Results.NoContent();
 			})

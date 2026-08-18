@@ -62,10 +62,10 @@ static class CanonicalItemEndpoints
 				                  if (!await dbContext.TrySaveChangesAsync(ct))
 					                  return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A canonical item named '{canonicalItemDto.DisplayName}' already exists.");
 
-				                  return Results.Created($"/canonical-items/{canonicalItem.Id}", canonicalItem.ToDto());
+				                  return Results.CreatedAtRoute("GetCanonicalItemById", new { id = canonicalItem.Id }, canonicalItem.ToDto());
 			                  })
 			                  .WithName("CreateCanonicalItem")
-			                  .Produces<CanonicalItemDto>()
+			                  .Produces<CanonicalItemDto>(StatusCodes.Status201Created)
 			                  .ProducesProblem(StatusCodes.Status400BadRequest)
 			                  .ProducesProblem(StatusCodes.Status409Conflict);
 

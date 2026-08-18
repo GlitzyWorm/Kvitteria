@@ -13,7 +13,22 @@ public sealed partial class MailFetcher(
 {
 	private const int PreviewLength = 100;
 
-	public async Task<IReadOnlyList<ReceiptRecord>> FetchUnseenAsync(CancellationToken ct)
+	/// <summary>
+	/// Fetches unseen receipt mail, invoking <paramref name="onFetched"/> for each message and
+	/// flagging it <c>Seen</c> only once that call has completed. Returns the number handed over.
+	/// </summary>
+	/// <remarks>
+	/// The callback is what makes the ordering safe. Flagging <c>Seen</c> before handing the message on
+	/// meant a full queue or a cancellation between the two lost the receipt permanently — it would
+	/// never be returned by a later NotSeen search. Now anything that throws before the hand-off
+	/// completes leaves the mail unread, so the next poll picks it up again.
+	///
+	/// Streaming per message also removes the previous behaviour of buffering every unseen message,
+	/// bodies included, into one list before returning.
+	/// </remarks>
+	public async Task<int> FetchUnseenAsync(
+		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
+		CancellationToken ct)
 	{
 		ImapOptions imap = options.CurrentValue;
 
@@ -24,7 +39,7 @@ public sealed partial class MailFetcher(
 				"entry per member's receipt folder (e.g. INBOX.Netto).");
 		}
 
-		List<ReceiptRecord> results = [];
+		var fetched = 0;
 
 		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
 		{
@@ -42,7 +57,7 @@ public sealed partial class MailFetcher(
 
 				try
 				{
-					await FetchFolderAsync(folder, folderOptions, results, ct);
+					fetched += await FetchFolderAsync(folder, folderOptions, onFetched, imap.MaxMessagesPerPoll-fetched, ct);
 				}
 				finally
 				{
@@ -60,23 +75,37 @@ public sealed partial class MailFetcher(
 			}
 		}
 
-		return results;
+		return fetched;
 	}
 
-	private async Task FetchFolderAsync(
+	private async Task<int> FetchFolderAsync(
 		IMailFolder folder,
 		ImapFolderOptions folderOptions,
-		List<ReceiptRecord> results,
+		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
+		int remainingBudget,
 		CancellationToken ct)
 	{
+		if (remainingBudget <= 0)
+			return 0;
+
 		IList<UniqueId> uids = await folder.SearchAsync(SearchQuery.NotSeen, ct);
+		var fetched = 0;
+
+		if (uids.Count > remainingBudget)
+		{
+			// Say so explicitly: a silently truncated batch reads as "there was nothing more".
+			logger.LogInformation(
+				"{Folder} has {Total} unseen messages; taking {Budget} this poll and leaving the rest unread.",
+				folder.FullName, uids.Count, remainingBudget);
+			uids = uids.Take(remainingBudget).ToList();
+		}
 
 		foreach (UniqueId id in uids)
 		{
 			MimeMessage message = await folder.GetMessageAsync(id, ct);
 			string bodyText = ExtractBody(message, out string bodySource);
 
-			results.Add(new ReceiptRecord(
+			var record = new ReceiptRecord(
 				message.MessageId,
 				message.From.ToString(),
 				message.Subject ?? "",
@@ -84,9 +113,13 @@ public sealed partial class MailFetcher(
 				bodyText,
 				bodySource,
 				folderOptions.MemberEmail
-			));
+			) { EnqueuedAt = DateTimeOffset.UtcNow };
 
+			await onFetched(record, ct);
+
+			// Only now, once the message has been handed on successfully.
 			await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
+			fetched++;
 
 			if (logger.IsEnabled(LogLevel.Debug))
 			{
@@ -96,6 +129,8 @@ public sealed partial class MailFetcher(
 					bodyText.Length > PreviewLength ? string.Concat(bodyText.AsSpan(0, PreviewLength), "...") : bodyText);
 			}
 		}
+
+		return fetched;
 	}
 
 	private bool CheckIfValid(ImapFolderOptions folder)

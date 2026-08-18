@@ -33,15 +33,15 @@ static class ReceiptLineEndpoints
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PATCH /receipt-lines/{id}
-			receiptLineGroup.MapPatch("/{receiptLineId:guid}", async (Guid receiptLineId, PatchReceiptLineDto patchDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPatch("/{id:guid}", async (Guid id, PatchReceiptLineDto patchDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
 				                                                          .Include(rl => rl.CanonicalItem)
 				                                                          .Include(rl => rl.Meal)
 				                                                          .Include(rl => rl.Category)
-				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
+				                                                          .FirstOrDefaultAsync(rl => rl.Id == id, ct);
 
 				                if (receiptLine == null)
-					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
 				                if (patchDto.RawName != null)
 					                receiptLine.RawName = patchDto.RawName;
@@ -60,12 +60,12 @@ static class ReceiptLineEndpoints
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PUT /receipt-lines/{id}/canonical-item
-			receiptLineGroup.MapPut("/{receiptLineId:guid}/canonical-item", async (Guid receiptLineId, PutCanonicalItemDto putCanonicalItemDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPut("/{id:guid}/canonical-item", async (Guid id, PutCanonicalItemDto putCanonicalItemDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
-				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
+				                                                          .FirstOrDefaultAsync(rl => rl.Id == id, ct);
 
 				                if (receiptLine == null)
-					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
 				                // Only look the item up when one was actually requested; a null id used to issue a
 				                // guaranteed-empty query before the null check below.
@@ -109,14 +109,14 @@ static class ReceiptLineEndpoints
 			                .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// PUT /receipt-lines/id/category
-			receiptLineGroup.MapPut("/{receiptLineId:guid}/category", async (Guid receiptLineId, PutReceiptLineCategoryDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPut("/{id:guid}/category", async (Guid id, PutReceiptLineCategoryDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
 				                                                          .Include(rl => rl.CanonicalItem)
 				                                                          .Include(rl => rl.Meal)
-				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
+				                                                          .FirstOrDefaultAsync(rl => rl.Id == id, ct);
 
 				                if (receiptLine == null)
-					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
 				                Category? category = null;
 
@@ -147,14 +147,14 @@ static class ReceiptLineEndpoints
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PUT /receipt-lines/id/meal
-			receiptLineGroup.MapPut("/{receiptLineId:guid}/meal", async (Guid receiptLineId, PutReceiptLineMealDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPut("/{id:guid}/meal", async (Guid id, PutReceiptLineMealDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
 				                                                          .Include(rl => rl.CanonicalItem)
 				                                                          .Include(rl => rl.Category)
-				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
+				                                                          .FirstOrDefaultAsync(rl => rl.Id == id, ct);
 
 				                if (receiptLine == null)
-					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
 				                Meal? meal = null;
 
@@ -179,7 +179,7 @@ static class ReceiptLineEndpoints
 
 				                // Coverage is only valid while a line still carries the meal it describes.
 				                if (previousMealId != null && previousMealId != receiptLine.MealId)
-					                await MealCoverage.ClearOrphanedAsync(dbContext, receiptLine.ReceiptId, previousMealId.Value, receiptLineId, ct);
+					                await MealCoverage.ClearOrphanedAsync(dbContext, receiptLine.ReceiptId, previousMealId.Value, id, ct);
 
 				                await dbContext.SaveChangesAsync(ct);
 

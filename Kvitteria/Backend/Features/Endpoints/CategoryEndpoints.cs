@@ -14,7 +14,7 @@ static class CategoryEndpoints
 	{
 		internal void MapCategoryEndpoints()
 		{
-			RouteGroupBuilder categoryGroup = app.MapGroup("/category");
+			RouteGroupBuilder categoryGroup = app.MapGroup("/categories");
 
 			// GET /category
 			categoryGroup.MapGet("/", async (KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -87,10 +87,10 @@ static class CategoryEndpoints
 				             if (!await dbContext.TrySaveChangesAsync(ct))
 					             return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A category named '{displayName}' already exists under this parent.");
 
-				             return Results.Created($"/category/{category.Id}", category.ToDto());
+				             return Results.CreatedAtRoute("GetCategoryById", new { id = category.Id }, category.ToDto());
 			             })
 			             .WithName("CreateCategory")
-			             .Produces<CategoryDto>()
+			             .Produces<CategoryDto>(StatusCodes.Status201Created)
 			             .ProducesProblem(StatusCodes.Status400BadRequest)
 			             .ProducesProblem(StatusCodes.Status404NotFound)
 			             .ProducesProblem(StatusCodes.Status409Conflict);

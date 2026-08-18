@@ -9,6 +9,13 @@ public sealed class ImapOptions : IOptionsSection
 	[Range(1, 86_400)]
 	public int PollIntervalSeconds { get; set; } = 60;
 
+	/// <summary>
+	/// Safety valve on a large unseen backlog. With bounded-channel backpressure, an unbounded first
+	/// poll would otherwise hold the IMAP session open until the server timed it out.
+	/// </summary>
+	[Range(1, 1_000)]
+	public int MaxMessagesPerPoll { get; set; } = 25;
+
 	/// <summary>One entry per household member's receipt folder.</summary>
 	public List<ImapFolderOptions> Folders { get; set; } = [];
 }

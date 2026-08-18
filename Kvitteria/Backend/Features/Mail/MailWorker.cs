@@ -29,15 +29,12 @@ public sealed class MailWorker(
 			{
 				try
 				{
-					IReadOnlyList<ReceiptRecord> receipts = await fetcher.FetchUnseenAsync(ct);
+					// The mail is flagged Seen only after this callback returns, so a full queue or a
+					// cancellation leaves it unread and it is picked up on the next poll.
+					int fetched = await fetcher.FetchUnseenAsync(queue.EnqueueAsync, ct);
 
-					if (receipts.Count > 0)
-						logger.LogInformation("Fetched {Count} unseen receipt(s)", receipts.Count);
-
-					foreach (ReceiptRecord email in receipts)
-					{
-						await queue.EnqueueAsync(email, ct);
-					}
+					if (fetched > 0)
+						logger.LogInformation("Fetched {Count} unseen receipt(s)", fetched);
 
 					consecutiveFailures = 0;
 				}

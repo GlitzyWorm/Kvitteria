@@ -6,7 +6,7 @@ using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
 
-public static class ReceiptEndpoints
+static class ReceiptEndpoints
 {
 
 	extension(RouteGroupBuilder app)
