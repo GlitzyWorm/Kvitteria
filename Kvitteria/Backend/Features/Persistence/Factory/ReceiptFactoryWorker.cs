@@ -67,7 +67,7 @@ public class ReceiptFactoryWorker(
 	private async Task<Receipt> ResolveCanonicalItemAsync(IReceiptRepository receiptRepository, Receipt receipt, CancellationToken ct)
 	{
 		string[] normalizedNames = receipt.ReceiptLines
-		                                  .Select(l => l.RawName.Normalize())
+		                                  .Select(l => l.RawName.NormalizeString())
 		                                  .Distinct()
 		                                  .ToArray();
 
@@ -75,7 +75,7 @@ public class ReceiptFactoryWorker(
 
 		foreach (ReceiptLine line in receipt.ReceiptLines)
 		{
-			if (canonicalIdByAlias.TryGetValue(line.RawName.Normalize(), out Guid canonicalId))
+			if (canonicalIdByAlias.TryGetValue(line.RawName.NormalizeString(), out Guid canonicalId))
 			{
 				line.CanonicalItemId = canonicalId;
 			}

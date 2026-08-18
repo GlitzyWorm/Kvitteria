@@ -68,7 +68,7 @@ static class ReceiptLineEndpoints
 
 				                try
 				                {
-					                string normalizedRawName = receiptLine.RawName.Normalize();
+					                string normalizedRawName = receiptLine.RawName.NormalizeString();
 					                if (canonicalItem != null && putCanonicalItemDto.CreateOrUpdateAlias)
 					                {
 						                ItemAlias? existingAlias = await dbContext.ItemAliases
