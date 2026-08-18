@@ -13,6 +13,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // TODO: Testing config.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
+builder.Services.AddOpenApi("documentation");
+
 builder.Services.AddProblemDetails();
 
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
