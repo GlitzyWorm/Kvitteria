@@ -105,9 +105,9 @@ public sealed class ExtractionWorker(
 			}
 
 			decimal lineSum = result.LineItems.Sum(l => l.LineTotal);
-			decimal delta = result.GrandTotal-lineSum-result.PantTotal;
+			decimal delta = Reconciliation.Delta(result.GrandTotal, lineSum, result.PantTotal);
 
-			reconciled = Math.Abs(delta) <= tolerance;
+			reconciled = Reconciliation.IsReconciled(delta, tolerance);
 
 			if (best is null || reconciled || Math.Abs(delta) < Math.Abs(bestDelta))
 			{

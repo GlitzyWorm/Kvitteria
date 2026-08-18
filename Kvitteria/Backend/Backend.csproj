@@ -1,10 +1,26 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+
+        <!-- Pinned because the codebase relies on C# 14 extension blocks; without it the language
+             version is whatever SDK happens to be installed. -->
+        <LangVersion>14.0</LangVersion>
+
+        <!-- Warnings were previously invisible: five real nullability issues sat in the build output
+             unnoticed because nothing failed on them. -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+        <!-- Deliberately NOT latest-recommended. That set is almost entirely CA1848
+             (LoggerMessage delegates) plus rules that contradict this project's own conventions:
+             CA1725 wants the documented `ct` parameter renamed to `stoppingToken`, CA1711 objects
+             to a queue type being named Queue, and CA1716 objects to the Shared namespace. None of
+             those are defects, and failing the build on them would bury the warnings that matter. -->
+        <AnalysisLevel>latest</AnalysisLevel>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,14 +30,17 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="MailKit" Version="4.17.0" />
-      <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PackageReference Include="MailKit" />
+      <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+      <!-- Explicit, and not private: the code uses EF Core directly, and referencing it only through
+           Design meant the version never flowed to referencing projects. -->
+      <PackageReference Include="Microsoft.EntityFrameworkCore" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-      <PackageReference Include="Scalar.AspNetCore" Version="2.16.20" />
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+      <PackageReference Include="Scalar.AspNetCore" />
     </ItemGroup>
 
 </Project>

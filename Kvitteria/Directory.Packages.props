@@ -1,0 +1,34 @@
+﻿<Project>
+
+    <PropertyGroup>
+        <!-- One place for every package version, so the app and the test project cannot drift onto
+             different EF Core builds. They previously did: Design carries PrivateAssets=all, so the
+             test project saw only Npgsql's older transitive Abstractions while Backend.dll had been
+             compiled against a newer one. -->
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+
+        <!-- Npgsql 10.0.3 asks for EF Core Relational 10.0.4 while Design pulls 10.0.10, which left
+             the two projects binding against different assemblies. Pinning transitives makes the
+             whole graph agree on one EF Core build. -->
+        <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+
+    <ItemGroup Label="Application">
+        <PackageVersion Include="MailKit" Version="4.17.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+        <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+        <PackageVersion Include="xunit" Version="2.9.3" />
+        <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    </ItemGroup>
+
+</Project>

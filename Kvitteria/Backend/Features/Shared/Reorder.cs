@@ -26,8 +26,14 @@ public static class Reorder
 		}
 
 		Dictionary<Guid, T> byId = existing.ToDictionary(idOf);
+		HashSet<Guid> requested = orderedIds.ToHashSet();
 
-		if (byId.Count != orderedIds.Count || !orderedIds.All(byId.ContainsKey))
+		// All three checks are needed. Comparing counts and containment in one direction only lets
+		// [A, A] through against {A, B}: the counts match, both ids are known, and B silently keeps
+		// its old sort order.
+		if (requested.Count != orderedIds.Count
+		    || requested.Count != byId.Count
+		    || !requested.All(byId.ContainsKey))
 		{
 			problem = Results.Problem(
 				statusCode: StatusCodes.Status400BadRequest,

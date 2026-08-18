@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -54,43 +54,79 @@ dotnet ef database update --project Backend
 dotnet ef migrations add <Name> --project Backend
 ```
 
-There is no test project. Verification is manual: bring the stack up against a running Supabase and
-watch the pipeline logs (`docker compose logs -f backend`; Development log level is `Debug`).
+`Kvitteria/Backend.Tests` (xUnit) covers the pure logic that has no other safety net: the
+reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
+culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
+reorder guard, paging validation, and the HTML-to-text converter. Run it from `Kvitteria`:
+
+```bash
+dotnet test
+```
+
+There are no integration or endpoint tests. For anything touching HTTP or the database, verification
+is still manual: bring the stack up against a running Supabase and watch the pipeline logs
+(`docker compose logs -f backend`; Development log level is `Debug`).
 
 ## Configuration
 
 Secrets live in the gitignored `Backend/appsettings.Local.json`, loaded on top of the normal
-appsettings chain in `Program.cs`. Options classes implement `Backend.Abstractions.IOptions`, which
-declares a `static abstract string SectionName` — the section name lives on the class, not at the
-registration site. Sections: `Database`, `Imap`, `Ollama`. All are bound with
-`IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect live.
+appsettings chain in `Program.cs`. Options classes implement `Backend.Abstractions.IOptionsSection`,
+which declares a `static abstract string SectionName` — the section name lives on the class, not at
+the registration site. Register them with the `AddOptionsSection<T>(IConfiguration)` extension, which
+binds the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration
+fails at startup instead of inside the first poll. Sections: `Database`, `Imap`, `Ollama`. All are
+bound with `IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect
+live.
+
+`ValidateDataAnnotations` does not recurse into collection elements, so per-entry IMAP completeness
+is checked by `ImapFolderOptions.IsComplete()` and reported by `MailFetcher`, which can name the
+member whose entry is incomplete.
 
 `Imap:Folders` is a list — one entry per household member's receipt folder (host, credentials,
 folder name, member name/email).
 
 ## Pipeline architecture
 
-Three `BackgroundService`s chained by two bounded `Channel`s (capacity 100, single reader). A
-single mutable `ReceiptRecord` instance flows the whole way through and accumulates state
-(`Status`, `Extracted`, `Attempts`, `Reconciled`, `Error`):
+Three `BackgroundService`s chained by two bounded queues. `ExtractionQueue` and `PersistenceQueue`
+are both three-line subclasses of `WorkQueue<T>` (capacity 100, single reader, single writer); they
+are separate named types rather than one `WorkQueue<ReceiptRecord>` because both carry the same `T`
+and could not otherwise be resolved unambiguously from the container. A single mutable
+`ReceiptRecord` instance flows the whole way through and accumulates state (`Status`, `Extracted`,
+`Attempts`, `Reconciled`, `Error`).
 
-1. **`MailWorker`** — polls IMAP every `Imap:PollIntervalSeconds` via `MailFetcher`, which fetches
-   unseen messages, flags them `Seen`, converts HTML bodies to plain text, and enqueues to
-   `ExtractionQueue`.
+The two queue consumers derive from `QueueWorker<T>`, which owns the drain loop and the per-item
+`try`/`catch`, so the "one bad receipt must never kill a worker" rule is structural rather than
+remembered. `MailWorker` is a poller, not a consumer, and stands alone.
+
+1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `Imap:PollIntervalSeconds`, backing off
+   exponentially with jitter after consecutive failures. `MailFetcher` streams up to
+   `Imap:MaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
+   invokes a callback that enqueues to `ExtractionQueue`. A message is flagged `Seen` **only after**
+   that callback returns, so anything that throws first leaves it unread for the next poll. One
+   `ImapClient` per configured folder, since each entry is a different member's account.
 2. **`ExtractionWorker`** — calls `OllamaClient` (`/api/chat`, non-streaming, JSON-schema-constrained
    output from `ReceiptExtractionPrompt.Schema`). Retries up to 3 times: attempt 1 at temperature 0,
-   retries at 0.3. Success = **reconciliation**: `grand_total - sum(line_totals) - pant_total == 0`.
-   Failed attempts feed a natural-language `hint` back as an extra user message describing the
-   delta. If nothing reconciles, the best-delta result is kept with `Reconciled = false` and an
-   `Error` message. Enqueues to `PersistenceQueue`.
-3. **`ReceiptFactoryWorker`** — maps `ExtractedReceipt` → `Receipt`/`ReceiptLine` entities, resolves
-   (or inserts) the `Merchant` by name, and auto-links lines to `CanonicalItem`s by looking up
-   normalized raw names in `ItemAlias`. Purchase dates are parsed as Europe/Copenhagen local time
-   and converted to UTC.
+   retries at `Ollama:RetryTemperature`. Success = **reconciliation**: `Reconciliation.IsReconciled`,
+   i.e. `grand_total - sum(line_totals) - pant_total` within `Ollama:ReconciliationToleranceKr` of
+   zero (default 0.01 — Danish receipts round to øre, and exact equality burned every retry on a
+   1-øre difference). Unreconciled attempts feed a natural-language `hint` back describing the
+   delta. `OllamaClient` distinguishes `OllamaResponseException` (the model answered with something
+   unusable — the only case where a "your JSON was malformed" hint is truthful) from
+   `OllamaTransportException` (the model never saw the prompt, so retry unchanged and with no hint).
+   If nothing reconciles, the best-delta result is kept with `Reconciled = false` and a warning.
+   Enqueues to `PersistenceQueue`.
+3. **`ReceiptFactoryWorker`** — delegates to the scoped `ReceiptIngestionService`, which maps
+   `ExtractedReceipt` → `Receipt`/`ReceiptLine`, resolves (or inserts) the `Merchant` by name, and
+   auto-links lines to `CanonicalItem`s by looking up normalized raw names in `ItemAlias` — all in
+   one transaction, so a failure cannot leave an orphaned merchant. Purchase dates go through
+   `PurchaseDate.Resolve`, which parses the documented formats with `TryParseExact`, falls back to
+   the mail's own timestamp on unparseable model output, and nudges past the DST spring-forward gap
+   rather than throwing.
 
-Both workers resolve scoped services (`OllamaClient`, `IReceiptRepository`) through
-`IServiceScopeFactory` since the hosted services are singletons. One bad receipt must never kill a
-worker — catch per-item and mark the record `Failed`.
+Both workers resolve their scoped or transient dependencies through `IServiceScopeFactory` since the
+hosted services are singletons. `ExtractionWorker` resolves `OllamaClient` per item deliberately: it
+is a transient typed `HttpClient`, and holding one in a singleton would pin its pooled handler for
+the process lifetime.
 
 `ReceiptExtractionPrompt.SystemPrompt` encodes hard-won Danish-receipt rules (printed amounts are
 line totals not unit prices, the `HERAF PANT IALT` / `HERAF MOMS` / `I ALT` label-then-amount
@@ -108,18 +144,25 @@ back to.
 `Category` is a two-level tree (`ParentCategoryId`, self-referencing) with unique-name indexes
 filtered on root vs child. `ReceiptMealCoverage` (composite key `ReceiptId`+`MealId`) records how
 many days a receipt covers for meals where `TracksDayCoverage` is true; it is only valid while some
-line on that receipt still carries that meal — see `ClearOrphanedCoverage` in
-`ReceiptLineEndpoints`.
+line on that receipt still carries that meal. Both halves of that invariant — the write-time diff and
+the orphan cleanup — live in `Features/Receipts/MealCoverage.cs`; they were previously split across
+two endpoint files that disagreed about how coverage was reached.
 
-`KvitteriaDbContext.OnConfiguring` uses `UseSeeding` to seed the Danish meal and category taxonomy
-on first run when the tables are empty.
+`DatabaseSeeder` seeds the Danish meal and category taxonomy on first run when the tables are empty,
+registered as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
+(not in `OnConfiguring`, which re-ran on every `DbContext` construction). EF fires these from
+`Migrate()`, which includes the `dotnet ef database update` path above. Both inserts share one
+transaction, so a partial seed cannot leave meals present and categories permanently blocked.
 
 ## API and code conventions
 
 Endpoints are static classes under `Features/Endpoints`, all mapped under the `/api` group from
 `Program.cs` → `MapReceiptEndpoints()`, which fans out to the per-resource map methods. Endpoint
-handlers inject `KvitteriaDbContext` directly and query with EF Core; `IReceiptRepository` exists
-only for the ingestion pipeline, not for endpoints.
+handlers inject `KvitteriaDbContext` directly and query with EF Core. There is no repository layer:
+the ingestion pipeline uses the concrete `ReceiptIngestionService`, and everything else uses the
+context. Structural rules worth testing live outside the endpoint files as pure helpers —
+`CategoryTree`, `MealCoverage`, `Reorder`, `Paging`, `Reconciliation`, `PurchaseDate` — while the
+endpoints keep the HTTP concerns.
 
 C# 14 **extension blocks** (`extension(RouteGroupBuilder app) { ... }`) are the idiom for endpoint
 registration and (`extension(string rawName)`) for string helpers. DTOs live in
