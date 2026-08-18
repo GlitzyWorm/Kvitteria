@@ -33,7 +33,7 @@ public static class ReceiptEndpoints
 				            int pageSize = 10,
 				            int page = 1) => {
 				            if (page < 1 || pageSize < 1 || pageSize > 100)
-					            return Results.BadRequest("page must be >= 1 and pageSize must be between 1 and 100");
+					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
 
 				            ReceiptStatus? receiptStatus = null;
 				            try
@@ -42,7 +42,7 @@ public static class ReceiptEndpoints
 						            receiptStatus = ReceiptStatusExtension.FromIntToReceiptStatus(status);
 				            } catch (Exception e)
 				            {
-					            return Results.BadRequest(e.Message);
+					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:e.Message);
 				            }
 
 				            IQueryable<Receipt> query = dbContext.Receipts
@@ -55,7 +55,7 @@ public static class ReceiptEndpoints
 				            int totalCount = await query.CountAsync(ct);
 
 				            if (totalCount == 0)
-					            return Results.NotFound("No receipts found");
+					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No receipts found");
 
 				            List<ReceiptDto> receiptDtos = await query
 				                                                 .Include(r => r.Merchant)
@@ -69,7 +69,9 @@ public static class ReceiptEndpoints
 				            return Results.Ok(new PagedResult<ReceiptDto>(receiptDtos, page, pageSize, totalCount));
 			            })
 			            .WithName("GetReceipts")
-			            .Produces<PagedResult<ReceiptDto>>();
+			            .Produces<PagedResult<ReceiptDto>>()
+			            .ProducesProblem(StatusCodes.Status400BadRequest)
+			            .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// GET /receipts/{id}
 			receiptGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -81,12 +83,13 @@ public static class ReceiptEndpoints
 				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
 
 				            if (receipt == null)
-					            return Results.NotFound($"Receipt with id {id} not found");
+					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
 
 				            return Results.Ok(receipt.ToDto());
 			            })
 			            .WithName("GetReceiptById")
-			            .Produces<ReceiptDto>();
+			            .Produces<ReceiptDto>()
+			            .ProducesProblem(StatusCodes.Status404NotFound);
 		}
 	}
 }

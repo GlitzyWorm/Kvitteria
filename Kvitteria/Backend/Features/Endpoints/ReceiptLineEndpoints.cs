@@ -1,6 +1,7 @@
 using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
 
@@ -20,12 +21,13 @@ static class ReceiptLineEndpoints
 				                                                          .FirstOrDefaultAsync(rl => rl.Id == id, ct);
 
 				                if (receiptLine == null)
-					                return Results.NotFound($"Receipt line with id {id} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
 				                return Results.Ok(receiptLine.ToDto(receiptLine.CanonicalItem));
 			                })
 			                .WithName("GetReceiptLineById")
-			                .Produces<ReceiptLineDto>();
+			                .Produces<ReceiptLineDto>()
+			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PATCH /receipt-lines/{id}
 			receiptLineGroup.MapPatch("/{receiptLineId:guid}", async (Guid receiptLineId, PatchReceiptLineDto patchDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -33,7 +35,7 @@ static class ReceiptLineEndpoints
 				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
 
 				                if (receiptLine == null)
-					                return Results.NotFound($"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
 
 				                if (patchDto.RawName != null)
 					                receiptLine.RawName = patchDto.RawName;
@@ -48,7 +50,8 @@ static class ReceiptLineEndpoints
 				                return Results.Ok(receiptLine.ToDto(receiptLine.CanonicalItem));
 			                })
 			                .WithName("PatchReceiptLine")
-			                .Produces<ReceiptLineDto>();
+			                .Produces<ReceiptLineDto>()
+			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PUT /receipt-lines/{id}/canonical-item
 			receiptLineGroup.MapPut("/{receiptLineId:guid}/canonical-item", async (Guid receiptLineId, PutCanonicalItemDto putCanonicalItemDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -56,13 +59,13 @@ static class ReceiptLineEndpoints
 				                                                          .FirstOrDefaultAsync(rl => rl.Id == receiptLineId, ct);
 
 				                if (receiptLine == null)
-					                return Results.NotFound($"Receipt line with id {receiptLineId} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {receiptLineId} not found");
 
 				                CanonicalItem? canonicalItem = await dbContext.CanonicalItems
 				                                                              .FirstOrDefaultAsync(ci => ci.Id == putCanonicalItemDto.CanonicalItemId, ct);
 
 				                if (putCanonicalItemDto.CanonicalItemId != null && canonicalItem == null)
-					                return Results.NotFound($"Canonical item with id {putCanonicalItemDto} not found");
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Canonical item with id {putCanonicalItemDto.CanonicalItemId} not found");
 
 				                receiptLine.CanonicalItemId = canonicalItem?.Id;
 
@@ -90,14 +93,16 @@ static class ReceiptLineEndpoints
 					                }
 				                } catch (InvalidOperationException e)
 				                {
-					                return Results.BadRequest(e.Message);
+					                return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:e.Message);
 				                }
 
 				                await dbContext.SaveChangesAsync(ct);
 				                return Results.Ok(receiptLine.ToDto(canonicalItem));
 			                })
 			                .WithName("UpdateReceiptLineCanonicalItem")
-			                .Produces<ReceiptLineDto>();
+			                .Produces<ReceiptLineDto>()
+			                .ProducesProblem(StatusCodes.Status400BadRequest)
+			                .ProducesProblem(StatusCodes.Status404NotFound);
 		}
 	}
 }

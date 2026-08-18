@@ -16,7 +16,7 @@ static class ItemAliasEndpoints
 			// GET /aliases?search=&canonicalId&page=&pageSize=
 			aliasGroup.MapGet("/", async (string? search, Guid? canonicalItemId, KvitteriaDbContext dbContext, CancellationToken ct, int pageSize = 10, int page = 1) => {
 				          if (page < 1 || pageSize < 1 || pageSize > 100)
-					          return Results.BadRequest("page must be >= 1 and pageSize must be between 1 and 100");
+					          return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
 
 				          IQueryable<ItemAlias> query = dbContext.ItemAliases
 				                                                 .Include(ia => ia.CanonicalItem)
@@ -26,7 +26,7 @@ static class ItemAliasEndpoints
 				          int totalCount = await query.CountAsync(ct);
 
 				          if (totalCount == 0)
-					          return Results.NotFound("No item aliases found");
+					          return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:"No item aliases found");
 
 				          List<ItemAliasDto> itemAliasDtos = await query
 				                                                   .OrderBy(ia => ia.RawName)
@@ -38,20 +38,25 @@ static class ItemAliasEndpoints
 				          return Results.Ok(new PagedResult<ItemAliasDto>(itemAliasDtos, page, pageSize, totalCount));
 			          })
 			          .WithName("GetItemAliases")
-			          .Produces<PagedResult<ItemAliasDto>>();
+			          .Produces<PagedResult<ItemAliasDto>>()
+			          .ProducesProblem(StatusCodes.Status400BadRequest)
+			          .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// DELETE /aliases/{id}
 			aliasGroup.MapDelete("/{aliasId:guid}", async (Guid aliasId, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				ItemAlias? itemAlias = await dbContext.ItemAliases.FirstOrDefaultAsync(ia => ia.Id == aliasId, ct);
 
 				if (itemAlias == null)
-					return Results.NotFound($"Item alias with id {aliasId} not found");
+					return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Item alias with id {aliasId} not found");
 
 				dbContext.ItemAliases.Remove(itemAlias);
 				await dbContext.SaveChangesAsync(ct);
 
 				return Results.NoContent();
-			});
+			})
+			.WithName("DeleteItemAlias")
+			.Produces(StatusCodes.Status204NoContent)
+			.ProducesProblem(StatusCodes.Status404NotFound);
 		}
 	}
 }
