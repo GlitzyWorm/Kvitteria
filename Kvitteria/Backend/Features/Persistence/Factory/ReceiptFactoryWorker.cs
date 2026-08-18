@@ -94,6 +94,8 @@ public sealed class ReceiptFactoryWorker(
 			PantTotal = extracted.PantTotal,
 			Reconciled = record.Reconciled,
 			Status = ReceiptStatus.Completed,
+			SourceMessageId = record.MessageId,
+			Error = record.Error,
 			ReceiptLines = extracted.LineItems.Select(l => new ReceiptLine {
 				RawName = l.RawName,
 				Quantity = l.Quantity,

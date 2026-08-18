@@ -3,6 +3,7 @@ using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
 using Backend.Features.Persistence;
+using Backend.Features.Shared;
 using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Repository.Implementation;
 using Backend.Features.Persistence.Repository.Interface;
@@ -17,6 +18,7 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloa
 builder.Services.AddOpenApi();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {

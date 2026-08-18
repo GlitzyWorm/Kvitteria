@@ -98,12 +98,14 @@ static class ReceiptLineEndpoints
 						                });
 				                }
 
-				                await dbContext.SaveChangesAsync(ct);
+				                if (!await dbContext.TrySaveChangesAsync(ct))
+					                return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"An alias for '{receiptLine.RawName}' already points at another canonical item.");
 				                return Results.Ok(receiptLine.ToDto());
 			                })
 			                .WithName("UpdateReceiptLineCanonicalItem")
 			                .Produces<ReceiptLineDto>()
-			                .ProducesProblem(StatusCodes.Status404NotFound);
+			                .ProducesProblem(StatusCodes.Status404NotFound)
+			                .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// PUT /receipt-lines/id/category
 			receiptLineGroup.MapPut("/{receiptLineId:guid}/category", async (Guid receiptLineId, PutReceiptLineCategoryDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {

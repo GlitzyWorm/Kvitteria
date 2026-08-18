@@ -4,7 +4,7 @@ namespace Backend.Features.Endpoints.DTO;
 public record ReceiptLineDto(
 	Guid Id,
 	string RawName,
-	int Quantity,
+	decimal Quantity,
 	decimal UnitPrice,
 	decimal LineTotal,
 	Guid? CanonicalItemId,

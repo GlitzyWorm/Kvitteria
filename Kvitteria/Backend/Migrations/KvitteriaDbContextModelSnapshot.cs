@@ -37,13 +37,17 @@ namespace Backend.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("citext");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
 
                     b.HasIndex("DefaultMealId");
+
+                    b.HasIndex("DisplayName")
+                        .IsUnique();
 
                     b.ToTable("CanonicalItems");
                 });
@@ -56,6 +60,7 @@ namespace Backend.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
+                        .HasMaxLength(200)
                         .HasColumnType("citext");
 
                     b.Property<Guid?>("ParentCategoryId")
@@ -88,11 +93,15 @@ namespace Backend.Migrations
 
                     b.Property<string>("RawName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(300)
+                        .HasColumnType("citext");
 
                     b.HasKey("Id");
 
                     b.HasIndex("CanonicalItemId");
+
+                    b.HasIndex("RawName")
+                        .IsUnique();
 
                     b.ToTable("ItemAliases");
                 });
@@ -105,7 +114,8 @@ namespace Backend.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("citext");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
@@ -129,9 +139,13 @@ namespace Backend.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("citext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("Merchants");
                 });
@@ -142,14 +156,19 @@ namespace Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("GrandTotal")
-                        .HasColumnType("numeric");
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<Guid>("MerchantId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("PantTotal")
-                        .HasColumnType("numeric");
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<DateTime>("PurchaseDate")
                         .HasColumnType("timestamp with time zone");
@@ -157,12 +176,25 @@ namespace Backend.Migrations
                     b.Property<bool>("Reconciled")
                         .HasColumnType("boolean");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
+                    b.Property<string>("SourceMessageId")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("MerchantId");
+
+                    b.HasIndex("PurchaseDate");
+
+                    b.HasIndex("SourceMessageId")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
 
                     b.ToTable("Receipts");
                 });
@@ -180,23 +212,27 @@ namespace Backend.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("LineTotal")
-                        .HasColumnType("numeric");
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.Property<Guid?>("MealId")
                         .HasColumnType("uuid");
 
-                    b.Property<short>("Quantity")
-                        .HasColumnType("smallint");
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
 
                     b.Property<string>("RawName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<Guid>("ReceiptId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("numeric");
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
 
                     b.HasKey("Id");
 
@@ -222,16 +258,14 @@ namespace Backend.Migrations
                     b.Property<int>("DaysCovered")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("ReceiptId1")
-                        .HasColumnType("uuid");
-
                     b.HasKey("ReceiptId", "MealId");
 
                     b.HasIndex("MealId");
 
-                    b.HasIndex("ReceiptId1");
-
-                    b.ToTable("ReceiptMealCoverages");
+                    b.ToTable("ReceiptMealCoverages", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReceiptMealCoverages_DaysCovered", "\"DaysCovered\" >= 0 AND \"DaysCovered\" <= 31");
+                        });
                 });
 
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
@@ -277,7 +311,7 @@ namespace Backend.Migrations
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Merchant", "Merchant")
                         .WithMany()
                         .HasForeignKey("MerchantId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Merchant");
@@ -287,7 +321,8 @@ namespace Backend.Migrations
                 {
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.CanonicalItem", "CanonicalItem")
                         .WithMany()
-                        .HasForeignKey("CanonicalItemId");
+                        .HasForeignKey("CanonicalItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "Category")
                         .WithMany()
@@ -323,14 +358,10 @@ namespace Backend.Migrations
                         .IsRequired();
 
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", "Receipt")
-                        .WithMany()
+                        .WithMany("MealCoverage")
                         .HasForeignKey("ReceiptId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", null)
-                        .WithMany("MealCoverage")
-                        .HasForeignKey("ReceiptId1");
 
                     b.Navigation("Meal");
 

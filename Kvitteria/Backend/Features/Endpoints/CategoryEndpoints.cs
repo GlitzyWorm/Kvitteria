@@ -1,8 +1,8 @@
 ﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 namespace Backend.Features.Endpoints;
 
 static class CategoryEndpoints
@@ -83,7 +83,7 @@ static class CategoryEndpoints
 
 				             dbContext.Categories.Add(category);
 
-				             if (!await TrySave(dbContext, ct))
+				             if (!await dbContext.TrySaveChangesAsync(ct))
 					             return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A category named '{displayName}' already exists under this parent.");
 
 				             return Results.Created($"/category/{category.Id}", category.ToDto());
@@ -148,7 +148,7 @@ static class CategoryEndpoints
 					             category.SortOrder = (max ?? -1)+1;
 				             }
 
-				             if (!await TrySave(dbContext, ct))
+				             if (!await dbContext.TrySaveChangesAsync(ct))
 					             return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A category named '{displayName}' already exists under this parent.");
 
 				             return Results.Ok(category.ToDto());
@@ -281,15 +281,4 @@ static class CategoryEndpoints
 	}
 
 	/// <summary>Backstop for two requests racing past the sibling-name check. False on a unique violation.</summary>
-	private static async Task<bool> TrySave(KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		try
-		{
-			await dbContext.SaveChangesAsync(ct);
-			return true;
-		} catch (DbUpdateException e) when (e.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
-		{
-			return false;
-		}
-	}
 }

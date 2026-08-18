@@ -6,12 +6,15 @@ public sealed class ReceiptLine
 	public Guid ReceiptId { get; set; }
 	public required string RawName { get; set; }
 	public Guid? CanonicalItemId { get; set; }
-	public short Quantity { get; set; }
+
+	/// <summary>Fractional, because the extraction schema allows units like kg.</summary>
+	public decimal Quantity { get; set; }
+
 	public decimal UnitPrice { get; set; }
 	public decimal LineTotal { get; set; }
 	public Guid? CategoryId { get; set; }
 	public Guid? MealId { get; set; }
-	
+
 	public CanonicalItem? CanonicalItem { get; set; }
 	public Receipt? Receipt { get; set; }
 	public Category? Category { get; set; }

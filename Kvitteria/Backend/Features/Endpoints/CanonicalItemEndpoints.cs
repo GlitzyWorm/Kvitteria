@@ -59,13 +59,15 @@ static class CanonicalItemEndpoints
 				                  };
 
 				                  dbContext.CanonicalItems.Add(canonicalItem);
-				                  await dbContext.SaveChangesAsync(ct);
+				                  if (!await dbContext.TrySaveChangesAsync(ct))
+					                  return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A canonical item named '{canonicalItemDto.DisplayName}' already exists.");
 
 				                  return Results.Created($"/canonical-items/{canonicalItem.Id}", canonicalItem.ToDto());
 			                  })
 			                  .WithName("CreateCanonicalItem")
 			                  .Produces<CanonicalItemDto>()
-			                  .ProducesProblem(StatusCodes.Status400BadRequest);
+			                  .ProducesProblem(StatusCodes.Status400BadRequest)
+			                  .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// PATCH /canonical-items/{id}
 			canonicalItemGroup.MapPatch("/{id:guid}", async (Guid id, UpdateCanonicalItemDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -108,14 +110,16 @@ static class CanonicalItemEndpoints
 				                  else if (dto.DefaultMealId != null)
 					                  canonicalItem.DefaultMealId = dto.DefaultMealId;
 
-				                  await dbContext.SaveChangesAsync(ct);
+				                  if (!await dbContext.TrySaveChangesAsync(ct))
+					                  return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A canonical item named '{dto.DisplayName}' already exists.");
 
 				                  return Results.Ok(canonicalItem.ToDto());
 			                  })
 			                  .WithName("UpdateCanonicalItem")
 			                  .Produces<CanonicalItemDto>()
 			                  .ProducesProblem(StatusCodes.Status400BadRequest)
-			                  .ProducesProblem(StatusCodes.Status404NotFound);
+			                  .ProducesProblem(StatusCodes.Status404NotFound)
+			                  .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// TODO: Implement DELETE /canonical-items/{id} endpoint if needed
 		}

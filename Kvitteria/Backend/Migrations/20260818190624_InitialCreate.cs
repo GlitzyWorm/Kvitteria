@@ -20,7 +20,7 @@ namespace Backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ParentCategoryId = table.Column<Guid>(type: "uuid", nullable: true),
-                    DisplayName = table.Column<string>(type: "citext", nullable: false),
+                    DisplayName = table.Column<string>(type: "citext", maxLength: 200, nullable: false),
                     SortOrder = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -39,7 +39,7 @@ namespace Backend.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    DisplayName = table.Column<string>(type: "text", nullable: false),
+                    DisplayName = table.Column<string>(type: "citext", maxLength: 200, nullable: false),
                     SortOrder = table.Column<int>(type: "integer", nullable: false),
                     TracksDayCoverage = table.Column<bool>(type: "boolean", nullable: false)
                 },
@@ -53,7 +53,7 @@ namespace Backend.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false)
+                    Name = table.Column<string>(type: "citext", maxLength: 200, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -65,7 +65,7 @@ namespace Backend.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    DisplayName = table.Column<string>(type: "text", nullable: false),
+                    DisplayName = table.Column<string>(type: "citext", maxLength: 200, nullable: false),
                     CategoryId = table.Column<Guid>(type: "uuid", nullable: true),
                     DefaultMealId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
@@ -93,10 +93,12 @@ namespace Backend.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     MerchantId = table.Column<Guid>(type: "uuid", nullable: false),
                     PurchaseDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    GrandTotal = table.Column<decimal>(type: "numeric", nullable: false),
-                    PantTotal = table.Column<decimal>(type: "numeric", nullable: false),
+                    GrandTotal = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    PantTotal = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
                     Reconciled = table.Column<bool>(type: "boolean", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false)
+                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    SourceMessageId = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: true),
+                    Error = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -106,7 +108,7 @@ namespace Backend.Migrations
                         column: x => x.MerchantId,
                         principalTable: "Merchants",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -114,7 +116,7 @@ namespace Backend.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RawName = table.Column<string>(type: "text", nullable: false),
+                    RawName = table.Column<string>(type: "citext", maxLength: 300, nullable: false),
                     CanonicalItemId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
@@ -134,11 +136,11 @@ namespace Backend.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ReceiptId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RawName = table.Column<string>(type: "text", nullable: false),
+                    RawName = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
                     CanonicalItemId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Quantity = table.Column<short>(type: "smallint", nullable: false),
-                    UnitPrice = table.Column<decimal>(type: "numeric", nullable: false),
-                    LineTotal = table.Column<decimal>(type: "numeric", nullable: false),
+                    Quantity = table.Column<decimal>(type: "numeric(10,3)", precision: 10, scale: 3, nullable: false),
+                    UnitPrice = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
+                    LineTotal = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: false),
                     CategoryId = table.Column<Guid>(type: "uuid", nullable: true),
                     MealId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
@@ -149,7 +151,8 @@ namespace Backend.Migrations
                         name: "FK_ReceiptLines_CanonicalItems_CanonicalItemId",
                         column: x => x.CanonicalItemId,
                         principalTable: "CanonicalItems",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_ReceiptLines_Categories_CategoryId",
                         column: x => x.CategoryId,
@@ -176,12 +179,12 @@ namespace Backend.Migrations
                 {
                     ReceiptId = table.Column<Guid>(type: "uuid", nullable: false),
                     MealId = table.Column<Guid>(type: "uuid", nullable: false),
-                    DaysCovered = table.Column<int>(type: "integer", nullable: false),
-                    ReceiptId1 = table.Column<Guid>(type: "uuid", nullable: true)
+                    DaysCovered = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ReceiptMealCoverages", x => new { x.ReceiptId, x.MealId });
+                    table.CheckConstraint("CK_ReceiptMealCoverages_DaysCovered", "\"DaysCovered\" >= 0 AND \"DaysCovered\" <= 31");
                     table.ForeignKey(
                         name: "FK_ReceiptMealCoverages_Meals_MealId",
                         column: x => x.MealId,
@@ -194,11 +197,6 @@ namespace Backend.Migrations
                         principalTable: "Receipts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ReceiptMealCoverages_Receipts_ReceiptId1",
-                        column: x => x.ReceiptId1,
-                        principalTable: "Receipts",
-                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateIndex(
@@ -210,6 +208,12 @@ namespace Backend.Migrations
                 name: "IX_CanonicalItems_DefaultMealId",
                 table: "CanonicalItems",
                 column: "DefaultMealId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CanonicalItems_DisplayName",
+                table: "CanonicalItems",
+                column: "DisplayName",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Categories_DisplayName",
@@ -231,9 +235,21 @@ namespace Backend.Migrations
                 column: "CanonicalItemId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ItemAliases_RawName",
+                table: "ItemAliases",
+                column: "RawName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Meals_DisplayName",
                 table: "Meals",
                 column: "DisplayName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Merchants_Name",
+                table: "Merchants",
+                column: "Name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -262,14 +278,25 @@ namespace Backend.Migrations
                 column: "MealId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ReceiptMealCoverages_ReceiptId1",
-                table: "ReceiptMealCoverages",
-                column: "ReceiptId1");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Receipts_MerchantId",
                 table: "Receipts",
                 column: "MerchantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Receipts_PurchaseDate",
+                table: "Receipts",
+                column: "PurchaseDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Receipts_SourceMessageId",
+                table: "Receipts",
+                column: "SourceMessageId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Receipts_Status",
+                table: "Receipts",
+                column: "Status");
         }
 
         /// <inheritdoc />

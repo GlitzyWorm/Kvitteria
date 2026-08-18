@@ -1,6 +1,6 @@
 ﻿namespace Backend.Features.Persistence.Model.Receipts;
 
-public class Category
+public sealed class Category
 {
 	public Guid Id { get; set; }
 	public Guid? ParentCategoryId { get; set; }

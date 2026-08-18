@@ -11,7 +11,7 @@ public sealed record ExtractedReceipt(
 
 public sealed record ExtractedLineItem(
 	string RawName,
-	short Quantity,
+	decimal Quantity,
 	string Unit,
 	decimal UnitPrice,
 	decimal LineTotal

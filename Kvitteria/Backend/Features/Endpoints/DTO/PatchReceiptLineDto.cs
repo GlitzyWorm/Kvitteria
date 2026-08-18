@@ -2,7 +2,7 @@
 
 public record PatchReceiptLineDto(
 	string? RawName,
-	short? Quantity,
+	decimal? Quantity,
 	decimal? UnitPrice,
 	decimal? LineTotal
 );
