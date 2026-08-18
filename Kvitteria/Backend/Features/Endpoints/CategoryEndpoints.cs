@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Categories;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -7,8 +8,7 @@ namespace Backend.Features.Endpoints;
 
 static class CategoryEndpoints
 {
-	// Root (1) -> child (2) -> grandchild (3). A grandchild cannot have children.
-	private const int MaxDepth = 3;
+	private const int MaxDepth = CategoryTree.MaxDepth;
 
 	extension(RouteGroupBuilder app)
 	{
@@ -56,24 +56,25 @@ static class CategoryEndpoints
 
 				             string displayName = dto.DisplayName.Trim();
 
+				             // One projection of the whole taxonomy replaces the per-level depth walk, the sibling-name
+				             // query and the sort-order query.
+				             CategoryTree tree = await CategoryTree.LoadAsync(dbContext, ct);
+
 				             if (dto.ParentCategoryId != null)
 				             {
-					             int? parentDepth = await FindDepth(dto.ParentCategoryId.Value, dbContext, ct);
-
-					             switch (parentDepth)
+					             switch (tree.Depth(dto.ParentCategoryId.Value))
 					             {
 						             case null:
 							             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Parent category with id {dto.ParentCategoryId} not found");
 						             case >= MaxDepth:
 							             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"Cannot create a category under {dto.ParentCategoryId}: maximum depth of {MaxDepth} would be exceeded.");
 					             }
-
 				             }
 
-				             if (await IsSiblingNameTaken(dto.ParentCategoryId, displayName, null, dbContext, ct))
+				             if (tree.IsSiblingNameTaken(dto.ParentCategoryId, displayName, null))
 					             return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A category named '{displayName}' already exists under this parent.");
 
-				             int? max = await FindSortOrderMax(dto.ParentCategoryId, dbContext, ct);
+				             int? max = tree.MaxSortOrder(dto.ParentCategoryId);
 
 				             var category = new Category {
 					             DisplayName = displayName,
@@ -102,6 +103,8 @@ static class CategoryEndpoints
 				             if (category == null)
 					             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {id} not found");
 
+				             CategoryTree tree = await CategoryTree.LoadAsync(dbContext, ct);
+
 				             if (dto is { ClearParent: true, ParentCategoryId: not null })
 					             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"ClearParent cannot be combined with a ParentCategoryId.");
 
@@ -120,29 +123,29 @@ static class CategoryEndpoints
 						             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"A category cannot be its own parent.");
 
 					             // Checked before the depth walk: a cycle would make the ancestor chain meaningless.
-					             if (await IsDescendantOf(newParentId, id, dbContext, ct))
+					             if (tree.IsSelfOrDescendantOf(newParentId, id))
 						             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"Cannot move a category under its own descendant.");
 
-					             int? parentDepth = await FindDepth(newParentId, dbContext, ct);
+					             int? parentDepth = tree.Depth(newParentId);
 
 					             if (parentDepth == null)
 						             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Parent category with id {newParentId} not found");
 
-					             int resultingDepth = parentDepth.Value+await FindSubtreeHeight(id, dbContext, ct);
+					             int resultingDepth = parentDepth.Value+tree.SubtreeHeight(id);
 
 					             if (resultingDepth > MaxDepth)
 						             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"Cannot move category: resulting depth would be {resultingDepth}, maximum is {MaxDepth}.");
 				             }
 
 				             if ((isReparenting || displayName != category.DisplayName)
-				                 && await IsSiblingNameTaken(targetParentId, displayName, id, dbContext, ct))
+				                 && tree.IsSiblingNameTaken(targetParentId, displayName, id))
 					             return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A category named '{displayName}' already exists under this parent.");
 
 				             category.DisplayName = displayName;
 
 				             if (isReparenting)
 				             {
-					             int? max = await FindSortOrderMax(targetParentId, dbContext, ct);
+					             int? max = tree.MaxSortOrder(targetParentId);
 
 					             category.ParentCategoryId = targetParentId;
 					             category.SortOrder = (max ?? -1)+1;
@@ -192,93 +195,4 @@ static class CategoryEndpoints
 			             .ProducesProblem(StatusCodes.Status404NotFound);
 		}
 	}
-
-	private static async Task<int?> FindSortOrderMax(Guid? parentCategoryId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		int? max = await dbContext.Categories
-		                          .Where(cat => cat.ParentCategoryId == parentCategoryId)
-		                          .MaxAsync(cat => (int?)cat.SortOrder, ct);
-		return max;
-	}
-
-	/// <summary>Depth of the category counted from the root (a root is 1), or null when it does not exist.</summary>
-	private static async Task<int?> FindDepth(Guid categoryId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		Guid? currentId = categoryId;
-		var depth = 0;
-
-		// Bounded so that pre-existing cyclic data cannot hang the request.
-		while (currentId != null && depth <= MaxDepth)
-		{
-			Guid lookupId = currentId.Value;
-
-			var current = await dbContext.Categories
-			                             .Where(cat => cat.Id == lookupId)
-			                             .Select(cat => new { cat.ParentCategoryId })
-			                             .FirstOrDefaultAsync(ct);
-
-			if (current == null)
-				return depth == 0 ? null : depth;
-
-			depth++;
-			currentId = current.ParentCategoryId;
-		}
-
-		return depth;
-	}
-
-	/// <summary>Number of levels in the subtree rooted at the category; a leaf is 1.</summary>
-	private static async Task<int> FindSubtreeHeight(Guid categoryId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		List<Guid> level = [categoryId];
-		var height = 1;
-
-		while (height <= MaxDepth)
-		{
-			List<Guid> children = await dbContext.Categories
-			                                     .Where(cat => cat.ParentCategoryId != null && level.Contains(cat.ParentCategoryId.Value))
-			                                     .Select(cat => cat.Id)
-			                                     .ToListAsync(ct);
-
-			if (children.Count == 0)
-				break;
-
-			height++;
-			level = children;
-		}
-
-		return height;
-	}
-
-	/// <summary>True when the candidate parent is the category itself or one of its descendants.</summary>
-	private static async Task<bool> IsDescendantOf(Guid candidateParentId, Guid categoryId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		Guid? currentId = candidateParentId;
-
-		for (var i = 0; i <= MaxDepth && currentId != null; i++)
-		{
-			if (currentId == categoryId)
-				return true;
-
-			Guid lookupId = currentId.Value;
-
-			currentId = await dbContext.Categories
-			                           .Where(cat => cat.Id == lookupId)
-			                           .Select(cat => cat.ParentCategoryId)
-			                           .FirstOrDefaultAsync(ct);
-		}
-
-		return false;
-	}
-
-	private static async Task<bool> IsSiblingNameTaken(Guid? parentCategoryId, string displayName, Guid? excludeId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		// DisplayName is citext, so this matches the case-insensitive unique indexes on Category.
-		return await dbContext.Categories
-		                      .AnyAsync(cat => cat.ParentCategoryId == parentCategoryId
-		                                       && cat.DisplayName == displayName
-		                                       && (excludeId == null || cat.Id != excludeId), ct);
-	}
-
-	/// <summary>Backstop for two requests racing past the sibling-name check. False on a unique violation.</summary>
 }
