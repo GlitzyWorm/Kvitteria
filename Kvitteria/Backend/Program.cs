@@ -13,6 +13,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // TODO: Testing config.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
+builder.Services.AddProblemDetails();
+
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	DatabaseOptions databaseOptions = sp.GetRequiredService<IOptionsMonitor<DatabaseOptions>>().CurrentValue;

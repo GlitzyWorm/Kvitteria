@@ -1,6 +1,7 @@
-﻿namespace Backend.Features.Endpoints.DTO;
+namespace Backend.Features.Endpoints.DTO;
 
 public record UpdateCategoryDto(
 	string? DisplayName,
-	Guid? ParentCategoryId
+	Guid? ParentCategoryId,
+	bool ClearParent = false
 );
