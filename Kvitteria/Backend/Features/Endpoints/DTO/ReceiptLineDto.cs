@@ -15,7 +15,7 @@ public record ReceiptLineDto(
 	string? CategoryDisplayName
 );
 
-public static class ReceiptLineExtensions
+public static class ReceiptLineDtoExtension
 {
 	public static ReceiptLineDto ToDto(this ReceiptLine receiptLine)
 	{

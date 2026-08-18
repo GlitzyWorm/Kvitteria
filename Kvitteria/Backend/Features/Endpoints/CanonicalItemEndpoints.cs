@@ -15,8 +15,8 @@ static class CanonicalItemEndpoints
 
 			// GET /canonical-items?search=&page=&pageSize=
 			canonicalItemGroup.MapGet("/", async (string? search, KvitteriaDbContext dbContext, CancellationToken ct, int pageSize = 10, int page = 1) => {
-				                  if (page < 1 || pageSize < 1 || pageSize > 100)
-					                  return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
+				                  if (!Paging.TryValidate(page, pageSize, out IResult pagingProblem))
+					                  return pagingProblem;
 
 				                  IQueryable<CanonicalItem> query = dbContext.CanonicalItems
 				                                                             .Where(ci => (search == null || ci.DisplayName.Contains(search)))

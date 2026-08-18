@@ -1,6 +1,7 @@
 ﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Receipts;
 using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
@@ -178,7 +179,7 @@ static class ReceiptLineEndpoints
 
 				                // Coverage is only valid while a line still carries the meal it describes.
 				                if (previousMealId != null && previousMealId != receiptLine.MealId)
-					                await ClearOrphanedCoverage(receiptLine.ReceiptId, previousMealId.Value, receiptLineId, dbContext, ct);
+					                await MealCoverage.ClearOrphanedAsync(dbContext, receiptLine.ReceiptId, previousMealId.Value, receiptLineId, ct);
 
 				                await dbContext.SaveChangesAsync(ct);
 
@@ -189,24 +190,5 @@ static class ReceiptLineEndpoints
 			                .ProducesProblem(StatusCodes.Status400BadRequest)
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 		}
-	}
-
-	/// <summary>Removes the receipt's coverage row for a meal once no line on that receipt carries it.</summary>
-	private static async Task ClearOrphanedCoverage(Guid receiptId, Guid mealId, Guid excludedReceiptLineId, KvitteriaDbContext dbContext, CancellationToken ct)
-	{
-		// The current line's new MealId is not saved yet, so it is excluded by id rather than by value.
-		bool stillAssigned = await dbContext.ReceiptLines
-		                                    .AnyAsync(rl => rl.ReceiptId == receiptId
-		                                                    && rl.MealId == mealId
-		                                                    && rl.Id != excludedReceiptLineId, ct);
-
-		if (stillAssigned)
-			return;
-
-		ReceiptMealCoverage? coverage = await dbContext.ReceiptMealCoverages
-		                                               .FirstOrDefaultAsync(c => c.ReceiptId == receiptId && c.MealId == mealId, ct);
-
-		if (coverage != null)
-			dbContext.ReceiptMealCoverages.Remove(coverage);
 	}
 }

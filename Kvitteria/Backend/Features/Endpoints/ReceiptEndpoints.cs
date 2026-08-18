@@ -1,14 +1,13 @@
 ﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Receipts;
 using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
 
 public static class ReceiptEndpoints
 {
-	private const int MinDaysCovered = 0;
-	private const int MaxDaysCovered = 31;
 
 	extension(RouteGroupBuilder app)
 	{
@@ -36,8 +35,8 @@ public static class ReceiptEndpoints
 				            CancellationToken ct,
 				            int pageSize = 10,
 				            int page = 1) => {
-				            if (page < 1 || pageSize < 1 || pageSize > 100)
-					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
+				            if (!Paging.TryValidate(page, pageSize, out IResult pagingProblem))
+					            return pagingProblem;
 
 				            IQueryable<Receipt> query = dbContext.Receipts
 				                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
@@ -48,12 +47,22 @@ public static class ReceiptEndpoints
 
 				            int totalCount = await query.CountAsync(ct);
 
+				            // Same navigations as the detail route, so ReceiptDto has one shape on both. AsSplitQuery
+				            // because two collection includes in one statement multiply rows against each other.
 				            List<ReceiptDto> receiptDtos = await query
-				                                                 .Include(r => r.Merchant)
-				                                                 .Include(r => r.ReceiptLines)
 				                                                 .OrderByDescending(r => r.PurchaseDate)
 				                                                 .Skip((page-1)*pageSize)
 				                                                 .Take(pageSize)
+				                                                 .Include(r => r.Merchant)
+				                                                 .Include(r => r.ReceiptLines)
+				                                                 .ThenInclude(rl => rl.CanonicalItem)
+				                                                 .Include(r => r.ReceiptLines)
+				                                                 .ThenInclude(rl => rl.Meal)
+				                                                 .Include(r => r.ReceiptLines)
+				                                                 .ThenInclude(rl => rl.Category)
+				                                                 .Include(r => r.MealCoverage)
+				                                                 .ThenInclude(c => c.Meal)
+				                                                 .AsSplitQuery()
 				                                                 .Select(r => r.ToDto())
 				                                                 .ToListAsync(ct);
 
@@ -76,6 +85,7 @@ public static class ReceiptEndpoints
 				                                              .Include(r => r.MealCoverage)
 				                                              .ThenInclude(c => c.Meal)
 				                                              .AsNoTracking()
+				                                              .AsSplitQuery()
 				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
 
 				            if (receipt == null)
@@ -92,25 +102,17 @@ public static class ReceiptEndpoints
 				            if (dto.Coverage == null)
 					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"Coverage is required. Send an empty array to clear all coverage.");
 
+				            // Only the coverage rows are needed here; the assigned meals are projected below
+				            // rather than by materialising every line of the receipt.
 				            Receipt? receipt = await dbContext.Receipts
-				                                              .Include(r => r.ReceiptLines)
 				                                              .Include(r => r.MealCoverage)
 				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
 
 				            if (receipt == null)
 					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
 
-				            // Ensure no duplicate meal ids are provided
-				            List<Guid> duplicateIds = dto.Coverage.GroupBy(c => c.MealId)
-				                                         .Where(g => g.Count() > 1)
-				                                         .Select(g => g.Key)
-				                                         .ToList();
-
-				            if (duplicateIds.Count != 0)
-					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"Coverage contains duplicate meal ids: {string.Join(", ", duplicateIds)}");
-
-				            if (dto.Coverage.Any(c => c.DaysCovered is < MinDaysCovered or > MaxDaysCovered))
-					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"DaysCovered must be between {MinDaysCovered} and {MaxDaysCovered}.");
+				            if (!MealCoverage.TryValidate(dto.Coverage, out IResult coverageProblem))
+					            return coverageProblem;
 
 				            List<Guid> mealIds = dto.Coverage.Select(c => c.MealId).ToList();
 
@@ -119,13 +121,12 @@ public static class ReceiptEndpoints
 				                                              .AsNoTracking()
 				                                              .ToListAsync(ct);
 
-				            // Ensure no unknown meal ids are provided
 				            List<Guid> missingIds = mealIds.Except(meals.Select(m => m.Id)).ToList();
 
 				            if (missingIds.Count != 0)
 					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Meals not found: {string.Join(", ", missingIds)}");
 
-				            // Ensure only meals that support day tracking are provided
+				            // Only meals that opt into day tracking can carry coverage.
 				            List<string> unsupported = meals.Where(m => !m.TracksDayCoverage)
 				                                            .Select(m => m.DisplayName)
 				                                            .ToList();
@@ -133,11 +134,12 @@ public static class ReceiptEndpoints
 				            if (unsupported.Count != 0)
 					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"Day coverage is not supported for: {string.Join(", ", unsupported)}.");
 
-				            // Coverage must describe meals the receipt actually has lines for
-				            HashSet<Guid> assignedMealIds = receipt.ReceiptLines
-				                                                   .Where(rl => rl.MealId != null)
-				                                                   .Select(rl => rl.MealId!.Value)
-				                                                   .ToHashSet();
+				            // Coverage must describe meals the receipt actually has lines for.
+				            HashSet<Guid> assignedMealIds = await dbContext.ReceiptLines
+				                                                           .Where(rl => rl.ReceiptId == id && rl.MealId != null)
+				                                                           .Select(rl => rl.MealId!.Value)
+				                                                           .Distinct()
+				                                                           .ToHashSetAsync(ct);
 
 				            List<string> unassigned = meals.Where(m => !assignedMealIds.Contains(m.Id))
 				                                           .Select(m => m.DisplayName)
@@ -148,22 +150,7 @@ public static class ReceiptEndpoints
 
 				            Dictionary<Guid, int> desired = dto.Coverage.ToDictionary(c => c.MealId, c => c.DaysCovered);
 
-				            HashSet<Guid> existingMealIds = receipt.MealCoverage.Select(c => c.MealId).ToHashSet();
-
-				            foreach (ReceiptMealCoverage existing in receipt.MealCoverage.ToList())
-				            {
-					            if (desired.TryGetValue(existing.MealId, out int days))
-						            existing.DaysCovered = days;
-					            else
-						            dbContext.ReceiptMealCoverages.Remove(existing);
-				            }
-
-				            foreach ((Guid mealId, int days) in desired.Where(kvp => !existingMealIds.Contains(kvp.Key)))
-					            dbContext.ReceiptMealCoverages.Add(new ReceiptMealCoverage {
-						            ReceiptId = id,
-						            MealId = mealId,
-						            DaysCovered = days
-					            });
+				            MealCoverage.Apply(dbContext, MealCoverage.Diff(id, receipt.MealCoverage, desired));
 
 				            await dbContext.SaveChangesAsync(ct);
 

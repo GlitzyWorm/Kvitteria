@@ -164,11 +164,8 @@ static class CategoryEndpoints
 
 			// PUT /category/order
 			categoryGroup.MapPut("/order", async (PutCategoryOrderDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				             if (dto.OrderedIds == null || dto.OrderedIds.Count == 0)
-					             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds is required and must not be empty.");
-
-				             // Without this an unknown parent yields zero siblings, which used to pass the
-				             // count check whenever OrderedIds was also empty and return 200 with [].
+				             // An unknown parent otherwise yields zero siblings, which used to pass the count check
+				             // whenever OrderedIds was also empty and return 200 with [].
 				             if (dto.ParentCategoryId != null &&
 				                 !await dbContext.Categories.AnyAsync(cat => cat.Id == dto.ParentCategoryId, ct))
 					             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {dto.ParentCategoryId} not found");
@@ -177,13 +174,9 @@ static class CategoryEndpoints
 				                                                      .Where(cat => cat.ParentCategoryId == dto.ParentCategoryId)
 				                                                      .ToListAsync(ct);
 
-				             if (siblings.Count != dto.OrderedIds.Count || !siblings.All(cat => dto.OrderedIds.Contains(cat.Id)))
-					             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds must contain exactly the children of that parent.");
-
-				             Dictionary<Guid, Category> siblingsById = siblings.ToDictionary(cat => cat.Id);
-
-				             for (var i = 0; i < dto.OrderedIds.Count; i++)
-					             siblingsById[dto.OrderedIds[i]].SortOrder = i;
+				             if (!Reorder.TryApply(siblings, dto.OrderedIds, cat => cat.Id, (cat, order) => cat.SortOrder = order,
+				                                   out IResult reorderProblem))
+					             return reorderProblem;
 
 				             await dbContext.SaveChangesAsync(ct);
 

@@ -15,8 +15,8 @@ static class ItemAliasEndpoints
 
 			// GET /aliases?search=&canonicalId&page=&pageSize=
 			aliasGroup.MapGet("/", async (string? search, Guid? canonicalItemId, KvitteriaDbContext dbContext, CancellationToken ct, int pageSize = 10, int page = 1) => {
-				          if (page < 1 || pageSize < 1 || pageSize > 100)
-					          return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"page must be >= 1 and pageSize must be between 1 and 100");
+				          if (!Paging.TryValidate(page, pageSize, out IResult pagingProblem))
+					          return pagingProblem;
 
 				          IQueryable<ItemAlias> query = dbContext.ItemAliases
 				                                                 .Include(ia => ia.CanonicalItem)
@@ -40,13 +40,13 @@ static class ItemAliasEndpoints
 
 			// DELETE /aliases/{id}
 			aliasGroup.MapDelete("/{aliasId:guid}", async (Guid aliasId, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				ItemAlias? itemAlias = await dbContext.ItemAliases.FirstOrDefaultAsync(ia => ia.Id == aliasId, ct);
+				// One statement rather than load-then-delete; the affected-row count gives us the 404.
+				int deleted = await dbContext.ItemAliases
+				                            .Where(ia => ia.Id == aliasId)
+				                            .ExecuteDeleteAsync(ct);
 
-				if (itemAlias == null)
+				if (deleted == 0)
 					return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Item alias with id {aliasId} not found");
-
-				dbContext.ItemAliases.Remove(itemAlias);
-				await dbContext.SaveChangesAsync(ct);
 
 				return Results.NoContent();
 			})

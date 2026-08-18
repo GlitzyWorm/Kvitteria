@@ -8,7 +8,7 @@ public record MealDto(
 	bool TracksDayCoverage
 );
 
-public static class MealDtoDtoExtension
+public static class MealDtoExtension
 {
 	public static MealDto ToDto(this Meal meal)
 	{

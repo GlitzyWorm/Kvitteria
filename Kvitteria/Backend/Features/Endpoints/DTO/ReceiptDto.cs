@@ -15,6 +15,11 @@ public record ReceiptDto(
 );
 public static class ReceiptDtoExtension
 {
+	/// <summary>
+	/// Requires Merchant, ReceiptLines (with their CanonicalItem/Meal/Category) and MealCoverage.Meal
+	/// to be included. Both receipt routes include all of them; the list route did not, which is why
+	/// display names used to come back null there.
+	/// </summary>
 	public static ReceiptDto ToDto(this Receipt receipt)
 	{
 		return new ReceiptDto(

@@ -1,6 +1,7 @@
 ﻿using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
 
@@ -41,18 +42,11 @@ static class MealEndpoints
 
 			// PUT /meals/order
 			mealGroup.MapPut("/order", async (PutMealOrderDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				         if (dto.OrderedIds == null || dto.OrderedIds.Count == 0)
-					         return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds is required and must not be empty.");
-
 				         List<Meal> meals = await dbContext.Meals.ToListAsync(ct);
 
-				         if (meals.Count != dto.OrderedIds.Count || !meals.All(m => dto.OrderedIds.Contains(m.Id)))
-					         return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"OrderedIds must contain all meal ids");
-
-				         Dictionary<Guid, Meal> mealsById = meals.ToDictionary(m => m.Id);
-
-				         for (var i = 0; i < dto.OrderedIds.Count; i++)
-					         mealsById[dto.OrderedIds[i]].SortOrder = i;
+				         if (!Reorder.TryApply(meals, dto.OrderedIds, m => m.Id, (m, order) => m.SortOrder = order,
+				                               out IResult reorderProblem))
+					         return reorderProblem;
 
 				         await dbContext.SaveChangesAsync(ct);
 
