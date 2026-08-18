@@ -8,12 +8,13 @@ using Backend.Features.Persistence.Repository.Implementation;
 using Backend.Features.Persistence.Repository.Interface;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Scalar.AspNetCore;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // TODO: Testing config.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
-builder.Services.AddOpenApi("documentation");
+builder.Services.AddOpenApi();
 
 builder.Services.AddProblemDetails();
 
@@ -41,6 +42,13 @@ builder.Services.AddSingleton<PersistenceQueue>();
 builder.Services.AddHostedService<ReceiptFactoryWorker>();
 
 WebApplication app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+	app.MapOpenApi();
+	app.MapScalarApiReference();
+}
+
 RouteGroupBuilder group = app.MapGroup("/api");
 
 group.MapReceiptEndpoints();
