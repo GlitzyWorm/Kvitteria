@@ -8,12 +8,16 @@ public record ReceiptLineDto(
 	decimal UnitPrice,
 	decimal LineTotal,
 	Guid? CanonicalItemId,
-	string? CanonicalItemDisplayName
+	string? CanonicalItemDisplayName,
+	Guid? MealId,
+	string? MealDisplayName,
+	Guid? CategoryId,
+	string? CategoryDisplayName
 );
 
 public static class ReceiptLineExtensions
 {
-	public static ReceiptLineDto ToDto(this ReceiptLine receiptLine, CanonicalItem? canonicalItem)
+	public static ReceiptLineDto ToDto(this ReceiptLine receiptLine)
 	{
 		return new ReceiptLineDto(
 			receiptLine.Id,
@@ -22,7 +26,11 @@ public static class ReceiptLineExtensions
 			receiptLine.UnitPrice,
 			receiptLine.LineTotal,
 			receiptLine.CanonicalItemId,
-			canonicalItem?.DisplayName
+			receiptLine.CanonicalItem?.DisplayName,
+			receiptLine.MealId,
+			receiptLine.Meal?.DisplayName,
+			receiptLine.CategoryId,
+			receiptLine.Category?.DisplayName
 		);
 	}
 }

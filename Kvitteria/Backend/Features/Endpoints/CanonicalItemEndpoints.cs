@@ -72,17 +72,25 @@ static class CanonicalItemEndpoints
 			                  .ProducesProblem(StatusCodes.Status400BadRequest);
 
 			// PATCH /canonical-items/{id}
-			canonicalItemGroup.MapPatch("/{id:guid}", async (Guid id, CreateCanonicalItemDto canonicalItemDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			canonicalItemGroup.MapPatch("/{id:guid}", async (Guid id, UpdateCanonicalItemDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				                  CanonicalItem? canonicalItem = await dbContext.CanonicalItems
 				                                                                .FirstOrDefaultAsync(ci => ci.Id == id, ct);
 
 				                  if (canonicalItem == null)
 					                  return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Canonical item with id {id} not found");
 
-				                  if (string.IsNullOrWhiteSpace(canonicalItemDto.DisplayName))
+				                  if (string.IsNullOrWhiteSpace(dto.DisplayName))
 					                  return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"DisplayName is required");
+				                  
+				                  switch (dto)
+				                  {
+					                  case { ClearCategory: true, CategoryId: not null }:
+						                  return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"ClearCategory cannot be combined with a CategoryId.");
+					                  case { ClearDefaultMeal: true, DefaultMealId: not null }:
+						                  return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"ClearDefaultMeal cannot be combined with a DefaultMealId.");
+				                  }
 
-				                  canonicalItem.DisplayName = canonicalItemDto.DisplayName;
+				                  canonicalItem.DisplayName = dto.DisplayName;
 				                  await dbContext.SaveChangesAsync(ct);
 
 				                  return Results.Ok(canonicalItem.ToDto());

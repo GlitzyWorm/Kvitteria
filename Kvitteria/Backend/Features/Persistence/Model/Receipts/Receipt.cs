@@ -10,6 +10,7 @@ public sealed class Receipt
 	public decimal PantTotal { get; set; }
 	public bool Reconciled { get; set; }
 	public ReceiptStatus Status { get; set; }
+	public List<ReceiptMealCoverage> MealCoverage { get; set; } = [];
 
 	public Merchant? Merchant { get; set; }
 	public List<ReceiptLine> ReceiptLines { get; set; } = [];

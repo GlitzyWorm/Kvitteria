@@ -110,6 +110,9 @@ namespace Backend.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("TracksDayCoverage")
+                        .HasColumnType("boolean");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DisplayName")
@@ -208,6 +211,29 @@ namespace Backend.Migrations
                     b.ToTable("ReceiptLines");
                 });
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ReceiptMealCoverage", b =>
+                {
+                    b.Property<Guid>("ReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MealId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DaysCovered")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ReceiptId1")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ReceiptId", "MealId");
+
+                    b.HasIndex("MealId");
+
+                    b.HasIndex("ReceiptId1");
+
+                    b.ToTable("ReceiptMealCoverages");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
                 {
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "Category")
@@ -288,6 +314,29 @@ namespace Backend.Migrations
                     b.Navigation("Receipt");
                 });
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.ReceiptMealCoverage", b =>
+                {
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Meal", "Meal")
+                        .WithMany()
+                        .HasForeignKey("MealId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", "Receipt")
+                        .WithMany()
+                        .HasForeignKey("ReceiptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", null)
+                        .WithMany("MealCoverage")
+                        .HasForeignKey("ReceiptId1");
+
+                    b.Navigation("Meal");
+
+                    b.Navigation("Receipt");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Category", b =>
                 {
                     b.Navigation("ChildCategories");
@@ -295,6 +344,8 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
+                    b.Navigation("MealCoverage");
+
                     b.Navigation("ReceiptLines");
                 });
 #pragma warning restore 612, 618

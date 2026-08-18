@@ -9,10 +9,11 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<CanonicalItem> CanonicalItems { get; set; }
 	public DbSet<ItemAlias> ItemAliases { get; set; }
 	public DbSet<Meal> Meals { get; set; }
+	public DbSet<ReceiptMealCoverage> ReceiptMealCoverages { get; set; }
 	public DbSet<Category> Categories { get; set; }
 	public DbSet<Merchant> Merchants { get; set; }
 
-	private static readonly string[] SeedMeals = ["Morgenmad", "Frokost", "Aftensmad", "Snacks"];
+	private static readonly (string Name, bool TracksDayCoverage)[] SeedMeals = [("Morgenmad", false), ("Frokost", false), ("Aftensmad", true), ("Snacks", false)];
 
 	private static readonly (string Name, string[] Children)[] SeedCategories = [
 		("Fødevarer", ["Frugt & Grønt", "Kød & Fisk", "Mejeri & Æg", "Brød & Bageri", "Kolonial", "Frost", "Færdigretter", "Slik & Snacks"]),
@@ -34,11 +35,11 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		modelBuilder.HasPostgresExtension("citext");
 
 		modelBuilder.Entity<Receipt>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 		});
-		
+
 		modelBuilder.Entity<ReceiptLine>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 
 			entity.HasOne(rl => rl.Category)
 			      .WithMany()
@@ -52,7 +53,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		});
 
 		modelBuilder.Entity<CanonicalItem>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 
 			entity.HasOne(ci => ci.Category)
 			      .WithMany()
@@ -64,13 +65,13 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .HasForeignKey(ci => ci.DefaultMealId)
 			      .OnDelete(DeleteBehavior.SetNull);
 		});
-		
+
 		modelBuilder.Entity<ItemAlias>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 		});
-		
+
 		modelBuilder.Entity<Category>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 			entity.Property(e => e.DisplayName).HasColumnType("citext");
 
 			entity.HasOne(c => c.ParentCategory)
@@ -86,14 +87,28 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .IsUnique()
 			      .HasFilter("\"ParentCategoryId\" IS NULL");
 		});
-		
+
 		modelBuilder.Entity<Meal>(entity => {
 			entity.HasKey(e => e.Id);
 			entity.HasIndex(e => e.DisplayName).IsUnique();
 		});
-		
+
+		modelBuilder.Entity<ReceiptMealCoverage>(entity => {
+			entity.HasKey(e => new { e.ReceiptId, e.MealId });
+
+			entity.HasOne(e => e.Receipt)
+			      .WithMany()
+			      .HasForeignKey(e => e.ReceiptId)
+			      .OnDelete(DeleteBehavior.Cascade);
+
+			entity.HasOne(e => e.Meal)
+			      .WithMany()
+			      .HasForeignKey(e => e.MealId)
+			      .OnDelete(DeleteBehavior.Restrict);
+		});
+
 		modelBuilder.Entity<Merchant>(entity => {
-			entity.HasKey(e => new {e.Id});
+			entity.HasKey(e => new { e.Id });
 		});
 	}
 
@@ -108,7 +123,8 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 				for (var i = 0; i < SeedMeals.Length; i++)
 				{
 					context.Set<Meal>().Add(new Meal {
-						DisplayName = SeedMeals[i],
+						DisplayName = SeedMeals[i].Name,
+						TracksDayCoverage = SeedMeals[i].TracksDayCoverage,
 						SortOrder = i
 					});
 				}

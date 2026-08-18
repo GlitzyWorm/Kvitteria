@@ -10,7 +10,8 @@ public record ReceiptDto(
 	decimal PantTotal,
 	bool Reconciled,
 	ReceiptStatus Status,
-	List<ReceiptLineDto> ReceiptLines
+	List<ReceiptLineDto> ReceiptLines,
+	List<ReceiptMealCoverageDto> ReceiptMealCoverage
 );
 public static class ReceiptDtoExtension
 {
@@ -24,9 +25,8 @@ public static class ReceiptDtoExtension
 			receipt.PantTotal,
 			receipt.Reconciled,
 			receipt.Status,
-			receipt.ReceiptLines.Select(rl => new ReceiptLineDto(
-				rl.Id, rl.RawName, rl.Quantity, rl.UnitPrice, rl.LineTotal,
-				rl.CanonicalItemId, rl.CanonicalItem?.DisplayName)).ToList()
+			receipt.ReceiptLines.Select(rl => rl.ToDto()).ToList(),
+			receipt.MealCoverage.OrderBy(mc => mc.Meal!.SortOrder).Select(mc => mc.ToDto()).ToList()
 		);
 	}
 }
