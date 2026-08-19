@@ -9,17 +9,8 @@ namespace Backend.Features.Persistence.Factory;
 /// <summary>
 /// Turns an extraction into persisted rows: resolves the merchant, links known aliases to canonical
 /// items, and inserts the receipt with its lines.
+/// Exceptions propagate; the caller owns failure handling.
 /// </summary>
-/// <remarks>
-/// Replaces IReceiptRepository, which existed for this one caller and whose nullable return types
-/// invited a swallow-and-return-null style: a database outage became "not found", which became a
-/// Guid.Empty merchant, which became a foreign-key violation, which was swallowed in turn. Nothing
-/// here catches — the worker's per-item handler owns failure, so a fault is visible exactly once.
-///
-/// Concrete rather than interface-backed: there is one implementation and one caller, and the
-/// endpoints already inject KvitteriaDbContext directly, so a second persistence convention bought
-/// nothing.
-/// </remarks>
 public sealed class ReceiptIngestionService(
 	KvitteriaDbContext dbContext,
 	ILogger<ReceiptIngestionService> logger)
@@ -62,8 +53,6 @@ public sealed class ReceiptIngestionService(
 
 	private async Task<Guid> ResolveMerchantIdAsync(string merchantName, CancellationToken ct)
 	{
-		// Merchant.Name is citext + unique, so this match is case-insensitive and the database is what
-		// actually guarantees a single row per shop.
 		Guid existingId = await dbContext.Merchants
 		                                 .Where(m => m.Name == merchantName)
 		                                 .Select(m => m.Id)
@@ -83,7 +72,6 @@ public sealed class ReceiptIngestionService(
 
 	private async Task LinkCanonicalItemsAsync(Receipt receipt, CancellationToken ct)
 	{
-		// Normalize once per line, rather than in the projection and again in the loop.
 		List<(ReceiptLine Line, string Normalized)> lines = receipt.ReceiptLines
 			.Select(l => (Line: l, Normalized: l.RawName.NormalizeString()))
 			.ToList();
@@ -105,8 +93,6 @@ public sealed class ReceiptIngestionService(
 				unmatched.Add(line.RawName);
 		}
 
-		// One summary line. Warning-per-line meant a fresh database logged a warning for every line
-		// of every receipt.
 		if (unmatched.Count > 0)
 		{
 			logger.LogInformation(

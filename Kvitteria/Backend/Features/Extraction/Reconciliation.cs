@@ -10,9 +10,8 @@ public static class Reconciliation
 		grandTotal-lineSum-pantTotal;
 
 	/// <summary>
-	/// Danish receipts round to øre, so a delta within <paramref name="toleranceKr"/> of zero counts as
-	/// reconciled. Exact equality made a 1-øre rounding difference burn every retry — up to three full
-	/// model round trips — and then still marked the receipt unreconciled.
+	/// A delta within <paramref name="toleranceKr"/> of zero counts as reconciled. Danish receipts
+	/// round to øre.
 	/// </summary>
 	public static bool IsReconciled(decimal delta, decimal toleranceKr) =>
 		Math.Abs(delta) <= Math.Abs(toleranceKr);

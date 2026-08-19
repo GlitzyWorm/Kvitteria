@@ -56,8 +56,6 @@ static class CategoryEndpoints
 
 				             string displayName = dto.DisplayName.Trim();
 
-				             // One projection of the whole taxonomy replaces the per-level depth walk, the sibling-name
-				             // query and the sort-order query.
 				             CategoryTree tree = await CategoryTree.LoadAsync(dbContext, ct);
 
 				             if (dto.ParentCategoryId != null)
@@ -122,7 +120,7 @@ static class CategoryEndpoints
 					             if (newParentId == id)
 						             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"A category cannot be its own parent.");
 
-					             // Checked before the depth walk: a cycle would make the ancestor chain meaningless.
+					             // Checked before the depth test: a cycle would make the ancestor chain meaningless.
 					             if (tree.IsSelfOrDescendantOf(newParentId, id))
 						             return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"Cannot move a category under its own descendant.");
 
@@ -164,8 +162,7 @@ static class CategoryEndpoints
 
 			// PUT /category/order
 			categoryGroup.MapPut("/order", async (PutCategoryOrderDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				             // An unknown parent otherwise yields zero siblings, which used to pass the count check
-				             // whenever OrderedIds was also empty and return 200 with [].
+				             // An unknown parent yields no siblings, so its existence is checked separately.
 				             if (dto.ParentCategoryId != null &&
 				                 !await dbContext.Categories.AnyAsync(cat => cat.Id == dto.ParentCategoryId, ct))
 					             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {dto.ParentCategoryId} not found");

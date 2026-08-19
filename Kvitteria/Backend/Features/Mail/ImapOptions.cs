@@ -9,10 +9,7 @@ public sealed class ImapOptions : IOptionsSection
 	[Range(1, 86_400)]
 	public int PollIntervalSeconds { get; set; } = 60;
 
-	/// <summary>
-	/// Safety valve on a large unseen backlog. With bounded-channel backpressure, an unbounded first
-	/// poll would otherwise hold the IMAP session open until the server timed it out.
-	/// </summary>
+	/// <summary>Caps one poll so a large unseen backlog cannot hold the IMAP session open indefinitely.</summary>
 	[Range(1, 1_000)]
 	public int MaxMessagesPerPoll { get; set; } = 25;
 
@@ -32,8 +29,7 @@ public sealed class ImapFolderOptions
 	public string MemberEmail { get; set; } = "";
 
 	/// <summary>
-	/// ValidateDataAnnotations does not recurse into collection elements, so per-entry completeness is
-	/// checked here and reported by MailFetcher, which can name the offending member.
+	/// ValidateDataAnnotations does not recurse into collection elements, so entries are checked here.
 	/// </summary>
 	public bool IsComplete() =>
 		!string.IsNullOrWhiteSpace(Host) &&

@@ -4,9 +4,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Persistence;
 
 /// <summary>
-/// Seeds the Danish meal and category taxonomy on first run. Invoked through
-/// <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c> — including the
-/// <c>dotnet ef database update</c> path this project uses.
+/// Seeds the Danish meal and category taxonomy when the tables are empty. Invoked through
+/// <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c>.
 /// </summary>
 // TODO: This could be part of an onboarding flow rather than fixed seed data.
 internal static class DatabaseSeeder
@@ -35,9 +34,6 @@ internal static class DatabaseSeeder
 		if (!needsMeals && !needsCategories)
 			return;
 
-		// Both inserts commit together. Previously they were two independent SaveChanges calls, so a
-		// crash between them left meals seeded and categories not — and the "already seeded" guard
-		// then blocked the categories forever.
 		using IDbContextTransaction transaction = context.Database.BeginTransaction();
 
 		AddPending(context, needsMeals, needsCategories);
@@ -71,14 +67,14 @@ internal static class DatabaseSeeder
 			context.Set<Category>().AddRange(BuildCategories());
 	}
 
-	internal static IEnumerable<Meal> BuildMeals() =>
+	private static IEnumerable<Meal> BuildMeals() =>
 		SeedMeals.Select((meal, index) => new Meal {
 			DisplayName = meal.Name,
 			TracksDayCoverage = meal.TracksDayCoverage,
 			SortOrder = index
 		});
 
-	internal static IEnumerable<Category> BuildCategories() =>
+	private static IEnumerable<Category> BuildCategories() =>
 		SeedCategories.Select((category, index) => {
 			var root = new Category {
 				DisplayName = category.Name,

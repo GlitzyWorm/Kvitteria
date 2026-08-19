@@ -22,9 +22,7 @@ builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(Dat
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	DatabaseOptions databaseOptions = sp.GetRequiredService<IOptionsMonitor<DatabaseOptions>>().CurrentValue;
 	options.UseNpgsql(databaseOptions.ConnectionString);
-
-	// Registered here rather than in OnConfiguring, which re-ran on every DbContext construction.
-	// Both callbacks are needed: EF picks the async one on async migration paths.
+	
 	options.UseSeeding((context, _) => DatabaseSeeder.Seed(context));
 	options.UseAsyncSeeding((context, _, ct) => DatabaseSeeder.SeedAsync(context, ct));
 });

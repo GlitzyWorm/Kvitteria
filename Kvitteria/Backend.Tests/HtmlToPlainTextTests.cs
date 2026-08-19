@@ -1,10 +1,6 @@
 ﻿using Backend.Features.Mail;
 namespace Backend.Tests;
 
-/// <summary>
-/// Silent corruption here degrades extraction accuracy without surfacing an error anywhere, which
-/// makes it the highest-value thing in this project to pin down.
-/// </summary>
 public class HtmlToPlainTextTests
 {
 	[Fact]

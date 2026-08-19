@@ -9,8 +9,7 @@ public static class SaveChangesExtensions
 	{
 		/// <summary>
 		/// Saves, reporting <c>false</c> instead of throwing when a unique index rejects the write.
-		/// Every check-then-insert in this codebase races, so the database constraint — not the
-		/// preceding existence query — is what actually guarantees uniqueness.
+		/// The database constraint, not a preceding existence query, is what guarantees uniqueness.
 		/// </summary>
 		public async Task<bool> TrySaveChangesAsync(CancellationToken ct)
 		{

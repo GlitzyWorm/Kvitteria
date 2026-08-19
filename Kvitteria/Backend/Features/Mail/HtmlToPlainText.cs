@@ -3,9 +3,8 @@ using MimeKit.Text;
 namespace Backend.Features.Mail;
 
 /// <summary>
-/// Minimal HTML-to-text conversion for receipt mails that ship no plain-text alternative.
-/// Deliberately not a full renderer: it keeps block structure as newlines and table cells as tabs,
-/// which is what the extraction prompt expects to read.
+/// Converts receipt mails that ship no plain-text alternative. Block structure becomes newlines and
+/// table cells become tabs; script, style and head content is dropped.
 /// </summary>
 internal static class HtmlToPlainText
 {

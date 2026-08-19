@@ -1,18 +1,14 @@
 ﻿using System.Globalization;
 namespace Backend.Features.Persistence.Factory;
 
-/// <summary>
-/// Converts the model's Copenhagen-local purchase date into UTC. Pure and side-effect free apart
-/// from the fallback log, so the parsing rules are directly testable.
-/// </summary>
+/// <summary>Converts the model's Copenhagen-local purchase date into UTC.</summary>
 public static class PurchaseDate
 {
 	private static readonly TimeZoneInfo DanishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Copenhagen");
 
 	/// <summary>
-	/// The format ReceiptExtractionPrompt asks for, plus the variants the model drifts to. Parsing is
-	/// exact-with-a-fallback rather than DateTime.Parse, because this is unvalidated model output and
-	/// a FormatException here used to kill the receipt factory outright.
+	/// Accepted formats: the one ReceiptExtractionPrompt asks for, plus the variants the model
+	/// drifts to.
 	/// </summary>
 	private static readonly string[] Formats = [
 		"yyyy-MM-dd HH:mm:ss",
@@ -39,9 +35,8 @@ public static class PurchaseDate
 
 	public static DateTime ToUtc(DateTime localDate)
 	{
-		// A receipt stamped inside the spring-forward gap (02:30 on the last Sunday in March) names a
-		// wall-clock time that never existed, and ConvertTimeToUtc throws on it. Nudge it past the
-		// transition instead of failing the whole receipt.
+		// A time inside the spring-forward gap (02:30 on the last Sunday in March) never existed, and
+		// ConvertTimeToUtc throws on it. Nudge it past the transition.
 		if (DanishTimeZone.IsInvalidTime(localDate))
 			localDate = localDate.AddHours(1);
 

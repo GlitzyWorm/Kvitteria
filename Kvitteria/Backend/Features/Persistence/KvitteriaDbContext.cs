@@ -13,7 +13,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<Category> Categories => Set<Category>();
 	public DbSet<Merchant> Merchants => Set<Merchant>();
 
-	/// <summary>Money is kroner with øre; two decimals is the domain, not a guess.</summary>
+	/// <summary>Money is kroner with øre.</summary>
 	private const int MoneyPrecision = 12;
 	private const int MoneyScale = 2;
 
@@ -24,16 +24,15 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	private const int NameLength = 200;
 	private const int RawNameLength = 300;
 
-	/// <summary>Matches MinDaysCovered/MaxDaysCovered in ReceiptEndpoints.</summary>
+	/// <summary>Matches the range MealCoverage enforces.</summary>
 	private const int MaxDaysCovered = 31;
 
-	// Delete policy, stated once so it is a decision rather than an accident:
+	// Delete policy:
 	//  - Lines and meal coverage are owned by their receipt      -> Cascade.
 	//  - An alias is meaningless without its canonical item      -> Cascade.
 	//  - Classification is optional metadata, never owning        -> SetNull.
 	//  - Anything a row depends on for identity or history        -> Restrict.
-	// Receipt -> Merchant is the important one: by convention it was Cascade, so deleting a
-	// merchant silently deleted every receipt for that shop.
+	// Receipt -> Merchant is Restrict: deleting a merchant must not delete its receipts.
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
 		base.OnModelCreating(modelBuilder);
@@ -46,8 +45,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			entity.Property(e => e.GrandTotal).HasPrecision(MoneyPrecision, MoneyScale);
 			entity.Property(e => e.PantTotal).HasPrecision(MoneyPrecision, MoneyScale);
 
-			// Stored as text so a value in the database is self-describing and cannot drift out of
-			// step with the enum's ordering.
+			// Stored as text so a database value is self-describing and independent of enum ordering.
 			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
 			entity.Property(e => e.SourceMessageId).HasMaxLength(RawNameLength);
 
@@ -95,8 +93,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		modelBuilder.Entity<CanonicalItem>(entity => {
 			entity.HasKey(e => e.Id);
 
-			// citext + unique, matching Category.DisplayName, so the same product cannot be created
-			// twice under different casing.
+			// citext + unique: the same product cannot exist twice under different casing.
 			entity.Property(e => e.DisplayName).HasColumnType("citext").HasMaxLength(NameLength);
 			entity.HasIndex(e => e.DisplayName).IsUnique();
 
@@ -114,8 +111,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		modelBuilder.Entity<ItemAlias>(entity => {
 			entity.HasKey(e => e.Id);
 
-			// The alias upsert and GetCanonicalIdsByRawNames both already assumed RawName was unique;
-			// without the index a duplicate made the dictionary build throw and killed the worker.
+			// Unique: one alias per normalized raw name.
 			entity.Property(e => e.RawName).HasColumnType("citext").HasMaxLength(RawNameLength);
 			entity.HasIndex(e => e.RawName).IsUnique();
 
@@ -152,8 +148,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		modelBuilder.Entity<ReceiptMealCoverage>(entity => {
 			entity.HasKey(e => new { e.ReceiptId, e.MealId });
 
-			// Naming the inverse navigation is what keeps EF from resolving Receipt.MealCoverage as a
-			// second relationship with its own shadow foreign key.
+			// The inverse navigation must be named, or EF maps a second relationship with a shadow key.
 			entity.HasOne(e => e.Receipt)
 			      .WithMany(r => r.MealCoverage)
 			      .HasForeignKey(e => e.ReceiptId)
@@ -172,8 +167,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 		modelBuilder.Entity<Merchant>(entity => {
 			entity.HasKey(e => e.Id);
 
-			// citext + unique turns the check-then-insert race in merchant resolution into a conflict
-			// the database rejects, and stops "Netto" and "NETTO" being two shops.
+			// citext + unique: "Netto" and "NETTO" are the same shop.
 			entity.Property(e => e.Name).HasColumnType("citext").HasMaxLength(NameLength);
 			entity.HasIndex(e => e.Name).IsUnique();
 		});

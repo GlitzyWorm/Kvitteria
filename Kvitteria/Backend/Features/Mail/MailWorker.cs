@@ -24,13 +24,11 @@ public sealed class MailWorker(
 
 		try
 		{
-			// Poll immediately, then on every tick — matches the previous fetch-then-delay behaviour.
 			do
 			{
 				try
 				{
-					// The mail is flagged Seen only after this callback returns, so a full queue or a
-					// cancellation leaves it unread and it is picked up on the next poll.
+					// Mail is flagged Seen only after this callback returns.
 					int fetched = await fetcher.FetchUnseenAsync(queue.EnqueueAsync, ct);
 
 					if (fetched > 0)
@@ -40,8 +38,7 @@ public sealed class MailWorker(
 				}
 				catch (Exception ex) when (ex is not OperationCanceledException)
 				{
-					// Anything that escapes here would otherwise end mail polling for the
-					// lifetime of the process, so the filter must stay this broad.
+					// The filter must stay broad: an escape here ends polling for the process lifetime.
 					consecutiveFailures++;
 					logger.LogError(ex, "Mail poll failed ({ConsecutiveFailures} consecutive failure(s))", consecutiveFailures);
 				}

@@ -54,8 +54,7 @@ public sealed class OllamaClient(
 		}
 		catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
 		{
-			// HttpClient.Timeout surfaces as TaskCanceledException, never TimeoutException. Without this
-			// filter a request timeout is indistinguishable from a shutdown cancellation.
+			// HttpClient.Timeout surfaces as TaskCanceledException, not TimeoutException.
 			throw new OllamaTransportException($"Ollama request timed out after {httpClient.Timeout}.", ex);
 		}
 
@@ -70,7 +69,6 @@ public sealed class OllamaClient(
 			OllamaChatResponse? chat;
 			try
 			{
-				// Streamed off the response rather than buffered into a string first.
 				chat = await response.Content.ReadFromJsonAsync<OllamaChatResponse>(JsonOptions, ct);
 			}
 			catch (JsonException ex)
@@ -98,7 +96,7 @@ public sealed class OllamaClient(
 
 			try
 			{
-				// Not logged here: the caller owns the retry decision and logs the failure once.
+				// The caller owns the retry decision and logs the failure.
 				return JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions)
 					?? throw new OllamaResponseException("Ollama message content was the JSON literal null.");
 			}

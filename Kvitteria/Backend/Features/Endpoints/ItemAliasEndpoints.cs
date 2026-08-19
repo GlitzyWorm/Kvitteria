@@ -40,7 +40,6 @@ static class ItemAliasEndpoints
 
 			// DELETE /aliases/{id}
 			aliasGroup.MapDelete("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				// One statement rather than load-then-delete; the affected-row count gives us the 404.
 				int deleted = await dbContext.ItemAliases
 				                            .Where(ia => ia.Id == id)
 				                            .ExecuteDeleteAsync(ct);

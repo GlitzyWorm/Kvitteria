@@ -40,7 +40,6 @@ public class CategoryTreeTests
 		Assert.Equal(3, tree.SubtreeHeight(Root));
 	}
 
-	/// <summary>The rule that keeps POST/PATCH from exceeding MaxDepth.</summary>
 	[Fact]
 	public void Depth_plus_subtree_height_detects_an_over_deep_move()
 	{
@@ -87,10 +86,7 @@ public class CategoryTreeTests
 		Assert.Null(tree.MaxSortOrder(Grandchild));
 	}
 
-	/// <summary>
-	/// Pre-existing cyclic rows must not hang a request. The walks are bounded by MaxDepth for exactly
-	/// this reason.
-	/// </summary>
+	/// <summary>Cyclic rows must not hang a request.</summary>
 	[Fact]
 	public void Cyclic_data_terminates()
 	{

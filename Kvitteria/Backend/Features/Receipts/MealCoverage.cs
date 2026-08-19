@@ -4,17 +4,7 @@ using Backend.Features.Persistence.Model.Receipts;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Receipts;
 
-/// <summary>
-/// The meal-day-coverage invariant, in one place.
-/// </summary>
-/// <remarks>
-/// Coverage writes lived in ReceiptEndpoints while the orphan cleanup lived in ReceiptLineEndpoints,
-/// and the two disagreed about how coverage was reached — the cleanup queried by ReceiptId and
-/// worked, the write used a navigation that (before the mapping fix) never loaded. Keeping both
-/// halves together is what stops them drifting apart again.
-///
-/// The validation and diff are pure so they can be tested without HTTP or a database.
-/// </remarks>
+/// <summary><summary>The meal-day-coverage invariant.</summary></summary>
 public static class MealCoverage
 {
 	public const int MinDaysCovered = 0;

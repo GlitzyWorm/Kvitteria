@@ -6,20 +6,9 @@ public sealed record CategoryNode(Guid Id, Guid? ParentId, string DisplayName, i
 
 /// <summary>
 /// The whole category taxonomy in memory, with the structural rules as pure functions.
+/// Loads every category in one query, which assumes the taxonomy stays small and bounded by
+/// <see cref="MaxDepth"/>.
 /// </summary>
-/// <remarks>
-/// Depth, subtree height and descendant checks were previously one database round trip per level,
-/// and a single POST or PATCH ran several of them — up to roughly 2*MaxDepth+3 queries per request.
-/// Loading the tree once replaces all of that with one projection.
-///
-/// This is a deliberate bet on size: the taxonomy is a hand-curated Danish category list bounded by
-/// <see cref="MaxDepth"/>, currently ~52 rows, so transferring all of it is cheaper than walking it.
-/// A materialised Depth column was rejected because it would add an invariant that every reparent
-/// has to maintain — and reparenting is exactly where the bugs were. Revisit only if categories ever
-/// become user-generated at thousands of rows.
-///
-/// Being pure and DbContext-free is also what makes these rules testable without HTTP.
-/// </remarks>
 public sealed class CategoryTree
 {
 	/// <summary>Root (1) -> child (2) -> grandchild (3). A grandchild cannot have children.</summary>
@@ -54,7 +43,7 @@ public sealed class CategoryTree
 
 		var depth = 1;
 
-		// Bounded so pre-existing cyclic data cannot spin forever.
+		// Bounded so cyclic data cannot spin forever.
 		while (node.ParentId != null && depth <= MaxDepth)
 		{
 			if (!_byId.TryGetValue(node.ParentId.Value, out CategoryNode? parent))

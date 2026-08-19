@@ -6,13 +6,7 @@ public static class Paging
 {
 	public const int MaxPageSize = 100;
 
-	/// <summary>
-	/// Validates paging parameters, yielding a problem result when they are out of range.
-	/// </summary>
-	/// <remarks>
-	/// The same guard and message were written out in three list endpoints, each with its own copy of
-	/// the page-size limit.
-	/// </remarks>
+	/// <summary>Validates paging parameters, yielding a problem result when they are out of range.</summary>
 	public static bool TryValidate(int page, int pageSize, out IResult problem)
 	{
 		if (page >= 1 && pageSize >= 1 && pageSize <= MaxPageSize)

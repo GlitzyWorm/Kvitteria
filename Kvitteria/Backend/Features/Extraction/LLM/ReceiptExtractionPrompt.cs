@@ -68,10 +68,7 @@ public static class ReceiptExtractionPrompt
 		    card details, change ("Byttepenge"), or loyalty-point lines as line items.
 		""";
 
-	/// <summary>
-	/// Sent only when Ollama's content genuinely was not parseable receipt JSON. Sending this after a
-	/// transport failure would tell the model its previous answer was malformed when it never answered.
-	/// </summary>
+	/// <summary>Sent only when Ollama's content was not parseable receipt JSON.</summary>
 	public const string MalformedJsonHint =
 		"Your previous response could not be parsed as valid JSON matching the schema. "+
 		"Respond with ONLY the JSON object, no extra commentary.";

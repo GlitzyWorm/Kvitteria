@@ -17,15 +17,6 @@ public sealed partial class MailFetcher(
 	/// Fetches unseen receipt mail, invoking <paramref name="onFetched"/> for each message and
 	/// flagging it <c>Seen</c> only once that call has completed. Returns the number handed over.
 	/// </summary>
-	/// <remarks>
-	/// The callback is what makes the ordering safe. Flagging <c>Seen</c> before handing the message on
-	/// meant a full queue or a cancellation between the two lost the receipt permanently — it would
-	/// never be returned by a later NotSeen search. Now anything that throws before the hand-off
-	/// completes leaves the mail unread, so the next poll picks it up again.
-	///
-	/// Streaming per message also removes the previous behaviour of buffering every unseen message,
-	/// bodies included, into one list before returning.
-	/// </remarks>
 	public async Task<int> FetchUnseenAsync(
 		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
 		CancellationToken ct)
@@ -43,9 +34,7 @@ public sealed partial class MailFetcher(
 
 		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
 		{
-			// One client per folder. Each entry is a different household member's account, so the
-			// connection cannot be shared — and reconnecting an already-connected client throws,
-			// which is why configuring a second folder previously broke the whole poll.
+			// One client per folder: each entry is a separate account.
 			using var client = new ImapClient();
 
 			try
@@ -67,9 +56,8 @@ public sealed partial class MailFetcher(
 			}
 			finally
 			{
-				// Disposing the client closes the socket but never sends LOGOUT. Doing it here means a
-				// throw mid-fetch still ends the session cleanly rather than leaving the server to time
-				// it out. Skipped on shutdown so cancellation cannot block on the network.
+				// Sends LOGOUT, which disposal alone does not.
+				// Skipped on shutdown so cancellation cannot block on the network.
 				if (client.IsConnected && !ct.IsCancellationRequested)
 					await client.DisconnectAsync(quit: true, ct);
 			}
@@ -93,7 +81,6 @@ public sealed partial class MailFetcher(
 
 		if (uids.Count > remainingBudget)
 		{
-			// Say so explicitly: a silently truncated batch reads as "there was nothing more".
 			logger.LogInformation(
 				"{Folder} has {Total} unseen messages; taking {Budget} this poll and leaving the rest unread.",
 				folder.FullName, uids.Count, remainingBudget);
@@ -117,7 +104,6 @@ public sealed partial class MailFetcher(
 
 			await onFetched(record, ct);
 
-			// Only now, once the message has been handed on successfully.
 			await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
 			fetched++;
 

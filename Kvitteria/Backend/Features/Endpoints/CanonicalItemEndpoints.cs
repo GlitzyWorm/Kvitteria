@@ -98,8 +98,6 @@ static class CanonicalItemEndpoints
 
 				                  canonicalItem.DisplayName = dto.DisplayName;
 
-				                  // Previously validated and then discarded: only DisplayName was ever written, so category
-				                  // and default meal were unreachable through this endpoint.
 				                  if (dto.ClearCategory)
 					                  canonicalItem.CategoryId = null;
 				                  else if (dto.CategoryId != null)

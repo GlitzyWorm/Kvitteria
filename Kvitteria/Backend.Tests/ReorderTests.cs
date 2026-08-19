@@ -28,7 +28,6 @@ public class ReorderTests
 		Assert.Equal(0, c.SortOrder);
 	}
 
-	/// <summary>A missing property deserialized to null and produced a 500 before this guard.</summary>
 	[Fact]
 	public void Rejects_a_null_list() =>
 		Assert.False(Apply([new Item(A)], null, out _));

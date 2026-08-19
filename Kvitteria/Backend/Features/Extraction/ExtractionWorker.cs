@@ -28,8 +28,8 @@ public sealed class ExtractionWorker(
 	{
 		mail.Status = ReceiptStatus.Extracting;
 
-		// OllamaClient is a transient typed HttpClient. Resolving it per item — rather than injecting
-		// it into this singleton worker — keeps the pooled handler rotating.
+		// OllamaClient is a transient typed HttpClient; per-item resolution lets the pooled handler
+		// rotate.
 		using IServiceScope scope = scopeFactory.CreateScope();
 		var client = scope.ServiceProvider.GetRequiredService<OllamaClient>();
 
@@ -85,7 +85,6 @@ public sealed class ExtractionWorker(
 			}
 			catch (OllamaResponseException ex)
 			{
-				// The model answered with something unusable, so telling it so is truthful.
 				lastFailure = ex;
 				logger.LogWarning(ex,
 					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' did not produce a parseable extraction",
@@ -95,8 +94,7 @@ public sealed class ExtractionWorker(
 			}
 			catch (OllamaTransportException ex)
 			{
-				// The model never saw the prompt. Retry the same request unchanged — carrying a
-				// "your JSON was malformed" hint forward here would poison the next attempt.
+				// The model never saw the prompt, so the request is retried unchanged and without a hint.
 				lastFailure = ex;
 				logger.LogWarning(ex,
 					"Attempt {Attempt}/{MaxAttempts} for '{Subject}' failed to reach Ollama; retrying without a hint",

@@ -28,9 +28,7 @@ public sealed class ReceiptFactoryWorker(
 			logger.LogWarning("Skipping '{Subject}': no extraction to persist.", record.Subject);
 			return;
 		}
-
-		// A scope is genuinely needed here: the ingestion service and its DbContext are scoped, while
-		// this worker is a singleton.
+		
 		using IServiceScope scope = scopeFactory.CreateScope();
 		var ingestion = scope.ServiceProvider.GetRequiredService<ReceiptIngestionService>();
 

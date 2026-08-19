@@ -24,9 +24,9 @@ public sealed class OllamaOptions: IOptionsSection
 	public double RetryTemperature { get; set; } = 0.3;
 
 	/// <summary>
-	/// Danish receipts round to øre, so an extraction is treated as reconciled when
+	/// An extraction counts as reconciled when
 	/// <c>grand_total - sum(line_totals) - pant_total</c> is within this many kroner of zero.
-	/// Exact equality burns every retry on a 1-øre rounding difference.
+	/// Danish receipts round to øre.
 	/// </summary>
 	public decimal ReconciliationToleranceKr { get; set; } = 0.01M;
 }

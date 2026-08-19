@@ -22,7 +22,6 @@ public class PurchaseDateTests
 	public void Rejects_rather_than_throwing_on_unparseable_output(string value) =>
 		Assert.False(PurchaseDate.TryParseLocal(value, out _));
 
-	/// <summary>A FormatException here used to kill the receipt factory outright.</summary>
 	[Fact]
 	public void Falls_back_to_the_mail_date_when_the_model_output_is_unusable()
 	{
@@ -41,10 +40,7 @@ public class PurchaseDateTests
 		Assert.Equal(DateTimeKind.Utc, resolved.Kind);
 	}
 
-	/// <summary>
-	/// 02:30 on the last Sunday of March is a wall-clock time that never happens; ConvertTimeToUtc
-	/// throws ArgumentException on it, which would have failed the whole receipt.
-	/// </summary>
+	/// <summary>02:30 on the last Sunday of March does not exist in Europe/Copenhagen.</summary>
 	[Fact]
 	public void Survives_the_spring_forward_gap()
 	{

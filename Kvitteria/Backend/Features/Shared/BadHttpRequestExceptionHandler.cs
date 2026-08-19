@@ -2,9 +2,8 @@
 namespace Backend.Features.Shared;
 
 /// <summary>
-/// Maps the framework's parameter-binding failures to the status code they already carry.
-/// <c>UseExceptionHandler</c> otherwise reports every exception as a 500, which would turn a
-/// malformed query-string value — e.g. <c>?status=nonsense</c> — into a server error.
+/// Maps the framework's parameter-binding failures to the status code they already carry, so a
+/// malformed query-string value is reported as a 400 rather than a 500.
 /// </summary>
 internal sealed class BadHttpRequestExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {

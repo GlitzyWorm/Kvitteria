@@ -67,8 +67,7 @@ static class ReceiptLineEndpoints
 				                if (receiptLine == null)
 					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
-				                // Only look the item up when one was actually requested; a null id used to issue a
-				                // guaranteed-empty query before the null check below.
+				                // Skipped when no id was supplied.
 				                CanonicalItem? canonicalItem = null;
 
 				                if (putCanonicalItemDto.CanonicalItemId != null)

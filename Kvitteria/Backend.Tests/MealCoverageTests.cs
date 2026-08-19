@@ -48,10 +48,6 @@ public class MealCoverageTests
 		Assert.Empty(plan.Unchanged);
 	}
 
-	/// <summary>
-	/// The path that used to be unreachable: with the old mapping the existing rows never loaded, so a
-	/// repeated request always took the insert branch and violated the composite primary key.
-	/// </summary>
 	[Fact]
 	public void Diff_updates_an_existing_row_in_place()
 	{

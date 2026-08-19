@@ -17,11 +17,7 @@ public sealed class Receipt
 	/// </summary>
 	public string? SourceMessageId { get; set; }
 
-	/// <summary>
-	/// Why extraction was imperfect, when it was. Previously this lived only on the in-memory pipeline
-	/// record and was written in four places but never read, so unreconciled receipts carried no
-	/// explanation once persisted.
-	/// </summary>
+	/// <summary>Why extraction was imperfect, when it was.</summary>
 	public string? Error { get; set; }
 
 	public List<ReceiptMealCoverage> MealCoverage { get; set; } = [];

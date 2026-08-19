@@ -12,11 +12,7 @@ public class NormalizeStringTests
 	public void Trims_and_lowercases(string raw, string expected) =>
 		Assert.Equal(expected, raw.NormalizeString());
 
-	/// <summary>
-	/// The normalized name is the key stored in ItemAlias and joined against on ingestion, so it has to
-	/// be culture-independent. Under a Turkish culture a culture-sensitive ToLower maps 'I' to a
-	/// dotless 'ı', which silently breaks every alias lookup containing an I.
-	/// </summary>
+	/// <summary>Under a Turkish culture a culture-sensitive lowercase maps 'I' to a dotless 'ı'.</summary>
 	[Fact]
 	public void Is_independent_of_the_current_culture()
 	{

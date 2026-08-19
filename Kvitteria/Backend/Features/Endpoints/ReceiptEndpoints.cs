@@ -47,8 +47,7 @@ static class ReceiptEndpoints
 
 				            int totalCount = await query.CountAsync(ct);
 
-				            // Same navigations as the detail route, so ReceiptDto has one shape on both. AsSplitQuery
-				            // because two collection includes in one statement multiply rows against each other.
+				            // AsSplitQuery: two collection includes in one statement multiply rows against each other.
 				            List<ReceiptDto> receiptDtos = await query
 				                                                 .OrderByDescending(r => r.PurchaseDate)
 				                                                 .Skip((page-1)*pageSize)
@@ -102,8 +101,7 @@ static class ReceiptEndpoints
 				            if (dto.Coverage == null)
 					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:"Coverage is required. Send an empty array to clear all coverage.");
 
-				            // Only the coverage rows are needed here; the assigned meals are projected below
-				            // rather than by materialising every line of the receipt.
+				            // Only the coverage rows are needed here; assigned meals are projected separately below.
 				            Receipt? receipt = await dbContext.Receipts
 				                                              .Include(r => r.MealCoverage)
 				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
