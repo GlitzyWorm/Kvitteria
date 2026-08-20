@@ -8,6 +8,8 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+# Package versions are managed centrally, so restore needs this file as much as the project file.
+COPY ["Directory.Packages.props", "./"]
 COPY ["Backend/Backend.csproj", "Backend/"]
 RUN dotnet restore "Backend/Backend.csproj"
 COPY . .

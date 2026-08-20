@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Receipts;
@@ -56,6 +57,7 @@ static class ReceiptLineEndpoints
 				                return Results.Ok(receiptLine.ToDto());
 			                })
 			                .WithName("PatchReceiptLine")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -103,12 +105,13 @@ static class ReceiptLineEndpoints
 				                return Results.Ok(receiptLine.ToDto());
 			                })
 			                .WithName("UpdateReceiptLineCanonicalItem")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.CategorizeLines))
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status404NotFound)
 			                .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// PUT /receipt-lines/id/category
-			receiptLineGroup.MapPut("/{id:guid}/category", async (Guid id, PutReceiptLineCategoryDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPut("/{id:guid}/category", async (Guid id, PutReceiptLineCategoryDto dto, KvitteriaDbContext dbContext, CurrentUserService currentUserService, HttpContext http, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
 				                                                          .Include(rl => rl.CanonicalItem)
 				                                                          .Include(rl => rl.Meal)
@@ -127,6 +130,9 @@ static class ReceiptLineEndpoints
 						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {dto.CategoryId} not found");
 				                }
 
+				                if (dto.SetAsDefault && !await currentUserService.HasAsync(http.User, Permission.ManageTaxonomy, ct))
+					                return Results.Problem(statusCode:StatusCodes.Status403Forbidden, detail:"SetAsDefault changes the canonical item's defaults, which requires the ManageTaxonomy permission.");
+
 				                if (dto.SetAsDefault && receiptLine.CanonicalItemId == null)
 					                return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"SetAsDefault requires the receipt line to have a canonical item.");
 
@@ -141,12 +147,14 @@ static class ReceiptLineEndpoints
 				                return Results.Ok(receiptLine.ToDto());
 			                })
 			                .WithName("UpdateReceiptLineCategory")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.CategorizeLines))
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status400BadRequest)
+			                .ProducesProblem(StatusCodes.Status403Forbidden)
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 
 			// PUT /receipt-lines/id/meal
-			receiptLineGroup.MapPut("/{id:guid}/meal", async (Guid id, PutReceiptLineMealDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+			receiptLineGroup.MapPut("/{id:guid}/meal", async (Guid id, PutReceiptLineMealDto dto, KvitteriaDbContext dbContext, CurrentUserService currentUserService, HttpContext http, CancellationToken ct) => {
 				                ReceiptLine? receiptLine = await dbContext.ReceiptLines
 				                                                          .Include(rl => rl.CanonicalItem)
 				                                                          .Include(rl => rl.Category)
@@ -164,6 +172,9 @@ static class ReceiptLineEndpoints
 					                if (meal == null)
 						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Meal with id {dto.MealId} not found");
 				                }
+
+				                if (dto.SetAsDefault && !await currentUserService.HasAsync(http.User, Permission.ManageTaxonomy, ct))
+					                return Results.Problem(statusCode:StatusCodes.Status403Forbidden, detail:"SetAsDefault changes the canonical item's defaults, which requires the ManageTaxonomy permission.");
 
 				                if (dto.SetAsDefault && receiptLine.CanonicalItemId == null)
 					                return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"SetAsDefault requires the receipt line to have a canonical item.");
@@ -185,8 +196,10 @@ static class ReceiptLineEndpoints
 				                return Results.Ok(receiptLine.ToDto());
 			                })
 			                .WithName("UpdateReceiptLineMeal")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.CategorizeLines))
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status400BadRequest)
+			                .ProducesProblem(StatusCodes.Status403Forbidden)
 			                .ProducesProblem(StatusCodes.Status404NotFound);
 		}
 	}

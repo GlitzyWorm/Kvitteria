@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -50,6 +51,7 @@ static class ItemAliasEndpoints
 				return Results.NoContent();
 			})
 			.WithName("DeleteItemAlias")
+			.RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			.Produces(StatusCodes.Status204NoContent)
 			.ProducesProblem(StatusCodes.Status404NotFound);
 		}

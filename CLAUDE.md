@@ -44,6 +44,18 @@ compose project. Start it first, from the `Kvitteria` directory:
 supabase start
 ```
 
+Supabase Auth (`[auth] enabled = true`) signs tokens with the key in the gitignored
+`supabase/signing_keys.json`, which `config.toml` points at via `signing_keys_path`. It must exist
+before `supabase start`, or the CLI refuses the config; regenerate it with:
+
+```bash
+supabase gen signing-key --algorithm ES256
+```
+
+The CLI prints a single JWK but the config expects an **array**, so wrap it in `[...]` when writing the
+file. Without a signing key the stack falls back to the legacy shared HS256 secret and serves an empty
+JWKS, which the backend cannot validate against — see `Auth:SharedSecret` below for that path.
+
 EF Core migrations are **not** applied at startup; apply them from the host, from `Kvitteria`:
 
 ```bash
@@ -57,7 +69,9 @@ dotnet ef migrations add <Name> --project Backend
 `Kvitteria/Backend.Tests` (xUnit) covers the pure logic that has no other safety net: the
 reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
-reorder guard, paging validation, and the HTML-to-text converter. Run it from `Kvitteria`:
+reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision, effective
+permissions and the last-admin guard, permission-name parsing, and the auth options rule. Run it from
+`Kvitteria`:
 
 ```bash
 dotnet test
@@ -74,9 +88,10 @@ appsettings chain in `Program.cs`. Options classes implement `Backend.Abstractio
 which declares a `static abstract string SectionName` — the section name lives on the class, not at
 the registration site. Register them with the `AddOptionsSection<T>(IConfiguration)` extension, which
 binds the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration
-fails at startup instead of inside the first poll. Sections: `Database`, `Imap`, `Ollama`. All are
-bound with `IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect
-live.
+fails at startup instead of inside the first poll. Sections: `Database`, `Imap`, `Ollama`, `Auth`. All
+are bound with `IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect
+live. `Auth` is the exception: it is read once at registration, because the bearer scheme is built at
+startup and the framework cannot rebuild it on a config edit.
 
 `ValidateDataAnnotations` does not recurse into collection elements, so per-entry IMAP completeness
 is checked by `ImapFolderOptions.IsComplete()` and reported by `MailFetcher`, which can name the
@@ -132,6 +147,79 @@ the process lifetime.
 line totals not unit prices, the `HERAF PANT IALT` / `HERAF MOMS` / `I ALT` label-then-amount
 ordering, decimal commas). Treat it as tuned behavior: changing wording changes extraction accuracy.
 
+## Authentication and authorization
+
+Supabase Auth (GoTrue) owns **identity**; this backend owns **authorization**. Clients — the C# MAUI app,
+later Angular — sign in against GoTrue directly and send the resulting access token as a bearer token.
+The backend never sees a password, never sends a reset mail, never rotates a refresh token.
+
+EF connects as the `postgres` superuser, so Postgres RLS cannot be part of the security model and the
+Supabase Data API stays off. **The backend is the sole enforcement point.**
+
+`AuthOptions` (`Features/Auth/AuthOptions.cs`) needs at least one signing source, and `SharedSecret`
+takes precedence over `JwksUrl` when both are set. `JwksUrl` is preferred and carries a default pointing
+at the local stack, which is why the rule is precedence rather than mutual exclusion: "both set" is the
+normal state for anyone choosing the secret, not a mistake worth failing startup over. "At least one of
+two" is beyond data annotations, so `AuthOptions.Validate()` reports it through an
+`IValidateOptions<T>` and `ValidateOnStart` — the same gap `ImapFolderOptions.IsComplete()` works
+around. `Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the URL the
+*client* reached Auth on (`127.0.0.1`), while the container fetches keys via `host.docker.internal`.
+Conflating them presents as an unexplained 401. Supabase serves a bare JWKS rather than an OpenID
+discovery document, hence `JwksConfigurationRetriever`; wrapping the key set in an
+`OpenIdConnectConfiguration` keeps `ConfigurationManager`'s caching and refresh-on-failure, so key
+rotation is a non-event.
+
+**Local-only, for now.** iOS App Transport Security blocks plaintext HTTP, so physical devices cannot
+reach the local stack — simulator and emulator only until a hosted Supabase project exists. Nothing
+blocks that move: `AppUser.SupabaseUserId` is deliberately **not** a foreign key to `auth.users`, so
+identity can relocate without a migration. When it does, revisit `enable_signup` and
+`[auth.email] enable_confirmations` in `config.toml`, both of which are open locally because members
+sign themselves up and no SMTP is configured.
+
+### Who gets in
+
+`UserProvisioning.Decide` answers this on every authenticated request, because bootstrapping the first
+admin and binding a pre-authorized email are the same question at different points in the household's
+life — one decision rather than two flows that can disagree:
+
+- **Existing** — a row already claimed by this Supabase user. `Disabled` is rejected.
+- **Bind** — an unclaimed row pre-authorizes this email: attach the user and activate it.
+- **Bootstrap** — no members exist at all, so this caller becomes the admin. There is no init endpoint
+  and no bootstrap secret; nobody can be pre-authorized before an admin exists to do it. The branch
+  takes a `pg_advisory_xact_lock`, because the empty-table check is otherwise racy.
+- **Reject** — authenticated, but not a member. 403.
+
+Admins pre-authorize with `POST /api/users` and tell the person to sign up; **nothing is emailed**. That
+is why no `service_role` key and no SMTP configuration are needed anywhere in this project. Members are
+`Disabled`, never deleted — rows reference them.
+
+### Permissions
+
+Reads are never gated: the household sees everything. `Permission` covers the writes —
+`CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`. `Admin` holds all
+of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
+`HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`.
+`AppUser.PermissionOverrides` is honoured by `PermissionResolution.Resolve` but written by nothing yet —
+the column exists so per-user overrides need no migration.
+
+Enforcement is one policy per permission, registered mechanically in `PermissionPolicies`, and the `/api`
+group requires `active-user`. Policies compose as an AND, so a write route declares only its own
+permission. `HouseholdAuthorizationHandler` resolves the caller once per request and settles every
+household requirement from that answer. Permissions live in the database, not in JWT `app_metadata`:
+with a handful of users the lookup is free, and claims would need a token refresh every time the admin
+flips a checkbox. `PermissionCache` keeps resolved members for 60 seconds, keyed by a version that every
+user or settings write bumps, so a toggle takes effect without a new token.
+
+One check cannot be a route policy because it depends on the body: `SetAsDefault` on the line category
+and meal endpoints writes the *canonical item's* defaults, which is taxonomy reached through a
+categorization endpoint. Those handlers call `CurrentUserService.HasAsync` and answer 403 without
+`ManageTaxonomy`.
+
+Enums cross the wire as **names**, not ordinals — `string.TryParseName<T>()` in
+`Features/Shared/EnumNames.cs`, because `Enum.TryParse` also accepts numbers, which would make the API
+contract depend on declaration order and let an out-of-range value through. Note this differs from
+`ReceiptStatus`, which predates it and still serializes as a number.
+
 ## Domain model
 
 `Receipt` → many `ReceiptLine`. Each line carries the raw printed name plus optional
@@ -147,6 +235,12 @@ many days a receipt covers for meals where `TracksDayCoverage` is true; it is on
 line on that receipt still carries that meal. Both halves of that invariant — the write-time diff and
 the orphan cleanup — live in `Features/Receipts/MealCoverage.cs`; they were previously split across
 two endpoint files that disagreed about how coverage was reached.
+
+`AppUser` is a household member as this application knows them, keyed by its own `Id` with
+`SupabaseUserId` as the only link to identity. `HouseholdSettings` is a single row — the scope is one
+household with no option to create more — so editing what members may do is one atomic update rather
+than a fan-out. Both permission columns are Postgres `text[]` of enum names via `PermissionSetConverter`,
+matching the "database values are self-describing" rule the status and role columns follow.
 
 `DatabaseSeeder` seeds the Danish meal and category taxonomy on first run when the tables are empty,
 registered as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
@@ -181,4 +275,8 @@ right-hand side, `CancellationToken ct` as the parameter name.
 - `supabase/` (config, snippets) sits inside `Kvitteria/`, so `supabase` CLI commands must run from
   there.
 - The `citext` Postgres extension is required (declared via `HasPostgresExtension`) for
-  case-insensitive category names.
+  case-insensitive category names, and for matching a token's email against a pre-authorized `AppUser`.
+- `Backend/Dockerfile` must copy `Directory.Packages.props` before `dotnet restore`, or restore fails
+  with NU1015 — every `PackageReference` gets its version from there.
+- Manual API checks need a bearer token. Sign up or in against GoTrue directly and use the
+  `access_token`; the Scalar reference declares no security scheme, so it cannot attach one for you.

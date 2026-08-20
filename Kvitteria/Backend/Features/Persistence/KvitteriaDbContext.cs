@@ -1,4 +1,5 @@
 ﻿using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Persistence.Model.Users;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Persistence;
 
@@ -12,6 +13,8 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<ReceiptMealCoverage> ReceiptMealCoverages => Set<ReceiptMealCoverage>();
 	public DbSet<Category> Categories => Set<Category>();
 	public DbSet<Merchant> Merchants => Set<Merchant>();
+	public DbSet<AppUser> AppUsers => Set<AppUser>();
+	public DbSet<HouseholdSettings> HouseholdSettings => Set<HouseholdSettings>();
 
 	/// <summary>Money is kroner with øre.</summary>
 	private const int MoneyPrecision = 12;
@@ -170,6 +173,35 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			// citext + unique: "Netto" and "NETTO" are the same shop.
 			entity.Property(e => e.Name).HasColumnType("citext").HasMaxLength(NameLength);
 			entity.HasIndex(e => e.Name).IsUnique();
+		});
+
+		modelBuilder.Entity<AppUser>(entity => {
+			entity.HasKey(e => e.Id);
+
+			// citext + unique: an email is one person, whatever case they type it in. The token's email
+			// is matched against this to bind a pre-authorized row to whoever signed up.
+			entity.Property(e => e.Email).HasColumnType("citext").HasMaxLength(NameLength);
+			entity.HasIndex(e => e.Email).IsUnique();
+
+			// Unique but nullable: many rows may await their owner, but a Supabase user claims only one.
+			entity.HasIndex(e => e.SupabaseUserId).IsUnique();
+
+			entity.Property(e => e.DisplayName).HasMaxLength(NameLength);
+			entity.Property(e => e.Role).HasConversion<string>().HasMaxLength(32);
+			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+
+			// The type-based overload, because the property is nullable and the converter is not.
+			entity.Property(e => e.PermissionOverrides)
+			      .HasConversion<PermissionSetConverter, PermissionSetComparer>()
+			      .HasColumnType("text[]");
+		});
+
+		modelBuilder.Entity<HouseholdSettings>(entity => {
+			entity.HasKey(e => e.Id);
+
+			entity.Property(e => e.MemberPermissions)
+			      .HasConversion(new PermissionSetConverter(), new PermissionSetComparer())
+			      .HasColumnType("text[]");
 		});
 	}
 }

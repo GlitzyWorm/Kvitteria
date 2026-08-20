@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Receipts;
@@ -19,6 +20,8 @@ static class ReceiptEndpoints
 			app.MapItemAliasEndpoints();
 			app.MapCategoryEndpoints();
 			app.MapMealEndpoints();
+			app.MapUserEndpoints();
+			app.MapSettingsEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()
@@ -161,6 +164,7 @@ static class ReceiptEndpoints
 				            return Results.Ok(result);
 			            })
 			            .WithName("PutReceiptMealCoverage")
+			            .RequireAuthorization(PermissionPolicies.Name(Permission.CategorizeLines))
 			            .Produces<List<ReceiptMealCoverageDto>>()
 			            .ProducesProblem(StatusCodes.Status400BadRequest)
 			            .ProducesProblem(StatusCodes.Status404NotFound)

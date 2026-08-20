@@ -13,6 +13,12 @@
       # project — 127.0.0.1 (the DatabaseOptions default, for host-side `dotnet run`) would
       # resolve to this container.
       - Database__ConnectionString=Host=host.docker.internal;Port=54322;Database=postgres;Username=postgres;Password=postgres
+      # Issuer is the URL a *client* reached Supabase Auth on, and must match config.toml's
+      # `jwt_issuer` exactly. The JWKS URL is where this container fetches signing keys, which is a
+      # different host for the same service. To use the legacy shared secret instead, set
+      # Auth:SharedSecret in appsettings.Local.json — it takes precedence over the JWKS.
+      - Auth__Issuer=http://127.0.0.1:54321/auth/v1
+      - Auth__JwksUrl=http://host.docker.internal:54321/auth/v1/.well-known/jwks.json
     volumes:
       # Gitignored secrets file — must exist before `docker compose up`,
       # or Docker creates a directory with this name instead.

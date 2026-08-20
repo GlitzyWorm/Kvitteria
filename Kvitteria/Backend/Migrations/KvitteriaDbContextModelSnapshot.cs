@@ -268,6 +268,70 @@ namespace Backend.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Users.AppUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("citext");
+
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string[]>("PermissionOverrides")
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("SupabaseUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("SupabaseUserId")
+                        .IsUnique();
+
+                    b.ToTable("AppUsers");
+                });
+
+            modelBuilder.Entity("Backend.Features.Persistence.Model.Users.HouseholdSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string[]>("MemberPermissions")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("HouseholdSettings");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
                 {
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "Category")

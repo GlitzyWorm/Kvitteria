@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints;
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
@@ -14,6 +15,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
 builder.Services.AddOpenApi();
+
+builder.Services.AddHouseholdAuth(builder.Configuration);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
@@ -48,13 +51,19 @@ WebApplication app = builder.Build();
 
 app.UseExceptionHandler();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (app.Environment.IsDevelopment())
 {
 	app.MapOpenApi();
 	app.MapScalarApiReference();
 }
 
-RouteGroupBuilder group = app.MapGroup("/api");
+// Every route requires an active household member; write routes add their own permission on top,
+// and the two policies compose as an AND.
+RouteGroupBuilder group = app.MapGroup("/api")
+                             .RequireAuthorization(PermissionPolicies.ActiveUser);
 
 group.MapReceiptEndpoints();
 

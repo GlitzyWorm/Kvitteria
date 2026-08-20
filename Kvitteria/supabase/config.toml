@@ -153,7 +153,7 @@ max_indexes = 5
 # [storage.vector.buckets.documents-openai]
 
 [auth]
-enabled = false
+enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
 site_url = "http://127.0.0.1:3000"
@@ -164,15 +164,22 @@ additional_redirect_urls = ["https://127.0.0.1:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
-# jwt_issuer = ""
+# Pinned so the `iss` claim does not depend on how a client reached the stack; the backend validates
+# tokens against exactly this string (`Auth:Issuer`).
+jwt_issuer = "http://127.0.0.1:54321/auth/v1"
 # Path to JWT signing key. DO NOT commit your signing keys file to git.
-# signing_keys_path = "./signing_keys.json"
+# Generated with `supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json`, and
+# gitignored. Without it the local stack falls back to the legacy shared HS256 secret and serves an
+# empty JWKS, which the backend cannot validate against.
+signing_keys_path = "./signing_keys.json"
 # If disabled, the refresh token will never expire.
 enable_refresh_token_rotation = true
 # Allows refresh tokens to be reused after expiry, up to the specified interval in seconds.
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
-# Allow/disallow new user signups to your project.
+# Allow/disallow new user signups to your project. Members must be able to sign themselves up: an
+# admin only pre-authorizes their email, and the backend rejects any signup it does not recognise.
+# Revisit when moving to a hosted project, where this is open to the internet.
 enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
