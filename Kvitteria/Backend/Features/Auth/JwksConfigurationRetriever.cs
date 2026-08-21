@@ -4,7 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Backend.Features.Auth;
 
 /// <summary>
-/// Fetches signing keys from a bare JWKS endpoint. Supabase Auth serves the key set directly rather than
+/// Fetches signing keys from a bare JWKS endpoint. GoTrue serves the key set directly rather than
 /// behind an OpenID discovery document, which is what the built-in retriever expects. Wrapping the keys
 /// in an <see cref="OpenIdConnectConfiguration"/> lets <see cref="ConfigurationManager{T}"/> keep doing
 /// the caching and the refresh-on-failure that makes key rotation a non-event.

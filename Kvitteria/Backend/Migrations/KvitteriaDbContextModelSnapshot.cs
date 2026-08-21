@@ -374,6 +374,9 @@ namespace Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AuthUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -403,15 +406,12 @@ namespace Backend.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<Guid?>("SupabaseUserId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("AuthUserId")
                         .IsUnique();
 
-                    b.HasIndex("SupabaseUserId")
+                    b.HasIndex("Email")
                         .IsUnique();
 
                     b.ToTable("AppUsers");

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Auth;
 
 /// <summary>
-/// Turns a validated Supabase token into a household member, provisioning one where
+/// Turns a validated access token into a household member, provisioning one where
 /// <see cref="UserProvisioning"/> says it should. Scoped, and memoized for the request, because several
 /// authorization requirements can be evaluated for a single call.
 /// </summary>
@@ -53,45 +53,45 @@ public sealed class CurrentUserService(
 		if (principal.Identity?.IsAuthenticated != true)
 			return null;
 
-		// MapInboundClaims is off, so these are the raw JWT claim names Supabase issues.
+		// MapInboundClaims is off, so these are the raw JWT claim names GoTrue issues.
 		string? subject = principal.FindFirstValue("sub");
 		string? email = principal.FindFirstValue("email");
 
-		if (!Guid.TryParse(subject, out Guid supabaseUserId) || string.IsNullOrWhiteSpace(email))
+		if (!Guid.TryParse(subject, out Guid authUserId) || string.IsNullOrWhiteSpace(email))
 		{
 			logger.LogWarning("Token is missing a usable sub or email claim; treating as not a member.");
 			return null;
 		}
 
-		if (cache.TryGet(supabaseUserId, out CurrentUser? cached))
+		if (cache.TryGet(authUserId, out CurrentUser? cached))
 			return cached;
 
-		Candidates candidates = await FindCandidatesAsync(supabaseUserId, email, ct);
+		Candidates candidates = await FindCandidatesAsync(authUserId, email, ct);
 
 		// Bootstrap is the only branch that races, so it is the only one that pays for a lock.
 		if (candidates.Action != ProvisioningAction.Bootstrap)
-			return await ApplyAsync(candidates, supabaseUserId, email, ct);
+			return await ApplyAsync(candidates, authUserId, email, ct);
 
 		await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
 		await dbContext.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", [BootstrapLockKey], ct);
 
-		candidates = await FindCandidatesAsync(supabaseUserId, email, ct);
-		CurrentUser? user = await ApplyAsync(candidates, supabaseUserId, email, ct);
+		candidates = await FindCandidatesAsync(authUserId, email, ct);
+		CurrentUser? user = await ApplyAsync(candidates, authUserId, email, ct);
 
 		await transaction.CommitAsync(ct);
 		return user;
 	}
 
-	private async Task<Candidates> FindCandidatesAsync(Guid supabaseUserId, string email, CancellationToken ct)
+	private async Task<Candidates> FindCandidatesAsync(Guid authUserId, string email, CancellationToken ct)
 	{
 		AppUser? byId = await dbContext.AppUsers
-		                               .FirstOrDefaultAsync(u => u.SupabaseUserId == supabaseUserId, ct);
+		                               .FirstOrDefaultAsync(u => u.AuthUserId == authUserId, ct);
 
 		// Only an unclaimed row can be bound; a claimed one belongs to whoever claimed it.
 		AppUser? byEmail = byId != null
 			? null
 			: await dbContext.AppUsers
-			                 .FirstOrDefaultAsync(u => u.SupabaseUserId == null && u.Email == email, ct);
+			                 .FirstOrDefaultAsync(u => u.AuthUserId == null && u.Email == email, ct);
 
 		bool householdEmpty = byId == null && byEmail == null && !await dbContext.AppUsers.AnyAsync(ct);
 
@@ -101,7 +101,7 @@ public sealed class CurrentUserService(
 			byEmail);
 	}
 
-	private async Task<CurrentUser?> ApplyAsync(Candidates candidates, Guid supabaseUserId, string email, CancellationToken ct)
+	private async Task<CurrentUser?> ApplyAsync(Candidates candidates, Guid authUserId, string email, CancellationToken ct)
 	{
 		AppUser? user;
 
@@ -113,14 +113,14 @@ public sealed class CurrentUserService(
 
 			case ProvisioningAction.Bind:
 				user = candidates.ById ?? candidates.ByEmail!;
-				user.SupabaseUserId = supabaseUserId;
+				user.AuthUserId = authUserId;
 				user.Status = UserStatus.Active;
-				logger.LogInformation("Bound pre-authorized member {Email} to Supabase user {SupabaseUserId}.", user.Email, supabaseUserId);
+				logger.LogInformation("Bound pre-authorized member {Email} to identity {AuthUserId}.", user.Email, authUserId);
 				break;
 
 			case ProvisioningAction.Bootstrap:
 				user = new AppUser {
-					SupabaseUserId = supabaseUserId,
+					AuthUserId = authUserId,
 					Email = email,
 					DisplayName = DisplayNameFrom(email),
 					Role = UserRole.Admin,
@@ -143,7 +143,7 @@ public sealed class CurrentUserService(
 
 		var current = new CurrentUser(
 			user.Id,
-			supabaseUserId,
+			authUserId,
 			user.Email,
 			user.DisplayName,
 			user.Role,
@@ -160,7 +160,7 @@ public sealed class CurrentUserService(
 		return settings?.MemberPermissions ?? [];
 	}
 
-	/// <summary>Supabase has no name to offer when signing up with email and password.</summary>
+	/// <summary>GoTrue has no name to offer when signing up with email and password.</summary>
 	private static string DisplayNameFrom(string email)
 	{
 		int at = email.IndexOf('@', StringComparison.Ordinal);

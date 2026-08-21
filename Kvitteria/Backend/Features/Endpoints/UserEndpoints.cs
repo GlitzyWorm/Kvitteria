@@ -73,7 +73,7 @@ static class UserEndpoints
 					         DisplayName = string.IsNullOrWhiteSpace(dto.DisplayName) ? email : dto.DisplayName.Trim(),
 					         Role = role,
 
-					         // Pending until its owner signs up through Supabase and claims it.
+					         // Pending until its owner signs up against GoTrue and claims it.
 					         Status = UserStatus.Pending,
 					         CreatedAt = DateTime.UtcNow
 				         };

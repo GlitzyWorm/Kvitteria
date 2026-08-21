@@ -1,12 +1,12 @@
-using Backend.Features.Persistence.Model.Users;
+﻿using Backend.Features.Persistence.Model.Users;
 namespace Backend.Features.Auth;
 
 public enum ProvisioningAction
 {
-	/// <summary>An active row already belongs to this Supabase user; nothing to do.</summary>
+	/// <summary>An active row already belongs to this identity-provider user; nothing to do.</summary>
 	Existing,
 
-	/// <summary>Attach the Supabase user to a waiting row and activate it.</summary>
+	/// <summary>Attach the identity-provider user to a waiting row and activate it.</summary>
 	Bind,
 
 	/// <summary>The household has no members yet, so this caller becomes its admin.</summary>
@@ -23,7 +23,7 @@ public enum ProvisioningAction
 /// </summary>
 public static class UserProvisioning
 {
-	/// <param name="matchedById">Status of the row already claimed by this Supabase user, if any.</param>
+	/// <param name="matchedById">Status of the row already claimed by this identity-provider user, if any.</param>
 	/// <param name="matchedByEmail">
 	/// Status of an unclaimed row pre-authorizing this email, if any.
 	/// </param>

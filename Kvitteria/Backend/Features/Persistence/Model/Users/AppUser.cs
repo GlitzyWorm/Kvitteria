@@ -1,4 +1,4 @@
-using Backend.Features.Auth;
+﻿using Backend.Features.Auth;
 namespace Backend.Features.Persistence.Model.Users;
 
 public enum UserRole
@@ -19,8 +19,8 @@ public enum UserStatus
 }
 
 /// <summary>
-/// A household member, as this application knows them. Identity itself lives in Supabase Auth; the only
-/// link is <see cref="SupabaseUserId"/>, deliberately not a foreign key, so auth can move to a hosted
+/// A household member, as this application knows them. Identity itself lives in GoTrue; the only
+/// link is <see cref="AuthUserId"/>, deliberately not a foreign key, so auth can move to a hosted
 /// project without touching this schema.
 /// </summary>
 public sealed class AppUser
@@ -28,10 +28,10 @@ public sealed class AppUser
 	public Guid Id { get; set; }
 
 	/// <summary>
-	/// The <c>sub</c> claim of the Supabase user that claimed this row. Null while the row is only a
+	/// The <c>sub</c> claim of the identity-provider user that claimed this row. Null while the row is only a
 	/// pre-authorized email waiting for its owner to sign up.
 	/// </summary>
-	public Guid? SupabaseUserId { get; set; }
+	public Guid? AuthUserId { get; set; }
 
 	public required string Email { get; set; }
 	public required string DisplayName { get; set; }

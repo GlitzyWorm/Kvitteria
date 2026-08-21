@@ -197,8 +197,8 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			entity.Property(e => e.Email).HasColumnType("citext").HasMaxLength(NameLength);
 			entity.HasIndex(e => e.Email).IsUnique();
 
-			// Unique but nullable: many rows may await their owner, but a Supabase user claims only one.
-			entity.HasIndex(e => e.SupabaseUserId).IsUnique();
+			// Unique but nullable: many rows may await their owner, but one identity claims only one row.
+			entity.HasIndex(e => e.AuthUserId).IsUnique();
 
 			entity.Property(e => e.DisplayName).HasMaxLength(NameLength);
 			entity.Property(e => e.Role).HasConversion<string>().HasMaxLength(32);

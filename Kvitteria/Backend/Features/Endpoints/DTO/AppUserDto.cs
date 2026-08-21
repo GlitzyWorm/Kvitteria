@@ -26,7 +26,7 @@ public static class AppUserDtoExtension
 			user.DisplayName,
 			user.Role.ToString(),
 			user.Status.ToString(),
-			user.SupabaseUserId != null,
+			user.AuthUserId != null,
 			user.CreatedAt,
 			user.LastSeenAt
 		);
