@@ -3,6 +3,7 @@ using Backend.Features.Auth;
 using Backend.Features.Endpoints;
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
+using Backend.Features.Health;
 using Backend.Features.Mail;
 using Backend.Features.Persistence;
 using Backend.Features.Shared;
@@ -20,6 +21,8 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 builder.Services.AddHouseholdAuth(builder.Configuration, builder.Environment);
+
+builder.Services.AddHouseholdHealthChecks();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
@@ -75,6 +78,11 @@ if (app.Environment.IsDevelopment())
 	app.MapOpenApi();
 	app.MapScalarApiReference();
 }
+
+// Both mapped outside the /api group below, so an orchestrator and a bug report can reach them
+// without a bearer token.
+app.MapHouseholdHealthChecks();
+app.MapMetaEndpoints();
 
 // Every route requires an active household member; write routes add their own permission on top,
 // and the two policies compose as an AND.
