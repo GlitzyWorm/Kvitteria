@@ -371,8 +371,13 @@ right-hand side, `CancellationToken ct` as the parameter name.
   project provisions and a plain `postgres` image does not. The same initdb script creates them; without
   it the first `gotrue` boot fails with `role "..." does not exist`.
 - `Backend/Dockerfile` must copy `Directory.Packages.props` **and** `Directory.Build.props` before
-  `dotnet restore`. Missing the first fails loudly with NU1015; missing the second fails **silently** —
-  the build succeeds against SDK defaults and every image reports version `0.0.0` forever.
+  `dotnet restore`. Missing the first fails with NU1015, since every `PackageReference` takes its
+  version from there; missing the second fails on the absent `TargetFramework`.
+- The Dockerfile's `VERSION`/`SOURCE_COMMIT` args default to **empty**, and each `-p:` override is
+  applied only when its arg has a value (`${VERSION:+...}`). A literal default would override the
+  `VersionPrefix` release-please maintains in `Backend.csproj`, so an ordinary `docker build` would
+  report that placeholder on a released commit. `compose.override.yaml` passes `0.0.0-dev` deliberately:
+  a build from a working tree is not a release and `GET /version` should not imply it is.
 - `compose.override.yaml` must set `image:` explicitly. Compose merges rather than replaces, so without
   it a local build is tagged as the GHCR image and shadows a later pull.
 - Manual API checks need a bearer token; the Scalar reference declares no security scheme, so it cannot
