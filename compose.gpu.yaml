@@ -1,0 +1,25 @@
+# Opt-in GPU passthrough for Ollama. Extraction takes minutes per receipt on CPU, so this is the
+# recommended setup for anything beyond trying the project out.
+#
+# Not a compose profile: a profile decides whether a service starts, and it cannot add fields to a
+# service defined in another file. So this is a third overlay, opted into either on the command line
+#
+#   docker compose -f compose.yaml -f compose.override.yaml -f compose.gpu.yaml up -d
+#
+# or once, by uncommenting COMPOSE_FILE in .env. Note that setting COMPOSE_FILE turns off the
+# automatic pickup of compose.override.yaml, which is why it has to be listed there explicitly.
+#
+# Requires the NVIDIA Container Toolkit on the host — WSL2 counts, with a recent driver. Check with:
+#   docker run --rm --gpus all ollama/ollama nvidia-smi
+
+services:
+  ollama:
+    # Needs Compose 2.30 or newer. On anything older, replace with the longer form:
+    #   deploy:
+    #     resources:
+    #       reservations:
+    #         devices:
+    #           - driver: nvidia
+    #             count: all
+    #             capabilities: [gpu]
+    gpus: all

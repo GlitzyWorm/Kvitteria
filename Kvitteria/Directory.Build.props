@@ -1,0 +1,34 @@
+﻿<Project>
+
+    <!-- No version here. Components are versioned independently, so each project owns its own
+         VersionPrefix and release-please rewrites it in place — see Backend.csproj. -->
+
+    <PropertyGroup Label="Shared">
+        <!-- Hoisted out of the individual projects so a MAUI project added under Kvitteria/ inherits
+             them rather than restating them. -->
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!-- The codebase relies on C# 14 extension blocks; without this the language version is
+             whatever SDK happens to be installed. -->
+        <LangVersion>14.0</LangVersion>
+
+        <Deterministic>true</Deterministic>
+        <!-- CI is set by GitHub Actions. Normalizes embedded paths so a CI build is reproducible. -->
+        <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+    <!-- Deliberately NOT here: TreatWarningsAsErrors, EnforceCodeStyleInBuild and AnalysisLevel.
+         They live in Backend.csproj alone. Backend.Tests has never been built under them, and
+         promoting the first xUnit analyzer suggestion to an error would break `dotnet test` for a
+         reason that has nothing to do with the tests. -->
+
+    <PropertyGroup Label="Metadata">
+        <Product>Kvitteria</Product>
+        <RepositoryUrl>https://github.com/GlitzyWorm/Kvitteria</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    </PropertyGroup>
+
+</Project>

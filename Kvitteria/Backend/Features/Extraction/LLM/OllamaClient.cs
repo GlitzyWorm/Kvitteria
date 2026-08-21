@@ -1,10 +1,12 @@
 ﻿using System.Text.Json;
-using Microsoft.Extensions.Options;
+using Backend.Features.Persistence;
+using Backend.Features.Persistence.Model;
+using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Extraction.LLM;
 
 public sealed class OllamaClient(
 	HttpClient httpClient,
-	IOptionsMonitor<OllamaOptions> options,
+	KvitteriaDbContext dbContext,
 	ILogger<OllamaClient> logger)
 {
 	private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
@@ -23,7 +25,7 @@ public sealed class OllamaClient(
 		double temperature,
 		CancellationToken ct)
 	{
-		OllamaOptions ollamaOptions = options.CurrentValue;
+		PipelineSettings settings = await dbContext.PipelineSettings.AsNoTracking().FirstAsync(ct);
 		List<OllamaChatMessage> messages = [
 			new OllamaChatMessage("system", ReceiptExtractionPrompt.SystemPrompt),
 			new OllamaChatMessage("user", receiptText)
@@ -35,13 +37,13 @@ public sealed class OllamaClient(
 		}
 
 		var request = new OllamaChatRequest(
-			ollamaOptions.Model,
+			settings.OllamaModel,
 			messages,
-			Think: ollamaOptions.ThinkingMode,
+			Think: settings.OllamaThinkingMode,
 			Stream: false,
 			Format: ReceiptExtractionPrompt.Schema,
-			Options: new OllamaChatOptions(temperature, ollamaOptions.NumCtx),
-			KeepAlive: ollamaOptions.KeepAlive);
+			Options: new OllamaChatOptions(temperature, settings.OllamaNumCtx),
+			KeepAlive: settings.OllamaKeepAlive);
 
 		HttpResponseMessage response;
 		try
@@ -107,8 +109,22 @@ public sealed class OllamaClient(
 		}
 	}
 
+	/// <summary>Names of the models Ollama has already pulled, so a settings update can be checked before saving.</summary>
+	public async Task<List<string>> GetAvailableModelsAsync(CancellationToken ct)
+	{
+		HttpResponseMessage response = await httpClient.GetAsync("api/tags", ct);
+		response.EnsureSuccessStatusCode();
+
+		OllamaTagsResponse? tags = await response.Content.ReadFromJsonAsync<OllamaTagsResponse>(JsonOptions, ct);
+		return tags?.Models.Select(m => m.Name).ToList() ?? [];
+	}
+
 	private static string Quote(string value) =>
 		value.Length <= MaxQuotedLength ? value : string.Concat(value.AsSpan(0, MaxQuotedLength), "... [truncated]");
+
+	private sealed record OllamaTagsResponse(List<OllamaTagModel> Models);
+
+	private sealed record OllamaTagModel(string Name);
 
 	private sealed record OllamaChatRequest(
 		string Model,

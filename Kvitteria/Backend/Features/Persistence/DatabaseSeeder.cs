@@ -1,17 +1,30 @@
-﻿using Backend.Features.Persistence.Model.Receipts;
+﻿using Backend.Features.Auth;
+using Backend.Features.Persistence.Model;
+using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Persistence.Model.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Persistence;
 
 /// <summary>
-/// Seeds the Danish meal and category taxonomy when the tables are empty. Invoked through
-/// <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c>.
+/// Seeds the Danish meal and category taxonomy, and the household settings row, when the tables are
+/// empty. Invoked through <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c>
+/// — so this runs on every start, and the emptiness checks are what make that a handful of
+/// <c>SELECT EXISTS</c> rather than repeated work. They guard whole tables, not individual rows: a
+/// deleted category is not restored, and an existing <c>PipelineSettings</c> row keeps whatever model
+/// it already names regardless of <see cref="Extraction.LLM.OllamaOptions.DefaultModel"/>.
 /// </summary>
 // TODO: This could be part of an onboarding flow rather than fixed seed data.
 internal static class DatabaseSeeder
 {
 	private static readonly (string Name, bool TracksDayCoverage)[] SeedMeals =
 		[("Morgenmad", false), ("Frokost", false), ("Aftensmad", true), ("Snacks", false)];
+
+	/// <summary>
+	/// What members may do before an admin decides otherwise. Sorting new items is the whole point of
+	/// having more than one account; changing the taxonomy is not.
+	/// </summary>
+	private static readonly Permission[] DefaultMemberPermissions = [Permission.CategorizeLines];
 
 	private static readonly (string Name, string[] Children)[] SeedCategories = [
 		("Fødevarer", ["Frugt & Grønt", "Kød & Fisk", "Mejeri & Æg", "Brød & Bageri", "Kolonial", "Frost", "Færdigretter", "Slik & Snacks"]),
@@ -26,45 +39,59 @@ internal static class DatabaseSeeder
 		("Andet", [])
 	];
 
-	public static void Seed(DbContext context)
+	public static void Seed(DbContext context, string defaultOllamaModel)
 	{
 		bool needsMeals = !context.Set<Meal>().Any();
 		bool needsCategories = !context.Set<Category>().Any();
+		bool needsHouseholdSettings = !context.Set<HouseholdSettings>().Any();
+		bool needsPipelineSettings = !context.Set<PipelineSettings>().Any();
 
-		if (!needsMeals && !needsCategories)
+		if (!needsMeals && !needsCategories && !needsHouseholdSettings && !needsPipelineSettings)
 			return;
 
 		using IDbContextTransaction transaction = context.Database.BeginTransaction();
 
-		AddPending(context, needsMeals, needsCategories);
+		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings, defaultOllamaModel);
 
 		context.SaveChanges();
 		transaction.Commit();
 	}
 
-	public static async Task SeedAsync(DbContext context, CancellationToken ct)
+	public static async Task SeedAsync(DbContext context, string defaultOllamaModel, CancellationToken ct)
 	{
 		bool needsMeals = !await context.Set<Meal>().AnyAsync(ct);
 		bool needsCategories = !await context.Set<Category>().AnyAsync(ct);
+		bool needsHouseholdSettings = !await context.Set<HouseholdSettings>().AnyAsync(ct);
+		bool needsPipelineSettings = !await context.Set<PipelineSettings>().AnyAsync(ct);
 
-		if (!needsMeals && !needsCategories)
+		if (!needsMeals && !needsCategories && !needsHouseholdSettings && !needsPipelineSettings)
 			return;
 
 		await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
 
-		AddPending(context, needsMeals, needsCategories);
+		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings, defaultOllamaModel);
 
 		await context.SaveChangesAsync(ct);
 		await transaction.CommitAsync(ct);
 	}
 
-	private static void AddPending(DbContext context, bool needsMeals, bool needsCategories)
+	private static void AddPending(
+		DbContext context, bool needsMeals, bool needsCategories, bool needsHouseholdSettings, bool needsPipelineSettings,
+		string defaultOllamaModel)
 	{
 		if (needsMeals)
 			context.Set<Meal>().AddRange(BuildMeals());
 
 		if (needsCategories)
 			context.Set<Category>().AddRange(BuildCategories());
+
+		if (needsHouseholdSettings)
+			context.Set<HouseholdSettings>().Add(new HouseholdSettings {
+				MemberPermissions = [.. DefaultMemberPermissions]
+			});
+
+		if (needsPipelineSettings)
+			context.Set<PipelineSettings>().Add(new PipelineSettings { OllamaModel = defaultOllamaModel });
 	}
 
 	private static IEnumerable<Meal> BuildMeals() =>

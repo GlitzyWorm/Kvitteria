@@ -1,0 +1,32 @@
+name: commit-lint
+
+on:
+  pull_request:
+
+concurrency:
+  group: commit-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # commitlint needs the range, so a shallow clone is not enough.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No package.json in this repo: the tooling is a CI concern, not a dependency of anything that
+      # ships, and pinning it here keeps a lockfile out of a .NET solution.
+      - run: npm install --no-save @commitlint/cli@19 @commitlint/config-conventional@19
+
+      # Every commit the pull request adds. A squash merge only keeps the PR title, but a merge commit
+      # keeps all of them, so they all have to parse.
+      - run: npx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose

@@ -5,28 +5,23 @@ namespace Backend.Features.Extraction.LLM;
 public sealed class OllamaOptions: IOptionsSection
 {
 	public static string SectionName => "Ollama";
-	
-	[Required(AllowEmptyStrings = false)]
-	public string BaseUrl { get; set; } = "http://localhost:11434";
-	[Required(AllowEmptyStrings = false)]
-	public string Model { get; set; } = "qwen3:4b";
-	public bool ThinkingMode { get; set; } = false;
-	[Range(1, 7_200)]
-	public int RequestTimeoutSeconds { get; set; } = 1200;
-	[Range(256, 1_048_576)]
-	public int NumCtx { get; set; } = 8192;
-	public string KeepAlive { get; set; } = "30m";
 
-	[Range(1, 10)]
-	public int MaxExtractionAttempts { get; set; } = 3;
-
-	/// <summary>Attempt 1 runs at temperature 0; retries use this.</summary>
-	public double RetryTemperature { get; set; } = 0.3;
+	// No default, for the same reason as DatabaseOptions.ConnectionString: a localhost fallback turns
+	// a mistyped environment variable into a silent misconfiguration rather than a failed start.
+	[Required(AllowEmptyStrings = false)]
+	public string BaseUrl { get; set; } = string.Empty;
 
 	/// <summary>
-	/// An extraction counts as reconciled when
-	/// <c>grand_total - sum(line_totals) - pant_total</c> is within this many kroner of zero.
-	/// Danish receipts round to øre.
+	/// Seeds <see cref="Persistence.Model.PipelineSettings.OllamaModel"/> when the database is first
+	/// created, and is never read again — the row is authoritative afterwards and is edited through
+	/// <c>PUT /api/settings/pipeline</c>, which validates the new name against Ollama's own
+	/// <c>/api/tags</c>. Sharing one value with the container that pulls the model is what stops the
+	/// two from naming different tags.
 	/// </summary>
-	public decimal ReconciliationToleranceKr { get; set; } = 0.01M;
+	[Required(AllowEmptyStrings = false)]
+	public string DefaultModel { get; set; } = string.Empty;
+
+	/// <summary>Baked into the typed <see cref="HttpClient"/> at construction, so this cannot live in the database.</summary>
+	[Range(1, 7_200)]
+	public int RequestTimeoutSeconds { get; set; } = 1200;
 }

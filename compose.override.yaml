@@ -1,0 +1,43 @@
+# Applied automatically on top of compose.yaml whenever this file is present, which in a checkout is
+# always. It is for working on Kvitteria: it builds the backend from source instead of pulling a
+# published image, exposes the ports host-side tooling needs, and switches to Development.
+#
+# Somebody running from published images has compose.yaml and .env, not a checkout, so they never see
+# this. If you want to test the published image from inside the repo, rename this file.
+
+services:
+  backend:
+    build:
+      context: ./Kvitteria
+      dockerfile: Backend/Dockerfile
+      args:
+        # A local build is not a release, and GET /version should not claim otherwise.
+        VERSION: 0.0.0-dev
+        SOURCE_COMMIT: local
+    # Required, not decorative: compose merges these two files rather than replacing, so without an
+    # explicit tag the local build would be named after the GHCR image and shadow a later pull.
+    image: kvitteria-backend:dev
+    environment:
+      # Serves the OpenAPI document and the Scalar reference at /scalar, and logs at Debug.
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      # Straight to the backend, bypassing Caddy — the fastest way to tell a proxy problem from an
+      # application one. Not the supported path; clients use the Caddy port.
+      - "8081:8080"
+
+  postgres:
+    ports:
+      # Published so `dotnet ef` and a database client can reach it from the host. 54322 by default,
+      # matching what the Supabase CLI used to serve, so existing saved connections still work:
+      #   Host=localhost;Port=54322;Database=kvitteria;Username=postgres;Password=<POSTGRES_PASSWORD>
+      - "${POSTGRES_HOST_PORT:-54322}:5432"
+
+  gotrue:
+    ports:
+      # Direct and unproxied, so note there is no /auth/v1 prefix on this one — Caddy is what adds
+      # and strips it:  POST http://localhost:9999/token?grant_type=password
+      - "9999:9999"
+
+  ollama:
+    ports:
+      - "11434:11434"

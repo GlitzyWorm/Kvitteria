@@ -1,0 +1,51 @@
+{
+	# Nothing terminates TLS in front of this locally, and the site below is a bare port, so leaving
+	# automatic HTTPS on would only produce certificate attempts that cannot succeed.
+	auto_https off
+
+	log {
+		format console
+	}
+}
+
+# The single entrypoint. A frontend configures one origin and reaches auth, the API and eventually
+# the app itself through it.
+:8080 {
+	# GoTrue serves at the root — /token, /signup, /.well-known/jwks.json. In a Supabase project it is
+	# Kong that mounts it under /auth/v1, and there is no Kong here, so the prefix is stripped on the
+	# way through. handle_path does that; a plain handle would forward it intact and 404.
+	handle_path /auth/v1/* {
+		reverse_proxy gotrue:9999
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	# Health and version live outside /api, because that group requires an active household member and
+	# a probe has no token. They need their own routes for the same reason.
+	handle /health/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /version {
+		reverse_proxy backend:8080
+	}
+
+	# Development-only on the backend, which answers 404 for both in any other environment.
+	handle /openapi/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /scalar* {
+		reverse_proxy backend:8080
+	}
+
+	# Reserved for the Angular app. Nothing is mounted at /srv yet, so this answers 404 — which is the
+	# honest response until there is something to serve.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

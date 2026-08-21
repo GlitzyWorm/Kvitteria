@@ -9,81 +9,153 @@ local LLM, persists them to Postgres, and exposes a minimal-API surface for cate
 (canonical items, categories, meals).
 
 Single project: `Kvitteria/Backend/Backend.csproj` (ASP.NET Core, **.NET 10**), solution file
-`Kvitteria/Kvitteria.slnx`.
+`Kvitteria/Kvitteria.slnx`. `Kvitteria/` is the .NET root and holds `Directory.Build.props`,
+`Directory.Packages.props` and `global.json`; it is also the Docker build context. A MAUI app goes
+beside `Backend/`, an Angular app at the repo root.
+
+User-facing documentation lives in `README.md` and `docs/` (`configuration.md`, `troubleshooting.md`,
+`development.md`). This file is the internal counterpart — keep the rationale here and the
+instructions there rather than duplicating either.
 
 ## Commands
 
-The backend runs in Docker, not via `dotnet run`. Run these from the repo root
-(`Q:/Projects/Kvitteria`), where `compose.yaml` lives:
+Everything runs in Docker, from the repo root where `compose.yaml` lives. There is no second
+orchestration tool and no host-side database: Postgres, GoTrue, Ollama, the backend and a Caddy
+entrypoint are all services in this compose project.
 
 ```bash
-docker compose up -d --build ollama
+./scripts/setup.sh
 ```
+
+That writes `.env` (generating the Postgres password, `GOTRUE_JWT_SECRET`, and the ES256
+`GOTRUE_JWT_KEYS`), starts everything, and waits on `/health/ready`. `scripts/setup.ps1` is the
+Windows equivalent. Re-running it leaves an existing `.env` alone.
+
+After that, plain compose:
 
 ```bash
-docker compose up -d --build backend
+docker compose up -d --build
 ```
 
-Start `ollama` first — `backend` declares `depends_on: ollama`, and the ollama container pulls its
-model on first boot (`entrypoint` runs `ollama pull qwen3.5:4b`), so the first start takes a while.
+A checkout picks up `compose.override.yaml` automatically, which builds the backend from source
+rather than pulling from GHCR, sets `ASPNETCORE_ENVIRONMENT=Development`, and publishes the ports
+host-side tooling needs — Postgres on 54322, GoTrue on 9999, the backend directly on 8081 bypassing
+Caddy. `compose.gpu.yaml` is a third overlay for GPU passthrough, opted into via `COMPOSE_FILE`
+in `.env`.
 
-Ports from `compose.yaml`: backend on `http://localhost:8080`, Ollama on `http://localhost:11434`.
-Scalar API reference at `http://localhost:8080/scalar`, OpenAPI doc at
-`http://localhost:8080/openapi/v1.json` — both Development-only, and compose sets
-`ASPNETCORE_ENVIRONMENT=Development`.
+**Caddy is the single entrypoint**, on `http://localhost:8080` by default. It routes `/auth/v1/*` to
+GoTrue with the prefix stripped (standalone GoTrue serves at the root; in a Supabase project Kong is
+what adds that prefix), `/api/*` and `/health/*` and `/version` to the backend, and `/` to a future
+Angular build mounted at `/srv`. Scalar is at `/scalar` and the OpenAPI document at
+`/openapi/v1.json`, both Development-only.
 
-`compose.yaml` mounts `Kvitteria/Backend/appsettings.Local.json` read-only — the file must exist
-before starting `backend`, or Docker creates a directory in its place. The backend container reaches
-the host's Supabase Postgres via `host.docker.internal`, and Ollama via the service name
-(`Ollama__BaseUrl=http://ollama:11434`).
-
-Database is Supabase's local Postgres on port **54322**, running on the host rather than in this
-compose project. Start it first, from the `Kvitteria` directory:
-
-```bash
-supabase start
-```
-
-EF Core migrations are **not** applied at startup; apply them from the host, from `Kvitteria`:
-
-```bash
-dotnet ef database update --project Backend
-```
+Migrations are applied at startup by `DatabaseMigrator.MigrateDatabaseAsync`, called before the host
+starts. To add one, from `Kvitteria`:
 
 ```bash
 dotnet ef migrations add <Name> --project Backend
 ```
 
+`DesignTimeDbContextFactory` keeps the tooling off the web host — otherwise scaffolding a migration
+would apply one as a side effect, and the absent connection-string default would fail validation
+first anyway. Commands that talk to a real database need `Database__ConnectionString` exported.
+
 `Kvitteria/Backend.Tests` (xUnit) covers the pure logic that has no other safety net: the
 reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
-reorder guard, paging validation, and the HTML-to-text converter. Run it from `Kvitteria`:
+reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
+effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
+mailbox write validation, and the mailbox secret round-trip. Run it from `Kvitteria`:
 
 ```bash
 dotnet test
 ```
 
 There are no integration or endpoint tests. For anything touching HTTP or the database, verification
-is still manual: bring the stack up against a running Supabase and watch the pipeline logs
-(`docker compose logs -f backend`; Development log level is `Debug`).
+is still manual: bring the stack up and watch `docker compose logs -f backend` (Development log level
+is `Debug`). `/health/ready` names each dependency separately, which is the fastest triage.
+
+Manual API calls need a bearer token, and Scalar declares no security scheme so it cannot attach one:
+
+```bash
+./scripts/token.sh you@example.com 'password' --signup
+```
 
 ## Configuration
 
-Secrets live in the gitignored `Backend/appsettings.Local.json`, loaded on top of the normal
-appsettings chain in `Program.cs`. Options classes implement `Backend.Abstractions.IOptionsSection`,
-which declares a `static abstract string SectionName` — the section name lives on the class, not at
-the registration site. Register them with the `AddOptionsSection<T>(IConfiguration)` extension, which
-binds the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration
-fails at startup instead of inside the first poll. Sections: `Database`, `Imap`, `Ollama`. All are
-bound with `IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect
-live.
+Configuration is environment variables only, read from the gitignored `.env` beside `compose.yaml`
+(`.env.example` is the checked-in reference). Nothing is layered on top of the chain
+`WebApplication.CreateBuilder` assembles, deliberately: a JSON file added after it sits *above* the
+environment provider and silently overrides whatever compose sets.
 
-`ValidateDataAnnotations` does not recurse into collection elements, so per-entry IMAP completeness
-is checked by `ImapFolderOptions.IsComplete()` and reported by `MailFetcher`, which can name the
-member whose entry is incomplete.
+Options classes implement `Backend.Abstractions.IOptionsSection`, which declares a
+`static abstract string SectionName` — the section name lives on the class, not at the registration
+site. All three are registered with the `AddOptionsSection<T>(IConfiguration)` extension, which binds
+the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration fails
+at startup instead of inside the first poll. Sections: `Database` (`ConnectionString`), `Ollama`
+(`BaseUrl`, `RequestTimeoutSeconds`, `DefaultModel`), `Auth`. These stay configuration on purpose:
+each either breaks connectivity/security on a bad value, or is baked into an object built once at
+startup (the `DbContext` factory, the typed `HttpClient`, the JWT bearer scheme).
 
-`Imap:Folders` is a list — one entry per household member's receipt folder (host, credentials,
-folder name, member name/email).
+**None of the addresses carry defaults.** A default pointing at localhost means a mistyped
+`Database__ConnectionString` starts cleanly and dials 127.0.0.1, surfacing much later as a connection
+error naming the wrong host; empty fails `ValidateOnStart` instead. `Auth:Audience` keeps its default
+because `authenticated` is a constant of the identity provider rather than a deployment detail. The
+cost is that a host-side `dotnet run` must export all of them — see `docs/development.md`.
+
+`Ollama:DefaultModel` is the one value that spans configuration and settings. It seeds
+`PipelineSettings.OllamaModel` when the row is created and is never read again; the row is
+authoritative thereafter. Compose feeds the same `.env` variable to the Ollama container's `pull`, so
+the pipeline cannot ask for a tag nobody pulled. On an existing install the seeder's emptiness guard
+means editing it changes what Ollama pulls and nothing else.
+
+Everything else that used to live in `Ollama`/`Imap` and is safe to change without a restart —
+`Ollama:Model`, `ThinkingMode`, `NumCtx`, `KeepAlive`, `MaxExtractionAttempts`, `RetryTemperature`,
+`ReconciliationToleranceKr`, and `Imap:PollIntervalSeconds`/`MaxMessagesPerPoll` — moved into
+`PipelineSettings` (`Features/Persistence/Model/PipelineSettings.cs`), a single-row database table
+in the same shape as `HouseholdSettings`, editable by an admin through
+`GET`/`PUT /api/settings/pipeline` (`Features/Endpoints/SettingsEndpoints.cs`,
+`PermissionPolicies.Name(Permission.ManageSettings)` on the `PUT`). There is no cache in front of it —
+unlike `PermissionCache`, these values are read only a few times a minute (once per mail poll, once
+per extraction attempt), so `MailWorker`, `MailFetcher`, `ExtractionWorker`, and `OllamaClient` each
+query it fresh through a scoped `KvitteriaDbContext` (singletons go through `IServiceScopeFactory`).
+Changing `Ollama:Model` validates the new value against Ollama's own `/api/tags`
+(`OllamaClient.GetAvailableModelsAsync`) before saving, so a typo or an unpulled model can't silently
+break every future extraction. `PipelineSettingsValidation.TryValidate` (`Features/Shared/`) enforces
+the same numeric ranges the fields carried as `[Range]` attributes back when they were `Options`
+classes.
+
+### Mailboxes
+
+Receipt folders are **not** configuration. `Mailbox`
+(`Features/Persistence/Model/Mailbox.cs`) is one row per household member's IMAP folder — host, port,
+TLS, credentials, folder name — owned by a real `AppUser` through a required FK, and managed over
+`/api/mailboxes` (`Features/Endpoints/MailboxEndpoints.cs`) so a frontend can add one. This replaced
+the `Imap:Folders` config list, whose entries carried plaintext credentials and a free-text member
+name and email that linked to nothing.
+
+Writes need the `ManageMailboxes` permission, deliberately separate from `ManageSettings` so a member
+can register their own mailbox without also being able to retune the pipeline. Reads are ungated like
+every other read, which is safe because the password is never in a DTO — `MailboxDto` carries only a
+`HasPassword` flag.
+
+The password is encrypted with ASP.NET Data Protection through `MailboxSecrets`
+(`Features/Mail/MailboxSecrets.cs`), which owns the single purpose string. Deliberately **not** an EF
+value converter: the plaintext should only materialize when writing the row and when authenticating,
+not on every list query. `MailboxSecretException` wraps the `CryptographicException` a lost key ring
+produces, so it surfaces as "re-enter the password" rather than a 500.
+
+Every write verifies the settings against the real server before committing
+(`ImapConnection.VerifyAsync`), the same way `PUT /settings/pipeline` verifies an Ollama model against
+`/api/tags`, and answers 502 with the reason. A wrong folder name comes back with the server's own
+folder list. The check is skipped when nothing connection-relevant changed, so toggling `IsEnabled`
+costs no round-trip. `MailboxValidation.TryValidate` (`Features/Shared/`) does the completeness
+checking that `ImapFolderOptions.IsComplete()` used to report from inside the poller — at the moment
+of submission, rather than as a warning once a minute forever.
+
+`ImapConnection` (`Features/Mail/`) holds the connect/authenticate/open sequence shared by the poller
+and the verifying endpoints, including the `FolderNotFoundException` branch that enumerates
+`PersonalNamespaces` into an "Available folders: ..." message.
 
 ## Pipeline architecture
 
@@ -98,18 +170,28 @@ The two queue consumers derive from `QueueWorker<T>`, which owns the drain loop 
 `try`/`catch`, so the "one bad receipt must never kill a worker" rule is structural rather than
 remembered. `MailWorker` is a poller, not a consumer, and stands alone.
 
-1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `Imap:PollIntervalSeconds`, backing off
-   exponentially with jitter after consecutive failures. `MailFetcher` streams up to
-   `Imap:MaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
+1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `PipelineSettings.ImapPollIntervalSeconds`,
+   backing off exponentially with jitter after consecutive failures. `MailFetcher` reads the enabled
+   `Mailbox` rows fresh each poll (a scoped `KvitteriaDbContext`, since it is a singleton), streams up
+   to `ImapMaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
    invokes a callback that enqueues to `ExtractionQueue`. A message is flagged `Seen` **only after**
    that callback returns, so anything that throws first leaves it unread for the next poll. One
-   `ImapClient` per configured folder, since each entry is a different member's account.
+   `ImapClient` per mailbox, since each is a different member's account.
+
+   Each mailbox is **isolated**: its own `try`/`catch`, and the outcome recorded on the row
+   (`LastPolledAt`, `LastError`, `ConsecutiveFailures`) so a frontend can show which one is broken.
+   Previously one bad password aborted the whole poll and starved every other mailbox. `MailFetcher`
+   returns a `MailPollResult`, and `MailWorker` backs off only when **every** attempted mailbox failed
+   — otherwise one broken mailbox would slow the healthy ones down. The per-poll message cap is a
+   household budget: once spent, the remaining mailboxes are left for the next poll with their status
+   untouched rather than recorded as polled. An empty table logs and returns; it is how every household
+   starts, not a failure.
 2. **`ExtractionWorker`** — calls `OllamaClient` (`/api/chat`, non-streaming, JSON-schema-constrained
-   output from `ReceiptExtractionPrompt.Schema`). Retries up to 3 times: attempt 1 at temperature 0,
-   retries at `Ollama:RetryTemperature`. Success = **reconciliation**: `Reconciliation.IsReconciled`,
-   i.e. `grand_total - sum(line_totals) - pant_total` within `Ollama:ReconciliationToleranceKr` of
-   zero (default 0.01 — Danish receipts round to øre, and exact equality burned every retry on a
-   1-øre difference). Unreconciled attempts feed a natural-language `hint` back describing the
+   output from `ReceiptExtractionPrompt.Schema`). Retries up to `PipelineSettings.OllamaMaxExtractionAttempts`
+   times: attempt 1 at temperature 0, retries at `OllamaRetryTemperature`. Success = **reconciliation**:
+   `Reconciliation.IsReconciled`, i.e. `grand_total - sum(line_totals) - pant_total` within
+   `OllamaReconciliationToleranceKr` of zero (default 0.01 — Danish receipts round to øre, and exact
+   equality burned every retry on a 1-øre difference). Unreconciled attempts feed a natural-language `hint` back describing the
    delta. `OllamaClient` distinguishes `OllamaResponseException` (the model answered with something
    unusable — the only case where a "your JSON was malformed" hint is truthful) from
    `OllamaTransportException` (the model never saw the prompt, so retry unchanged and with no hint).
@@ -132,6 +214,99 @@ the process lifetime.
 line totals not unit prices, the `HERAF PANT IALT` / `HERAF MOMS` / `I ALT` label-then-amount
 ordering, decimal commas). Treat it as tuned behavior: changing wording changes extraction accuracy.
 
+## Authentication and authorization
+
+GoTrue owns **identity**; this backend owns **authorization**. It runs as a service in this compose
+project, sharing the database and owning the `auth` schema while EF owns `public` — so one `pg_dump` is
+a complete backup. Clients sign in against GoTrue through Caddy and send the resulting access token as
+a bearer token. The backend never sees a password, never sends a reset mail, never rotates a refresh
+token.
+
+EF connects as a superuser, so Postgres RLS cannot be part of the security model and no Data API is
+exposed. **The backend is the sole enforcement point.**
+
+`AuthOptions` (`Features/Auth/AuthOptions.cs`) needs at least one signing source, and `SharedSecret`
+takes precedence over `JwksUrl` — which is why it is **rejected outside Development**: honouring it
+where a working key set already exists would silently downgrade validation to HS256. Neither rule fits
+data annotations, so `AuthOptions.Validate(bool isDevelopment)` reports both through an
+`IValidateOptions<T>` and `ValidateOnStart`. It takes the environment rather than reading it, keeping
+the rules a pure function and the tests free of hosting types.
+
+`RequireHttpsMetadata` is secure by default, relaxed only in Development or when
+`AllowInsecureJwksTransport` says so — whoever can answer the key fetch decides which tokens are
+valid. The shipped compose sets that flag, because the fetch is a hop between containers with no
+certificate to present; it is an explicit opt-out rather than an inference from the environment name,
+so a deployment genuinely serving its JWKS in the clear has said so in one auditable place. Note the
+failure mode: `ConfigurationManager` is constructed lazily on first authentication, so a rejected
+transport presents as a 401 rather than a startup error.
+
+`Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the public URL the
+*client* reached auth on through Caddy, while this process fetches keys at `http://gotrue:9999` on the
+compose network. Conflating them presents as an unexplained 401. GoTrue serves a bare JWKS rather than
+an OpenID discovery document, hence `JwksConfigurationRetriever`; wrapping the key set in an
+`OpenIdConnectConfiguration` keeps `ConfigurationManager`'s caching and refresh-on-failure, so key
+rotation is a non-event.
+
+`GOTRUE_JWT_KEYS` is a JSON **array** of JWKs — a `{"keys": [...]}` wrapper fails to parse — and each
+key needs `"key_ops": ["sign", "verify"]` or startup reports `no signing key detected`.
+`GOTRUE_JWT_SECRET` is required by GoTrue's config loader regardless, goes unused when the key set is
+present, and is deliberately never given to the backend. `scripts/jwk_from_pem.py` generates a
+conforming key set from an openssl PEM using the standard library alone.
+
+**Local-only, for now.** iOS App Transport Security blocks plaintext HTTP, so physical devices cannot
+reach a local stack — simulator and emulator only until this is served over TLS. Nothing blocks a move
+to hosted identity: `AppUser.AuthUserId` is deliberately **not** a foreign key to `auth.users`, so
+identity can relocate without a migration. `docs/configuration.md` lists what changes; the trap there
+is that a hosted Supabase project has its Data API **on** by default, which would bypass every policy
+below.
+
+### Who gets in
+
+`UserProvisioning.Decide` answers this on every authenticated request, because bootstrapping the first
+admin and binding a pre-authorized email are the same question at different points in the household's
+life — one decision rather than two flows that can disagree:
+
+- **Existing** — a row already claimed by this Supabase user. `Disabled` is rejected.
+- **Bind** — an unclaimed row pre-authorizes this email: attach the user and activate it.
+- **Bootstrap** — no members exist at all, so this caller becomes the admin. There is no init endpoint
+  and no bootstrap secret; nobody can be pre-authorized before an admin exists to do it. The branch
+  takes a `pg_advisory_xact_lock`, because the empty-table check is otherwise racy.
+- **Reject** — authenticated, but not a member. 403.
+
+Admins pre-authorize with `POST /api/users` and tell the person to sign up; **nothing is emailed**. That
+is why no `service_role` key and no SMTP configuration are needed anywhere in this project. Members are
+`Disabled`, never deleted — rows reference them.
+
+### Permissions
+
+Reads are never gated: the household sees everything. `Permission` covers the writes —
+`CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`,
+`ManageMailboxes`. `Admin` holds all
+of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
+`HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`
+(see [Configuration](#configuration) for the sibling `PUT /api/settings/pipeline`, gated by the same
+`ManageSettings` permission).
+`AppUser.PermissionOverrides` is honoured by `PermissionResolution.Resolve` but written by nothing yet —
+the column exists so per-user overrides need no migration.
+
+Enforcement is one policy per permission, registered mechanically in `PermissionPolicies`, and the `/api`
+group requires `active-user`. Policies compose as an AND, so a write route declares only its own
+permission. `HouseholdAuthorizationHandler` resolves the caller once per request and settles every
+household requirement from that answer. Permissions live in the database, not in JWT `app_metadata`:
+with a handful of users the lookup is free, and claims would need a token refresh every time the admin
+flips a checkbox. `PermissionCache` keeps resolved members for 60 seconds, keyed by a version that every
+user or settings write bumps, so a toggle takes effect without a new token.
+
+One check cannot be a route policy because it depends on the body: `SetAsDefault` on the line category
+and meal endpoints writes the *canonical item's* defaults, which is taxonomy reached through a
+categorization endpoint. Those handlers call `CurrentUserService.HasAsync` and answer 403 without
+`ManageTaxonomy`.
+
+Enums cross the wire as **names**, not ordinals — `string.TryParseName<T>()` in
+`Features/Shared/EnumNames.cs`, because `Enum.TryParse` also accepts numbers, which would make the API
+contract depend on declaration order and let an out-of-range value through. Note this differs from
+`ReceiptStatus`, which predates it and still serializes as a number.
+
 ## Domain model
 
 `Receipt` → many `ReceiptLine`. Each line carries the raw printed name plus optional
@@ -148,8 +323,17 @@ line on that receipt still carries that meal. Both halves of that invariant — 
 the orphan cleanup — live in `Features/Receipts/MealCoverage.cs`; they were previously split across
 two endpoint files that disagreed about how coverage was reached.
 
-`DatabaseSeeder` seeds the Danish meal and category taxonomy on first run when the tables are empty,
-registered as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
+`AppUser` is a household member as this application knows them, keyed by its own `Id` with
+`AuthUserId` as the only link to identity. `HouseholdSettings` is a single row — the scope is one
+household with no option to create more — so editing what members may do is one atomic update rather
+than a fan-out. Both permission columns are Postgres `text[]` of enum names via `PermissionSetConverter`,
+matching the "database values are self-describing" rule the status and role columns follow.
+
+`DatabaseSeeder` seeds the Danish meal and category taxonomy when the tables are empty — which is now
+every boot, since `MigrateDatabaseAsync` runs unconditionally; the four emptiness probes are what make
+that a handful of `SELECT EXISTS` rather than repeated work. They guard whole tables, not rows, so a
+deleted category is not restored and an existing `PipelineSettings` row keeps its model name. Registered
+as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
 (not in `OnConfiguring`, which re-ran on every `DbContext` construction). EF fires these from
 `Migrate()`, which includes the `dotnet ef database update` path above. Both inserts share one
 transaction, so a partial seed cannot leave meals present and categories permanently blocked.
@@ -178,7 +362,31 @@ right-hand side, `CancellationToken ct` as the parameter name.
 
 ## Gotchas
 
-- `supabase/` (config, snippets) sits inside `Kvitteria/`, so `supabase` CLI commands must run from
-  there.
 - The `citext` Postgres extension is required (declared via `HasPostgresExtension`) for
-  case-insensitive category names.
+  case-insensitive category names, and for matching a token's email against a pre-authorized `AppUser`.
+  `postgres/initdb/10-roles-and-extensions.sql` creates it up front along with `pgcrypto`, so EF's
+  `CREATE EXTENSION` is a no-op even under a role without `CREATE` — but **that script only runs on a
+  fresh volume**.
+- GoTrue's own migrations `GRANT` to `anon`, `authenticated` and `service_role`, which a Supabase
+  project provisions and a plain `postgres` image does not. The same initdb script creates them; without
+  it the first `gotrue` boot fails with `role "..." does not exist`.
+- `Backend/Dockerfile` must copy `Directory.Packages.props` **and** `Directory.Build.props` before
+  `dotnet restore`. Missing the first fails loudly with NU1015; missing the second fails **silently** —
+  the build succeeds against SDK defaults and every image reports version `0.0.0` forever.
+- `compose.override.yaml` must set `image:` explicitly. Compose merges rather than replaces, so without
+  it a local build is tagged as the GHCR image and shadows a later pull.
+- Manual API checks need a bearer token; the Scalar reference declares no security scheme, so it cannot
+  attach one for you. `scripts/token.sh` signs in against GoTrue and prints one.
+- The Data Protection key ring lives in this database (`DataProtectionKeys`, via
+  `IDataProtectionKeyContext` on `KvitteriaDbContext`), so one backup covers both the keys and the
+  mailbox ciphertext they protect. **Restoring one without the other means every mailbox password must
+  be re-entered.** `SetApplicationName("Kvitteria")` in `Program.cs` and the purpose string in
+  `MailboxSecrets` are both load-bearing: change either and every stored password becomes
+  undecryptable.
+- `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` pins the EF Core version for the whole
+  graph. It is on the ASP.NET Core release cadence, so its patch number has to match the
+  `Microsoft.EntityFrameworkCore.*` pins in `Directory.Packages.props` — a mismatch fails the build
+  with CS1705, not a restore error.
+- Tags pushed with the default `GITHUB_TOKEN` do **not** trigger other workflows, so image publishing
+  runs as a job inside `release-please.yml` gated on its outputs. An `on: release` trigger would never
+  fire, and every release would look successful with no image behind it.

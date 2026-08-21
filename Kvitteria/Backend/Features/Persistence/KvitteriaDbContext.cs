@@ -1,8 +1,12 @@
-﻿using Backend.Features.Persistence.Model.Receipts;
+﻿using Backend.Features.Persistence.Model;
+using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Persistence.Model.Users;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Persistence;
 
-public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> options) : DbContext(options)
+public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> options)
+	: DbContext(options), IDataProtectionKeyContext
 {
 	public DbSet<Receipt> Receipts => Set<Receipt>();
 	public DbSet<ReceiptLine> ReceiptLines => Set<ReceiptLine>();
@@ -12,6 +16,16 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<ReceiptMealCoverage> ReceiptMealCoverages => Set<ReceiptMealCoverage>();
 	public DbSet<Category> Categories => Set<Category>();
 	public DbSet<Merchant> Merchants => Set<Merchant>();
+	public DbSet<AppUser> AppUsers => Set<AppUser>();
+	public DbSet<HouseholdSettings> HouseholdSettings => Set<HouseholdSettings>();
+	public DbSet<PipelineSettings> PipelineSettings => Set<PipelineSettings>();
+	public DbSet<Mailbox> Mailboxes => Set<Mailbox>();
+
+	/// <summary>
+	/// The Data Protection key ring, kept in this database so the keys and the ciphertext they protect
+	/// are covered by one backup. Losing it means every mailbox password must be re-entered.
+	/// </summary>
+	public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
 	/// <summary>Money is kroner with øre.</summary>
 	private const int MoneyPrecision = 12;
@@ -23,6 +37,9 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 
 	private const int NameLength = 200;
 	private const int RawNameLength = 300;
+
+	/// <summary>Data-Protection ciphertext is base64 and carries a key header, so it needs room.</summary>
+	private const int SecretLength = 2_000;
 
 	/// <summary>Matches the range MealCoverage enforces.</summary>
 	private const int MaxDaysCovered = 31;
@@ -170,6 +187,62 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			// citext + unique: "Netto" and "NETTO" are the same shop.
 			entity.Property(e => e.Name).HasColumnType("citext").HasMaxLength(NameLength);
 			entity.HasIndex(e => e.Name).IsUnique();
+		});
+
+		modelBuilder.Entity<AppUser>(entity => {
+			entity.HasKey(e => e.Id);
+
+			// citext + unique: an email is one person, whatever case they type it in. The token's email
+			// is matched against this to bind a pre-authorized row to whoever signed up.
+			entity.Property(e => e.Email).HasColumnType("citext").HasMaxLength(NameLength);
+			entity.HasIndex(e => e.Email).IsUnique();
+
+			// Unique but nullable: many rows may await their owner, but one identity claims only one row.
+			entity.HasIndex(e => e.AuthUserId).IsUnique();
+
+			entity.Property(e => e.DisplayName).HasMaxLength(NameLength);
+			entity.Property(e => e.Role).HasConversion<string>().HasMaxLength(32);
+			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+
+			// The type-based overload, because the property is nullable and the converter is not.
+			entity.Property(e => e.PermissionOverrides)
+			      .HasConversion<PermissionSetConverter, PermissionSetComparer>()
+			      .HasColumnType("text[]");
+		});
+
+		modelBuilder.Entity<HouseholdSettings>(entity => {
+			entity.HasKey(e => e.Id);
+
+			entity.Property(e => e.MemberPermissions)
+			      .HasConversion(new PermissionSetConverter(), new PermissionSetComparer())
+			      .HasColumnType("text[]");
+		});
+
+		modelBuilder.Entity<PipelineSettings>(entity => {
+			entity.HasKey(e => e.Id);
+
+			entity.Property(e => e.OllamaReconciliationToleranceKr).HasPrecision(MoneyPrecision, MoneyScale);
+		});
+
+		modelBuilder.Entity<Mailbox>(entity => {
+			entity.HasKey(e => e.Id);
+
+			// No citext anywhere here: IMAP usernames and folder names are case-sensitive.
+			entity.Property(e => e.Host).HasMaxLength(NameLength);
+			entity.Property(e => e.Username).HasMaxLength(NameLength);
+			entity.Property(e => e.Folder).HasMaxLength(NameLength);
+
+			// Ciphertext is longer than the plaintext it protects and grows with the key format.
+			entity.Property(e => e.EncryptedPassword).HasMaxLength(SecretLength);
+			entity.Property(e => e.LastError).HasMaxLength(RawNameLength);
+
+			entity.HasOne(e => e.AppUser)
+			      .WithMany()
+			      .HasForeignKey(e => e.AppUserId)
+			      .OnDelete(DeleteBehavior.Restrict);
+
+			// The same folder on the same account is one mailbox, however many times it is submitted.
+			entity.HasIndex(e => new { e.AppUserId, e.Host, e.Username, e.Folder }).IsUnique();
 		});
 	}
 }

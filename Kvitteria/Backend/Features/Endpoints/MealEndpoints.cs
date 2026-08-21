@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -53,6 +54,7 @@ static class MealEndpoints
 				         return Results.Ok(meals.Select(m => m.ToDto()).OrderBy(m => m.SortOrder).ToList());
 			         })
 			         .WithName("ReorderMeals")
+			         .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			         .Produces<List<MealDto>>()
 			         .ProducesProblem(StatusCodes.Status400BadRequest);
 		}

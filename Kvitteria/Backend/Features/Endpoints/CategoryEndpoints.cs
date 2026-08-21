@@ -1,4 +1,5 @@
 ﻿using Backend.Features.Categories;
+using Backend.Features.Auth;
 using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
@@ -88,6 +89,7 @@ static class CategoryEndpoints
 				             return Results.CreatedAtRoute("GetCategoryById", new { id = category.Id }, category.ToDto());
 			             })
 			             .WithName("CreateCategory")
+			             .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			             .Produces<CategoryDto>(StatusCodes.Status201Created)
 			             .ProducesProblem(StatusCodes.Status400BadRequest)
 			             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -155,6 +157,7 @@ static class CategoryEndpoints
 				             return Results.Ok(category.ToDto());
 			             })
 			             .WithName("UpdateCategory")
+			             .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			             .Produces<CategoryDto>()
 			             .ProducesProblem(StatusCodes.Status400BadRequest)
 			             .ProducesProblem(StatusCodes.Status404NotFound)
@@ -180,6 +183,7 @@ static class CategoryEndpoints
 				             return Results.Ok(siblings.Select(cat => cat.ToDto()).OrderBy(cat => cat.SortOrder).ToList());
 			             })
 			             .WithName("ReorderCategories")
+			             .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			             .Produces<List<CategoryDto>>()
 			             .ProducesProblem(StatusCodes.Status400BadRequest)
 			             .ProducesProblem(StatusCodes.Status404NotFound);

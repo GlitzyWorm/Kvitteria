@@ -1,32 +1,173 @@
-﻿services:
-  backend:
-    image: backend
-    build:
-      context: ./Kvitteria
-      dockerfile: Backend/Dockerfile
+name: ${COMPOSE_PROJECT_NAME:-kvitteria}
+
+services:
+  # The single entrypoint. Everything else talks over the compose network and publishes no host port,
+  # so this is the whole attack surface and the only address a client needs.
+  caddy:
+    image: caddy:${CADDY_VERSION:-2-alpine}
+    restart: unless-stopped
     ports:
-      - "8080:8080"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - Ollama__BaseUrl=http://ollama:11434
-      # Supabase's local Postgres runs on the host (`supabase start`), not in this compose
-      # project — 127.0.0.1 (the DatabaseOptions default, for host-side `dotnet run`) would
-      # resolve to this container.
-      - Database__ConnectionString=Host=host.docker.internal;Port=54322;Database=postgres;Username=postgres;Password=postgres
+      - "${CADDY_HTTP_PORT:-8080}:8080"
     volumes:
-      # Gitignored secrets file — must exist before `docker compose up`,
-      # or Docker creates a directory with this name instead.
-      - ./Kvitteria/Backend/appsettings.Local.json:/app/appsettings.Local.json:ro
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Where the Angular build will be mounted. Empty for now.
+      - spa_dist:/srv
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      # Caddy's own admin API, so this reports Caddy rather than whatever it proxies to.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     depends_on:
-      - ollama
+      backend:
+        condition: service_healthy
+      gotrue:
+        condition: service_healthy
+
+  backend:
+    image: ${IMAGE_REGISTRY:-ghcr.io/glitzyworm}/kvitteria-backend:${BACKEND_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_HTTP_PORTS: 8080
+      TZ: ${TZ:-Europe/Copenhagen}
+
+      # Composed here rather than in .env so POSTGRES_PASSWORD has exactly one definition.
+      Database__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-kvitteria};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
+
+      Ollama__BaseUrl: http://ollama:11434
+      Ollama__RequestTimeoutSeconds: ${OLLAMA_REQUEST_TIMEOUT_SECONDS:-1200}
+      Ollama__DefaultModel: ${OLLAMA_MODEL:-qwen3.5:4b}
+
+      # Two different addresses for one service, deliberately. Issuer is the public URL, because that
+      # is what GoTrue stamps into the token and what this process must therefore expect. JwksUrl is
+      # the internal one, because this container fetches keys over the compose network. Making them
+      # equal presents as a 401 with no explanation.
+      Auth__Issuer: ${PUBLIC_URL:-http://localhost:8080}/auth/v1
+      Auth__JwksUrl: http://gotrue:9999/.well-known/jwks.json
+      Auth__Audience: authenticated
+      Auth__AllowInsecureJwksTransport: ${AUTH_ALLOW_INSECURE_JWKS_TRANSPORT:-true}
+      # Auth__SharedSecret is deliberately absent. GoTrue signs with ES256 here, and the backend
+      # rejects a shared secret outside Development rather than letting it downgrade validation.
+    healthcheck:
+      # Readiness, not liveness: this is what caddy waits on, and an unmigrated database or an
+      # unreachable Ollama means the stack is not usable yet. start_period covers the first
+      # migration.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+
+  gotrue:
+    image: supabase/gotrue:${GOTRUE_VERSION:-v2.177.0}
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+
+      # Both carry the /auth/v1 prefix that Caddy strips on the way in, so the issuer GoTrue stamps
+      # matches the one the backend validates. Pinned rather than derived, so the value both sides
+      # depend on is stated once and visibly.
+      API_EXTERNAL_URL: ${PUBLIC_URL:-http://localhost:8080}/auth/v1
+      GOTRUE_JWT_ISSUER: ${PUBLIC_URL:-http://localhost:8080}/auth/v1
+
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_EXP: ${GOTRUE_JWT_EXP:-3600}
+      # The ES256 key set. Serving asymmetric keys is what lets the backend validate without sharing
+      # a secret with the identity provider.
+      GOTRUE_JWT_KEYS: ${GOTRUE_JWT_KEYS}
+      # Required by GoTrue's config loader even when the key set above is what actually signs. It
+      # stays here: the backend is never told it, and rejects a shared secret outside Development.
+      GOTRUE_JWT_SECRET: ${GOTRUE_JWT_SECRET}
+
+      GOTRUE_DB_DRIVER: postgres
+      # Owns the `auth` schema; the backend owns `public` in the same database.
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kvitteria}?search_path=auth&sslmode=disable
+
+      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:8080}
+      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:8080}
+
+      GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      # No SMTP is configured anywhere, so nobody could ever confirm an address.
+      GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      GOTRUE_PASSWORD_MIN_LENGTH: ${GOTRUE_PASSWORD_MIN_LENGTH:-8}
+
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: 10
+
+      GOTRUE_LOG_LEVEL: ${GOTRUE_LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-17}
+    restart: unless-stopped
+    # No `ports:` on purpose. Nothing outside the compose network needs the database, and not
+    # publishing it means no conflict with a Postgres already running on the host.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kvitteria}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ:-Europe/Copenhagen}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Roles, the auth schema and the extensions GoTrue and the backend need. Runs once, on a fresh
+      # volume only.
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-kvitteria}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   ollama:
-    image: ollama/ollama
-    ports:
-      - "11434:11434"
+    image: ollama/ollama:${OLLAMA_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
     volumes:
       - ollama_data:/root/.ollama
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 3 && ollama pull qwen3.5:4b && wait"]
+    # Pulls the model the backend is configured to use, from the same variable, then serves. The
+    # first start therefore takes as long as a multi-gigabyte download.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 3
+        ollama pull ${OLLAMA_MODEL:-qwen3.5:4b}
+        wait
+    healthcheck:
+      # Healthy means the server answers *and* the model is present, so the backend does not start
+      # into a stack that cannot extract anything yet. Compose interpolates the model name here, so
+      # this and the pull above are the same value. retries x interval has to outlast the download.
+      test: ["CMD-SHELL", "ollama list | grep -qF '${OLLAMA_MODEL:-qwen3.5:4b}'"]
+      interval: 15s
+      timeout: 10s
+      retries: 80
+      start_period: 30s
 
 volumes:
+  pgdata:
   ollama_data:
+  caddy_data:
+  caddy_config:
+  spa_dist:

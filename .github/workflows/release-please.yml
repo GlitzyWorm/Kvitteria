@@ -1,0 +1,48 @@
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      # Per component, so a release of the mobile or web app does not rebuild the backend image.
+      backend_released: ${{ steps.release.outputs['Kvitteria/Backend--release_created'] }}
+      backend_version: ${{ steps.release.outputs['Kvitteria/Backend--version'] }}
+      backend_major: ${{ steps.release.outputs['Kvitteria/Backend--major'] }}
+      backend_minor: ${{ steps.release.outputs['Kvitteria/Backend--minor'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # The default token is enough only because publishing runs in this same workflow — see the
+          # job below. A tag pushed with GITHUB_TOKEN deliberately does not trigger other workflows,
+          # so an `on: release` or `on: push: tags:` job would never fire and the release would look
+          # successful with no image behind it. That is why this repo has no such trigger.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Uncomment to discover the exact output names after changing components: release-please keys
+      # them by package path, and a rename here is silent rather than an error.
+      # - run: echo '${{ toJSON(steps.release.outputs) }}'
+
+  publish-backend:
+    needs: release-please
+    # Two conditions: something released, and it was the backend.
+    if: needs.release-please.outputs.releases_created == 'true' && needs.release-please.outputs.backend_released == 'true'
+    uses: ./.github/workflows/publish-backend.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      version: ${{ needs.release-please.outputs.backend_version }}
+      major: ${{ needs.release-please.outputs.backend_major }}
+      minor: ${{ needs.release-please.outputs.backend_minor }}

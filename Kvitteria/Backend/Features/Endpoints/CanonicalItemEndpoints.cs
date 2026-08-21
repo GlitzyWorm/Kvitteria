@@ -1,4 +1,5 @@
-﻿using Backend.Features.Endpoints.DTO;
+﻿using Backend.Features.Auth;
+using Backend.Features.Endpoints.DTO;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
@@ -65,6 +66,7 @@ static class CanonicalItemEndpoints
 				                  return Results.CreatedAtRoute("GetCanonicalItemById", new { id = canonicalItem.Id }, canonicalItem.ToDto());
 			                  })
 			                  .WithName("CreateCanonicalItem")
+			                  .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			                  .Produces<CanonicalItemDto>(StatusCodes.Status201Created)
 			                  .ProducesProblem(StatusCodes.Status400BadRequest)
 			                  .ProducesProblem(StatusCodes.Status409Conflict);
@@ -114,6 +116,7 @@ static class CanonicalItemEndpoints
 				                  return Results.Ok(canonicalItem.ToDto());
 			                  })
 			                  .WithName("UpdateCanonicalItem")
+			                  .RequireAuthorization(PermissionPolicies.Name(Permission.ManageTaxonomy))
 			                  .Produces<CanonicalItemDto>()
 			                  .ProducesProblem(StatusCodes.Status400BadRequest)
 			                  .ProducesProblem(StatusCodes.Status404NotFound)
