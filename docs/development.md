@@ -1,4 +1,4 @@
-# Development
+﻿# Development
 
 ## Layout
 
@@ -124,7 +124,9 @@ is a change that silently never ships.
 
 Components are versioned independently: `Kvitteria/Backend` today, with `mobile` and `web` reserved.
 Each owns its own `VersionPrefix`, marked with an `x-release-please-version` comment that must stay on
-the same line as the value.
+the same line as the value. That project file is the single source of truth: the Dockerfile overrides
+it only when CI supplies a version, so a plain `docker build` reports whatever release-please last
+wrote rather than a placeholder.
 
 Merging the release PR creates the tag and publishes the image. Publishing runs **inside** the
 release-please workflow rather than on the tag, because a tag pushed with the default token does not
