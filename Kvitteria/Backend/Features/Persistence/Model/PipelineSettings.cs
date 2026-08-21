@@ -17,7 +17,7 @@ public sealed class PipelineSettings
 	/// <summary>Caps one poll so a large unseen backlog cannot hold the IMAP session open indefinitely.</summary>
 	public int ImapMaxMessagesPerPoll { get; set; } = 25;
 
-	public string OllamaModel { get; set; } = "qwen3:4b";
+	public string OllamaModel { get; set; } = "qwen3.5:4b";
 
 	public bool OllamaThinkingMode { get; set; }
 
