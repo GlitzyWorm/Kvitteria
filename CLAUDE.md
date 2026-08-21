@@ -9,91 +9,105 @@ local LLM, persists them to Postgres, and exposes a minimal-API surface for cate
 (canonical items, categories, meals).
 
 Single project: `Kvitteria/Backend/Backend.csproj` (ASP.NET Core, **.NET 10**), solution file
-`Kvitteria/Kvitteria.slnx`.
+`Kvitteria/Kvitteria.slnx`. `Kvitteria/` is the .NET root and holds `Directory.Build.props`,
+`Directory.Packages.props` and `global.json`; it is also the Docker build context. A MAUI app goes
+beside `Backend/`, an Angular app at the repo root.
+
+User-facing documentation lives in `README.md` and `docs/` (`configuration.md`, `troubleshooting.md`,
+`development.md`). This file is the internal counterpart — keep the rationale here and the
+instructions there rather than duplicating either.
 
 ## Commands
 
-The backend runs in Docker, not via `dotnet run`. Run these from the repo root
-(`Q:/Projects/Kvitteria`), where `compose.yaml` lives:
+Everything runs in Docker, from the repo root where `compose.yaml` lives. There is no second
+orchestration tool and no host-side database: Postgres, GoTrue, Ollama, the backend and a Caddy
+entrypoint are all services in this compose project.
 
 ```bash
-docker compose up -d --build ollama
+./scripts/setup.sh
 ```
+
+That writes `.env` (generating the Postgres password, `GOTRUE_JWT_SECRET`, and the ES256
+`GOTRUE_JWT_KEYS`), starts everything, and waits on `/health/ready`. `scripts/setup.ps1` is the
+Windows equivalent. Re-running it leaves an existing `.env` alone.
+
+After that, plain compose:
 
 ```bash
-docker compose up -d --build backend
+docker compose up -d --build
 ```
 
-Start `ollama` first — `backend` declares `depends_on: ollama`, and the ollama container pulls its
-model on first boot (`entrypoint` runs `ollama pull qwen3.5:4b`), so the first start takes a while.
+A checkout picks up `compose.override.yaml` automatically, which builds the backend from source
+rather than pulling from GHCR, sets `ASPNETCORE_ENVIRONMENT=Development`, and publishes the ports
+host-side tooling needs — Postgres on 54322, GoTrue on 9999, the backend directly on 8081 bypassing
+Caddy. `compose.gpu.yaml` is a third overlay for GPU passthrough, opted into via `COMPOSE_FILE`
+in `.env`.
 
-Ports from `compose.yaml`: backend on `http://localhost:8080`, Ollama on `http://localhost:11434`.
-Scalar API reference at `http://localhost:8080/scalar`, OpenAPI doc at
-`http://localhost:8080/openapi/v1.json` — both Development-only, and compose sets
-`ASPNETCORE_ENVIRONMENT=Development`.
+**Caddy is the single entrypoint**, on `http://localhost:8080` by default. It routes `/auth/v1/*` to
+GoTrue with the prefix stripped (standalone GoTrue serves at the root; in a Supabase project Kong is
+what adds that prefix), `/api/*` and `/health/*` and `/version` to the backend, and `/` to a future
+Angular build mounted at `/srv`. Scalar is at `/scalar` and the OpenAPI document at
+`/openapi/v1.json`, both Development-only.
 
-`compose.yaml` mounts `Kvitteria/Backend/appsettings.Local.json` read-only — the file must exist
-before starting `backend`, or Docker creates a directory in its place. The backend container reaches
-the host's Supabase Postgres via `host.docker.internal`, and Ollama via the service name
-(`Ollama__BaseUrl=http://ollama:11434`).
-
-Database is Supabase's local Postgres on port **54322**, running on the host rather than in this
-compose project. Start it first, from the `Kvitteria` directory:
-
-```bash
-supabase start
-```
-
-Supabase Auth (`[auth] enabled = true`) signs tokens with the key in the gitignored
-`supabase/signing_keys.json`, which `config.toml` points at via `signing_keys_path`. It must exist
-before `supabase start`, or the CLI refuses the config; regenerate it with:
-
-```bash
-supabase gen signing-key --algorithm ES256
-```
-
-The CLI prints a single JWK but the config expects an **array**, so wrap it in `[...]` when writing the
-file. Without a signing key the stack falls back to the legacy shared HS256 secret and serves an empty
-JWKS, which the backend cannot validate against — see `Auth:SharedSecret` below for that path.
-
-EF Core migrations are **not** applied at startup; apply them from the host, from `Kvitteria`:
-
-```bash
-dotnet ef database update --project Backend
-```
+Migrations are applied at startup by `DatabaseMigrator.MigrateDatabaseAsync`, called before the host
+starts. To add one, from `Kvitteria`:
 
 ```bash
 dotnet ef migrations add <Name> --project Backend
 ```
 
+`DesignTimeDbContextFactory` keeps the tooling off the web host — otherwise scaffolding a migration
+would apply one as a side effect, and the absent connection-string default would fail validation
+first anyway. Commands that talk to a real database need `Database__ConnectionString` exported.
+
 `Kvitteria/Backend.Tests` (xUnit) covers the pure logic that has no other safety net: the
 reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
-reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision, effective
-permissions and the last-admin guard, permission-name parsing, the auth options rule, mailbox write
-validation, and the mailbox secret round-trip. Run it from
-`Kvitteria`:
+reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
+effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
+mailbox write validation, and the mailbox secret round-trip. Run it from `Kvitteria`:
 
 ```bash
 dotnet test
 ```
 
 There are no integration or endpoint tests. For anything touching HTTP or the database, verification
-is still manual: bring the stack up against a running Supabase and watch the pipeline logs
-(`docker compose logs -f backend`; Development log level is `Debug`).
+is still manual: bring the stack up and watch `docker compose logs -f backend` (Development log level
+is `Debug`). `/health/ready` names each dependency separately, which is the fastest triage.
+
+Manual API calls need a bearer token, and Scalar declares no security scheme so it cannot attach one:
+
+```bash
+./scripts/token.sh you@example.com 'password' --signup
+```
 
 ## Configuration
 
-Secrets and infrastructure addresses live in the gitignored `Backend/appsettings.Local.json`
-(`.example` template checked in), loaded on top of the normal appsettings chain in `Program.cs`.
+Configuration is environment variables only, read from the gitignored `.env` beside `compose.yaml`
+(`.env.example` is the checked-in reference). Nothing is layered on top of the chain
+`WebApplication.CreateBuilder` assembles, deliberately: a JSON file added after it sits *above* the
+environment provider and silently overrides whatever compose sets.
+
 Options classes implement `Backend.Abstractions.IOptionsSection`, which declares a
 `static abstract string SectionName` — the section name lives on the class, not at the registration
 site. All three are registered with the `AddOptionsSection<T>(IConfiguration)` extension, which binds
 the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration fails
 at startup instead of inside the first poll. Sections: `Database` (`ConnectionString`), `Ollama`
-(`BaseUrl`, `RequestTimeoutSeconds`), `Auth`. These stay file-only on purpose: each either breaks
-connectivity/security on a bad value, or is baked into an object built once at startup (the
-`DbContext` factory, the typed `HttpClient`, the JWT bearer scheme).
+(`BaseUrl`, `RequestTimeoutSeconds`, `DefaultModel`), `Auth`. These stay configuration on purpose:
+each either breaks connectivity/security on a bad value, or is baked into an object built once at
+startup (the `DbContext` factory, the typed `HttpClient`, the JWT bearer scheme).
+
+**None of the addresses carry defaults.** A default pointing at localhost means a mistyped
+`Database__ConnectionString` starts cleanly and dials 127.0.0.1, surfacing much later as a connection
+error naming the wrong host; empty fails `ValidateOnStart` instead. `Auth:Audience` keeps its default
+because `authenticated` is a constant of the identity provider rather than a deployment detail. The
+cost is that a host-side `dotnet run` must export all of them — see `docs/development.md`.
+
+`Ollama:DefaultModel` is the one value that spans configuration and settings. It seeds
+`PipelineSettings.OllamaModel` when the row is created and is never read again; the row is
+authoritative thereafter. Compose feeds the same `.env` variable to the Ollama container's `pull`, so
+the pipeline cannot ask for a tag nobody pulled. On an existing install the seeder's emptiness guard
+means editing it changes what Ollama pulls and nothing else.
 
 Everything else that used to live in `Ollama`/`Imap` and is safe to change without a restart —
 `Ollama:Model`, `ThinkingMode`, `NumCtx`, `KeepAlive`, `MaxExtractionAttempts`, `RetryTemperature`,
@@ -202,31 +216,49 @@ ordering, decimal commas). Treat it as tuned behavior: changing wording changes 
 
 ## Authentication and authorization
 
-Supabase Auth (GoTrue) owns **identity**; this backend owns **authorization**. Clients — the C# MAUI app,
-later Angular — sign in against GoTrue directly and send the resulting access token as a bearer token.
-The backend never sees a password, never sends a reset mail, never rotates a refresh token.
+GoTrue owns **identity**; this backend owns **authorization**. It runs as a service in this compose
+project, sharing the database and owning the `auth` schema while EF owns `public` — so one `pg_dump` is
+a complete backup. Clients sign in against GoTrue through Caddy and send the resulting access token as
+a bearer token. The backend never sees a password, never sends a reset mail, never rotates a refresh
+token.
 
-EF connects as the `postgres` superuser, so Postgres RLS cannot be part of the security model and the
-Supabase Data API stays off. **The backend is the sole enforcement point.**
+EF connects as a superuser, so Postgres RLS cannot be part of the security model and no Data API is
+exposed. **The backend is the sole enforcement point.**
 
 `AuthOptions` (`Features/Auth/AuthOptions.cs`) needs at least one signing source, and `SharedSecret`
-takes precedence over `JwksUrl` when both are set. `JwksUrl` is preferred and carries a default pointing
-at the local stack, which is why the rule is precedence rather than mutual exclusion: "both set" is the
-normal state for anyone choosing the secret, not a mistake worth failing startup over. "At least one of
-two" is beyond data annotations, so `AuthOptions.Validate()` reports it through an
-`IValidateOptions<T>` and `ValidateOnStart`. `Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the URL the
-*client* reached Auth on (`127.0.0.1`), while the container fetches keys via `host.docker.internal`.
-Conflating them presents as an unexplained 401. Supabase serves a bare JWKS rather than an OpenID
-discovery document, hence `JwksConfigurationRetriever`; wrapping the key set in an
+takes precedence over `JwksUrl` — which is why it is **rejected outside Development**: honouring it
+where a working key set already exists would silently downgrade validation to HS256. Neither rule fits
+data annotations, so `AuthOptions.Validate(bool isDevelopment)` reports both through an
+`IValidateOptions<T>` and `ValidateOnStart`. It takes the environment rather than reading it, keeping
+the rules a pure function and the tests free of hosting types.
+
+`RequireHttpsMetadata` is secure by default, relaxed only in Development or when
+`AllowInsecureJwksTransport` says so — whoever can answer the key fetch decides which tokens are
+valid. The shipped compose sets that flag, because the fetch is a hop between containers with no
+certificate to present; it is an explicit opt-out rather than an inference from the environment name,
+so a deployment genuinely serving its JWKS in the clear has said so in one auditable place. Note the
+failure mode: `ConfigurationManager` is constructed lazily on first authentication, so a rejected
+transport presents as a 401 rather than a startup error.
+
+`Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the public URL the
+*client* reached auth on through Caddy, while this process fetches keys at `http://gotrue:9999` on the
+compose network. Conflating them presents as an unexplained 401. GoTrue serves a bare JWKS rather than
+an OpenID discovery document, hence `JwksConfigurationRetriever`; wrapping the key set in an
 `OpenIdConnectConfiguration` keeps `ConfigurationManager`'s caching and refresh-on-failure, so key
 rotation is a non-event.
 
+`GOTRUE_JWT_KEYS` is a JSON **array** of JWKs — a `{"keys": [...]}` wrapper fails to parse — and each
+key needs `"key_ops": ["sign", "verify"]` or startup reports `no signing key detected`.
+`GOTRUE_JWT_SECRET` is required by GoTrue's config loader regardless, goes unused when the key set is
+present, and is deliberately never given to the backend. `scripts/jwk_from_pem.py` generates a
+conforming key set from an openssl PEM using the standard library alone.
+
 **Local-only, for now.** iOS App Transport Security blocks plaintext HTTP, so physical devices cannot
-reach the local stack — simulator and emulator only until a hosted Supabase project exists. Nothing
-blocks that move: `AppUser.SupabaseUserId` is deliberately **not** a foreign key to `auth.users`, so
-identity can relocate without a migration. When it does, revisit `enable_signup` and
-`[auth.email] enable_confirmations` in `config.toml`, both of which are open locally because members
-sign themselves up and no SMTP is configured.
+reach a local stack — simulator and emulator only until this is served over TLS. Nothing blocks a move
+to hosted identity: `AppUser.AuthUserId` is deliberately **not** a foreign key to `auth.users`, so
+identity can relocate without a migration. `docs/configuration.md` lists what changes; the trap there
+is that a hosted Supabase project has its Data API **on** by default, which would bypass every policy
+below.
 
 ### Who gets in
 
@@ -292,13 +324,16 @@ the orphan cleanup — live in `Features/Receipts/MealCoverage.cs`; they were pr
 two endpoint files that disagreed about how coverage was reached.
 
 `AppUser` is a household member as this application knows them, keyed by its own `Id` with
-`SupabaseUserId` as the only link to identity. `HouseholdSettings` is a single row — the scope is one
+`AuthUserId` as the only link to identity. `HouseholdSettings` is a single row — the scope is one
 household with no option to create more — so editing what members may do is one atomic update rather
 than a fan-out. Both permission columns are Postgres `text[]` of enum names via `PermissionSetConverter`,
 matching the "database values are self-describing" rule the status and role columns follow.
 
-`DatabaseSeeder` seeds the Danish meal and category taxonomy on first run when the tables are empty,
-registered as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
+`DatabaseSeeder` seeds the Danish meal and category taxonomy when the tables are empty — which is now
+every boot, since `MigrateDatabaseAsync` runs unconditionally; the four emptiness probes are what make
+that a handful of `SELECT EXISTS` rather than repeated work. They guard whole tables, not rows, so a
+deleted category is not restored and an existing `PipelineSettings` row keeps its model name. Registered
+as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Program.cs`
 (not in `OnConfiguring`, which re-ran on every `DbContext` construction). EF fires these from
 `Migrate()`, which includes the `dotnet ef database update` path above. Both inserts share one
 transaction, so a partial seed cannot leave meals present and categories permanently blocked.
@@ -327,14 +362,21 @@ right-hand side, `CancellationToken ct` as the parameter name.
 
 ## Gotchas
 
-- `supabase/` (config, snippets) sits inside `Kvitteria/`, so `supabase` CLI commands must run from
-  there.
 - The `citext` Postgres extension is required (declared via `HasPostgresExtension`) for
   case-insensitive category names, and for matching a token's email against a pre-authorized `AppUser`.
-- `Backend/Dockerfile` must copy `Directory.Packages.props` before `dotnet restore`, or restore fails
-  with NU1015 — every `PackageReference` gets its version from there.
-- Manual API checks need a bearer token. Sign up or in against GoTrue directly and use the
-  `access_token`; the Scalar reference declares no security scheme, so it cannot attach one for you.
+  `postgres/initdb/10-roles-and-extensions.sql` creates it up front along with `pgcrypto`, so EF's
+  `CREATE EXTENSION` is a no-op even under a role without `CREATE` — but **that script only runs on a
+  fresh volume**.
+- GoTrue's own migrations `GRANT` to `anon`, `authenticated` and `service_role`, which a Supabase
+  project provisions and a plain `postgres` image does not. The same initdb script creates them; without
+  it the first `gotrue` boot fails with `role "..." does not exist`.
+- `Backend/Dockerfile` must copy `Directory.Packages.props` **and** `Directory.Build.props` before
+  `dotnet restore`. Missing the first fails loudly with NU1015; missing the second fails **silently** —
+  the build succeeds against SDK defaults and every image reports version `0.0.0` forever.
+- `compose.override.yaml` must set `image:` explicitly. Compose merges rather than replaces, so without
+  it a local build is tagged as the GHCR image and shadows a later pull.
+- Manual API checks need a bearer token; the Scalar reference declares no security scheme, so it cannot
+  attach one for you. `scripts/token.sh` signs in against GoTrue and prints one.
 - The Data Protection key ring lives in this database (`DataProtectionKeys`, via
   `IDataProtectionKeyContext` on `KvitteriaDbContext`), so one backup covers both the keys and the
   mailbox ciphertext they protect. **Restoring one without the other means every mailbox password must
@@ -345,3 +387,6 @@ right-hand side, `CancellationToken ct` as the parameter name.
   graph. It is on the ASP.NET Core release cadence, so its patch number has to match the
   `Microsoft.EntityFrameworkCore.*` pins in `Directory.Packages.props` — a mismatch fails the build
   with CS1705, not a restore error.
+- Tags pushed with the default `GITHUB_TOKEN` do **not** trigger other workflows, so image publishing
+  runs as a job inside `release-please.yml` gated on its outputs. An `on: release` trigger would never
+  fire, and every release would look successful with no image behind it.
