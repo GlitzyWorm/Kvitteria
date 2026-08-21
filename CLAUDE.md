@@ -70,7 +70,8 @@ dotnet ef migrations add <Name> --project Backend
 reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision, effective
-permissions and the last-admin guard, permission-name parsing, and the auth options rule. Run it from
+permissions and the last-admin guard, permission-name parsing, the auth options rule, mailbox write
+validation, and the mailbox secret round-trip. Run it from
 `Kvitteria`:
 
 ```bash
@@ -87,13 +88,12 @@ Secrets and infrastructure addresses live in the gitignored `Backend/appsettings
 (`.example` template checked in), loaded on top of the normal appsettings chain in `Program.cs`.
 Options classes implement `Backend.Abstractions.IOptionsSection`, which declares a
 `static abstract string SectionName` — the section name lives on the class, not at the registration
-site. All four are registered with the `AddOptionsSection<T>(IConfiguration)` extension, which binds
+site. All three are registered with the `AddOptionsSection<T>(IConfiguration)` extension, which binds
 the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration fails
-at startup instead of inside the first poll. Sections: `Database` (`ConnectionString`), `Imap`
-(`Folders` only), `Ollama` (`BaseUrl`, `RequestTimeoutSeconds`), `Auth`. These stay file-only on
-purpose: each either breaks connectivity/security on a bad value, is baked into an object built once
-at startup (the `DbContext` factory, the typed `HttpClient`, the JWT bearer scheme), or — for
-`Imap:Folders` — carries plaintext mailbox credentials that aren't linked to an `AppUser` yet.
+at startup instead of inside the first poll. Sections: `Database` (`ConnectionString`), `Ollama`
+(`BaseUrl`, `RequestTimeoutSeconds`), `Auth`. These stay file-only on purpose: each either breaks
+connectivity/security on a bad value, or is baked into an object built once at startup (the
+`DbContext` factory, the typed `HttpClient`, the JWT bearer scheme).
 
 Everything else that used to live in `Ollama`/`Imap` and is safe to change without a restart —
 `Ollama:Model`, `ThinkingMode`, `NumCtx`, `KeepAlive`, `MaxExtractionAttempts`, `RetryTemperature`,
@@ -111,12 +111,37 @@ break every future extraction. `PipelineSettingsValidation.TryValidate` (`Featur
 the same numeric ranges the fields carried as `[Range]` attributes back when they were `Options`
 classes.
 
-`ValidateDataAnnotations` does not recurse into collection elements, so per-entry IMAP completeness
-is checked by `ImapFolderOptions.IsComplete()` and reported by `MailFetcher`, which can name the
-member whose entry is incomplete.
+### Mailboxes
 
-`Imap:Folders` is a list — one entry per household member's receipt folder (host, credentials,
-folder name, member name/email).
+Receipt folders are **not** configuration. `Mailbox`
+(`Features/Persistence/Model/Mailbox.cs`) is one row per household member's IMAP folder — host, port,
+TLS, credentials, folder name — owned by a real `AppUser` through a required FK, and managed over
+`/api/mailboxes` (`Features/Endpoints/MailboxEndpoints.cs`) so a frontend can add one. This replaced
+the `Imap:Folders` config list, whose entries carried plaintext credentials and a free-text member
+name and email that linked to nothing.
+
+Writes need the `ManageMailboxes` permission, deliberately separate from `ManageSettings` so a member
+can register their own mailbox without also being able to retune the pipeline. Reads are ungated like
+every other read, which is safe because the password is never in a DTO — `MailboxDto` carries only a
+`HasPassword` flag.
+
+The password is encrypted with ASP.NET Data Protection through `MailboxSecrets`
+(`Features/Mail/MailboxSecrets.cs`), which owns the single purpose string. Deliberately **not** an EF
+value converter: the plaintext should only materialize when writing the row and when authenticating,
+not on every list query. `MailboxSecretException` wraps the `CryptographicException` a lost key ring
+produces, so it surfaces as "re-enter the password" rather than a 500.
+
+Every write verifies the settings against the real server before committing
+(`ImapConnection.VerifyAsync`), the same way `PUT /settings/pipeline` verifies an Ollama model against
+`/api/tags`, and answers 502 with the reason. A wrong folder name comes back with the server's own
+folder list. The check is skipped when nothing connection-relevant changed, so toggling `IsEnabled`
+costs no round-trip. `MailboxValidation.TryValidate` (`Features/Shared/`) does the completeness
+checking that `ImapFolderOptions.IsComplete()` used to report from inside the poller — at the moment
+of submission, rather than as a warning once a minute forever.
+
+`ImapConnection` (`Features/Mail/`) holds the connect/authenticate/open sequence shared by the poller
+and the verifying endpoints, including the `FolderNotFoundException` branch that enumerates
+`PersonalNamespaces` into an "Available folders: ..." message.
 
 ## Pipeline architecture
 
@@ -132,11 +157,21 @@ The two queue consumers derive from `QueueWorker<T>`, which owns the drain loop 
 remembered. `MailWorker` is a poller, not a consumer, and stands alone.
 
 1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `PipelineSettings.ImapPollIntervalSeconds`,
-   backing off exponentially with jitter after consecutive failures. `MailFetcher` streams up to
-   `ImapMaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
+   backing off exponentially with jitter after consecutive failures. `MailFetcher` reads the enabled
+   `Mailbox` rows fresh each poll (a scoped `KvitteriaDbContext`, since it is a singleton), streams up
+   to `ImapMaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
    invokes a callback that enqueues to `ExtractionQueue`. A message is flagged `Seen` **only after**
    that callback returns, so anything that throws first leaves it unread for the next poll. One
-   `ImapClient` per configured folder, since each entry is a different member's account.
+   `ImapClient` per mailbox, since each is a different member's account.
+
+   Each mailbox is **isolated**: its own `try`/`catch`, and the outcome recorded on the row
+   (`LastPolledAt`, `LastError`, `ConsecutiveFailures`) so a frontend can show which one is broken.
+   Previously one bad password aborted the whole poll and starved every other mailbox. `MailFetcher`
+   returns a `MailPollResult`, and `MailWorker` backs off only when **every** attempted mailbox failed
+   — otherwise one broken mailbox would slow the healthy ones down. The per-poll message cap is a
+   household budget: once spent, the remaining mailboxes are left for the next poll with their status
+   untouched rather than recorded as polled. An empty table logs and returns; it is how every household
+   starts, not a failure.
 2. **`ExtractionWorker`** — calls `OllamaClient` (`/api/chat`, non-streaming, JSON-schema-constrained
    output from `ReceiptExtractionPrompt.Schema`). Retries up to `PipelineSettings.OllamaMaxExtractionAttempts`
    times: attempt 1 at temperature 0, retries at `OllamaRetryTemperature`. Success = **reconciliation**:
@@ -179,8 +214,7 @@ takes precedence over `JwksUrl` when both are set. `JwksUrl` is preferred and ca
 at the local stack, which is why the rule is precedence rather than mutual exclusion: "both set" is the
 normal state for anyone choosing the secret, not a mistake worth failing startup over. "At least one of
 two" is beyond data annotations, so `AuthOptions.Validate()` reports it through an
-`IValidateOptions<T>` and `ValidateOnStart` — the same gap `ImapFolderOptions.IsComplete()` works
-around. `Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the URL the
+`IValidateOptions<T>` and `ValidateOnStart`. `Issuer` and `JwksUrl` are **separate values on purpose**: the token's `iss` is the URL the
 *client* reached Auth on (`127.0.0.1`), while the container fetches keys via `host.docker.internal`.
 Conflating them presents as an unexplained 401. Supabase serves a bare JWKS rather than an OpenID
 discovery document, hence `JwksConfigurationRetriever`; wrapping the key set in an
@@ -214,7 +248,8 @@ is why no `service_role` key and no SMTP configuration are needed anywhere in th
 ### Permissions
 
 Reads are never gated: the household sees everything. `Permission` covers the writes —
-`CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`. `Admin` holds all
+`CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`,
+`ManageMailboxes`. `Admin` holds all
 of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
 `HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`
 (see [Configuration](#configuration) for the sibling `PUT /api/settings/pipeline`, gated by the same
@@ -300,3 +335,13 @@ right-hand side, `CancellationToken ct` as the parameter name.
   with NU1015 — every `PackageReference` gets its version from there.
 - Manual API checks need a bearer token. Sign up or in against GoTrue directly and use the
   `access_token`; the Scalar reference declares no security scheme, so it cannot attach one for you.
+- The Data Protection key ring lives in this database (`DataProtectionKeys`, via
+  `IDataProtectionKeyContext` on `KvitteriaDbContext`), so one backup covers both the keys and the
+  mailbox ciphertext they protect. **Restoring one without the other means every mailbox password must
+  be re-entered.** `SetApplicationName("Kvitteria")` in `Program.cs` and the purpose string in
+  `MailboxSecrets` are both load-bearing: change either and every stored password becomes
+  undecryptable.
+- `Microsoft.AspNetCore.DataProtection.EntityFrameworkCore` pins the EF Core version for the whole
+  graph. It is on the ASP.NET Core release cadence, so its patch number has to match the
+  `Microsoft.EntityFrameworkCore.*` pins in `Directory.Packages.props` — a mismatch fails the build
+  with CS1705, not a restore error.

@@ -36,9 +36,8 @@ public sealed class AuthOptions : IOptionsSection
 	public string? SharedSecret { get; set; }
 
 	/// <summary>
-	/// Data annotations cannot express "at least one of these two", the same gap
-	/// <see cref="Mail.ImapFolderOptions.IsComplete"/> works around. Returns the reason it is unusable,
-	/// or null when it is fine.
+	/// Data annotations cannot express "at least one of these two". Returns the reason it is unusable, or
+	/// null when it is fine.
 	/// </summary>
 	public string? Validate()
 	{

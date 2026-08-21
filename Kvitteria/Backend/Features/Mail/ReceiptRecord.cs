@@ -9,7 +9,7 @@ public sealed class ReceiptRecord(
 	DateTimeOffset date,
 	string bodyText,
 	string bodySource,
-	string memberEmail
+	Guid appUserId
 )
 {
 	public string? MessageId { get; } = messageId;
@@ -18,7 +18,9 @@ public sealed class ReceiptRecord(
 	public DateTimeOffset Date { get; } = date;
 	public string BodyText { get; } = bodyText;
 	public string BodySource { get; } = bodySource; // "text" | "html" | "none"
-	public string MemberEmail { get; } = memberEmail;
+
+	/// <summary>The household member whose mailbox this arrived in.</summary>
+	public Guid AppUserId { get; } = appUserId;
 
 	public ReceiptStatus Status { get; set; } = ReceiptStatus.Queued;
 	public ExtractedReceipt? Extracted { get; set; }

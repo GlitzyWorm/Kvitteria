@@ -32,6 +32,8 @@
     <ItemGroup>
       <PackageReference Include="MailKit" />
       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+      <!-- The Data Protection key ring lives in Postgres, so KvitteriaDbContext can be its store. -->
+      <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
       <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
       <!-- Explicit, and not private: the code uses EF Core directly, and referencing it only through
            Design meant the version never flowed to referencing projects. -->

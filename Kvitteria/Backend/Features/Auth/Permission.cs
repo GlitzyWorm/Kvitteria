@@ -19,5 +19,12 @@ public enum Permission
 	ManageUsers,
 
 	/// <summary>Change household-wide settings, including what members are allowed to do.</summary>
-	ManageSettings
+	ManageSettings,
+
+	/// <summary>
+	/// Add, edit and remove the IMAP mailboxes receipts are collected from. Separate from
+	/// <see cref="ManageSettings"/> so a member can register their own mailbox without also being able
+	/// to retune the pipeline or edit everyone's permissions.
+	/// </summary>
+	ManageMailboxes
 }

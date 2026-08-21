@@ -22,6 +22,7 @@ static class ReceiptEndpoints
 			app.MapMealEndpoints();
 			app.MapUserEndpoints();
 			app.MapSettingsEndpoints();
+			app.MapMailboxEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()

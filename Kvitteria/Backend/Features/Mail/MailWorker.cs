@@ -35,12 +35,32 @@ public sealed class MailWorker(
 				try
 				{
 					// Mail is flagged Seen only after this callback returns.
-					int fetched = await fetcher.FetchUnseenAsync(queue.EnqueueAsync, settings.ImapMaxMessagesPerPoll, ct);
+					MailPollResult result = await fetcher.FetchUnseenAsync(queue.EnqueueAsync, settings.ImapMaxMessagesPerPoll, ct);
 
-					if (fetched > 0)
-						logger.LogInformation("Fetched {Count} unseen receipt(s)", fetched);
+					if (result.Fetched > 0)
+						logger.LogInformation("Fetched {Count} unseen receipt(s)", result.Fetched);
 
-					consecutiveFailures = 0;
+					// The fetcher isolates each mailbox, so a partial failure is not a poll failure. Only
+					// a poll where nothing reachable remains earns the backoff; otherwise one broken
+					// mailbox would slow down the healthy ones.
+					if (result.AllFailed)
+					{
+						consecutiveFailures++;
+						logger.LogError(
+							"All {Count} mailbox(es) failed to poll ({ConsecutiveFailures} consecutive failure(s)); see the per-mailbox warnings above.",
+							result.Attempted, consecutiveFailures);
+					}
+					else
+					{
+						if (result.Failed > 0)
+						{
+							logger.LogWarning(
+								"{Failed} of {Attempted} mailbox(es) failed to poll; the rest succeeded, so the poll interval is unchanged.",
+								result.Failed, result.Attempted);
+						}
+
+						consecutiveFailures = 0;
+					}
 				}
 				catch (Exception ex) when (ex is not OperationCanceledException)
 				{

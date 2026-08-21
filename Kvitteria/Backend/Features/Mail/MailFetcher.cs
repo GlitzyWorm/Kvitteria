@@ -1,82 +1,155 @@
 ﻿using System.Text.RegularExpressions;
+using Backend.Features.Persistence;
+using Backend.Features.Persistence.Model;
 using MailKit;
 using MailKit.Net.Imap;
 using MailKit.Search;
-using MailKit.Security;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using MimeKit;
 namespace Backend.Features.Mail;
 
+/// <summary>
+/// One poll's worth of work. <paramref name="Attempted"/> and <paramref name="Failed"/> let the caller
+/// tell a mailbox that is broken apart from a household that has none configured, and only back off in
+/// the first case.
+/// </summary>
+public sealed record MailPollResult(int Fetched, int Attempted, int Failed)
+{
+	/// <summary>Every mailbox that was tried failed, so the poll achieved nothing and should back off.</summary>
+	public bool AllFailed => Attempted > 0 && Failed == Attempted;
+}
+
 public sealed partial class MailFetcher(
-	IOptionsMonitor<ImapOptions> options,
+	IServiceScopeFactory scopeFactory,
+	MailboxSecrets secrets,
 	ILogger<MailFetcher> logger)
 {
 	private const int PreviewLength = 100;
 
 	/// <summary>
-	/// Fetches unseen receipt mail, invoking <paramref name="onFetched"/> for each message and
-	/// flagging it <c>Seen</c> only once that call has completed. Returns the number handed over.
+	/// Fetches unseen receipt mail from every enabled mailbox, invoking <paramref name="onFetched"/> for
+	/// each message and flagging it <c>Seen</c> only once that call has completed.
 	/// </summary>
-	public async Task<int> FetchUnseenAsync(
+	/// <remarks>
+	/// Each mailbox is isolated: one unreachable host or wrong password must not starve the others, which
+	/// is what happened while a single failure propagated out of the loop. The outcome is recorded on the
+	/// row so a frontend can show which mailbox is broken and why.
+	/// </remarks>
+	public async Task<MailPollResult> FetchUnseenAsync(
 		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
 		int maxMessagesPerPoll,
 		CancellationToken ct)
 	{
-		ImapOptions imap = options.CurrentValue;
+		// MailFetcher is a singleton; the scope holds the tracked mailboxes for the whole poll so the
+		// status columns can be written back at the end.
+		using IServiceScope scope = scopeFactory.CreateScope();
+		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
 
-		if (imap.Folders.Count == 0)
+		List<Mailbox> mailboxes = await dbContext.Mailboxes
+		                                         .Where(m => m.IsEnabled)
+		                                         .Include(m => m.AppUser)
+		                                         .OrderBy(m => m.Host)
+		                                         .ThenBy(m => m.Username)
+		                                         .ToListAsync(ct);
+
+		if (mailboxes.Count == 0)
 		{
-			throw new InvalidOperationException(
-				"Imap:Folders is empty or contains an entry without a Folder name; configure one " +
-				"entry per member's receipt folder (e.g. INBOX.Netto).");
+			// Not an error: an empty table is how every household starts. Throwing here made a fresh
+			// install look like a failing poll and drove the worker's backoff for nothing.
+			logger.LogInformation("No enabled mailboxes are configured; nothing to poll. Add one with POST /api/mailboxes.");
+			return new MailPollResult(0, 0, 0);
 		}
 
 		var fetched = 0;
+		var attempted = 0;
+		var failed = 0;
 
-		foreach (ImapFolderOptions folderOptions in imap.Folders.Where(CheckIfValid))
+		foreach (Mailbox mailbox in mailboxes)
 		{
-			// One client per folder: each entry is a separate account.
-			using var client = new ImapClient();
+			// The per-poll cap is a household budget, not a per-mailbox one. Once it is spent the
+			// remaining mailboxes are left for the next poll with their status untouched, rather than
+			// being recorded as successfully polled without having been contacted.
+			if (fetched >= maxMessagesPerPoll)
+			{
+				logger.LogInformation(
+					"Reached the {Budget}-message poll cap; {Remaining} mailbox(es) wait for the next poll.",
+					maxMessagesPerPoll, mailboxes.Count-attempted);
+				break;
+			}
+
+			attempted++;
 
 			try
 			{
-				await client.ConnectAsync(folderOptions.Host, folderOptions.Port, folderOptions.UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTlsWhenAvailable, ct);
-				await client.AuthenticateAsync(folderOptions.Username, folderOptions.Password, ct);
+				fetched += await FetchMailboxAsync(mailbox, onFetched, maxMessagesPerPoll-fetched, ct);
 
-				IMailFolder folder = await OpenFolderAsync(client, folderOptions.Folder, ct);
-
-				try
-				{
-					fetched += await FetchFolderAsync(folder, folderOptions, onFetched, maxMessagesPerPoll-fetched, ct);
-				}
-				finally
-				{
-					if (folder.IsOpen && !ct.IsCancellationRequested)
-						await folder.CloseAsync(expunge: false, ct);
-				}
+				mailbox.LastPolledAt = DateTime.UtcNow;
+				mailbox.LastError = null;
+				mailbox.ConsecutiveFailures = 0;
 			}
-			finally
+			catch (Exception ex) when (ex is not OperationCanceledException)
 			{
-				// Sends LOGOUT, which disposal alone does not.
-				// Skipped on shutdown so cancellation cannot block on the network.
-				if (client.IsConnected && !ct.IsCancellationRequested)
-					await client.DisconnectAsync(quit: true, ct);
+				// Broad on purpose: the next mailbox must still be polled.
+				failed++;
+				mailbox.LastError = ex.Message;
+				mailbox.ConsecutiveFailures++;
+
+				logger.LogWarning(
+					ex,
+					"Polling mailbox {Username} ({Folder}) failed ({Failures} consecutive); continuing with the others.",
+					mailbox.Username, mailbox.Folder, mailbox.ConsecutiveFailures);
 			}
 		}
 
-		return fetched;
+		// Status is worth persisting even on shutdown, so this is not skipped when cancelled.
+		await dbContext.SaveChangesAsync(CancellationToken.None);
+
+		return new MailPollResult(fetched, attempted, failed);
 	}
 
-	private async Task<int> FetchFolderAsync(
-		IMailFolder folder,
-		ImapFolderOptions folderOptions,
+	private async Task<int> FetchMailboxAsync(
+		Mailbox mailbox,
 		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
 		int remainingBudget,
 		CancellationToken ct)
 	{
-		if (remainingBudget <= 0)
-			return 0;
+		string password = secrets.Unprotect(mailbox.EncryptedPassword);
 
+		// One client per mailbox: each is a separate account.
+		using var client = new ImapClient();
+
+		try
+		{
+			await ImapConnection.ConnectAsync(client, mailbox, password, ct);
+
+			IMailFolder folder = await ImapConnection.OpenFolderAsync(client, mailbox, ct);
+
+			try
+			{
+				return await FetchFolderAsync(folder, mailbox, onFetched, remainingBudget, ct);
+			}
+			finally
+			{
+				if (folder.IsOpen && !ct.IsCancellationRequested)
+					await folder.CloseAsync(expunge: false, ct);
+			}
+		}
+		finally
+		{
+			// Sends LOGOUT, which disposal alone does not.
+			// Skipped on shutdown so cancellation cannot block on the network.
+			if (client.IsConnected && !ct.IsCancellationRequested)
+				await client.DisconnectAsync(quit: true, ct);
+		}
+	}
+
+	private async Task<int> FetchFolderAsync(
+		IMailFolder folder,
+		Mailbox mailbox,
+		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
+		int remainingBudget,
+		CancellationToken ct)
+	{
 		IList<UniqueId> uids = await folder.SearchAsync(SearchQuery.NotSeen, ct);
 		var fetched = 0;
 
@@ -100,7 +173,7 @@ public sealed partial class MailFetcher(
 				message.Date,
 				bodyText,
 				bodySource,
-				folderOptions.MemberEmail
+				mailbox.AppUserId
 			) { EnqueuedAt = DateTimeOffset.UtcNow };
 
 			await onFetched(record, ct);
@@ -112,7 +185,7 @@ public sealed partial class MailFetcher(
 			{
 				logger.LogDebug(
 					"Fetched receipt mail from {Folder} for {Member}: subject='{Subject}', from='{From}', date={Date:O}, bodySource={BodySource}, preview: {Preview}",
-					folder.FullName, folderOptions.MemberName, message.Subject, message.From, message.Date, bodySource,
+					folder.FullName, mailbox.AppUser?.DisplayName, message.Subject, message.From, message.Date, bodySource,
 					bodyText.Length > PreviewLength ? string.Concat(bodyText.AsSpan(0, PreviewLength), "...") : bodyText);
 			}
 		}
@@ -120,41 +193,6 @@ public sealed partial class MailFetcher(
 		return fetched;
 	}
 
-	private bool CheckIfValid(ImapFolderOptions folder)
-	{
-		if (folder.IsComplete())
-			return true;
-		
-		logger.LogWarning(
-			"Skipping Imap:Folders entry (member '{Member}', folder '{Folder}'): Host, Username, Password or Folder is missing.",
-			folder.MemberName, folder.Folder);
-				
-		return false;
-	}
-
-	private static async Task<IMailFolder> OpenFolderAsync(ImapClient client, string name, CancellationToken ct)
-	{
-		IMailFolder folder;
-
-		try
-		{
-			folder = await client.GetFolderAsync(name, ct);
-		} catch (FolderNotFoundException)
-		{
-			List<string> available = [];
-			foreach (FolderNamespace ns in client.PersonalNamespaces)
-			{
-				available.AddRange(from f in await client.GetFoldersAsync(ns, cancellationToken:ct) select f.FullName);
-			}
-
-			throw new InvalidOperationException(
-				$"IMAP folder '{name}' was not found. Available folders: {string.Join(", ", available)}");
-		}
-
-		await folder.OpenAsync(FolderAccess.ReadWrite, ct);
-		return folder;
-	}
-	
 	private string ExtractBody(MimeMessage message, out string bodySource)
 	{
 		if (!string.IsNullOrWhiteSpace(message.TextBody))
@@ -168,12 +206,12 @@ public sealed partial class MailFetcher(
 			bodySource = "html";
 			return NormalizeWhitespace(HtmlToPlainText.Convert(message.HtmlBody));
 		}
-		
+
 		logger.LogWarning("Message '{Subject}' has no text or HTML body; skipping body extraction", message.Subject);
 		bodySource = "none";
 		return "";
 	}
-	
+
 	private static string NormalizeWhitespace(string text)
 	{
 		string[] lines = text.ReplaceLineEndings("\n").Split('\n');

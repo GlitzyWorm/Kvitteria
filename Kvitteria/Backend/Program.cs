@@ -7,6 +7,7 @@ using Backend.Features.Mail;
 using Backend.Features.Persistence;
 using Backend.Features.Shared;
 using Backend.Features.Persistence.Factory;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -31,7 +32,13 @@ builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	options.UseAsyncSeeding((context, _, ct) => DatabaseSeeder.SeedAsync(context, ct));
 });
 
-builder.Services.AddOptionsSection<ImapOptions>(builder.Configuration);
+// Mailboxes live in the database, so their passwords need protecting at rest. The key ring goes in the
+// same database as the ciphertext, so one backup covers both; SetApplicationName is pinned so the
+// purpose chain cannot drift with the content root and silently orphan every stored password.
+builder.Services.AddDataProtection()
+       .SetApplicationName("Kvitteria")
+       .PersistKeysToDbContext<KvitteriaDbContext>();
+builder.Services.AddSingleton<MailboxSecrets>();
 builder.Services.AddSingleton<MailFetcher>();
 builder.Services.AddHostedService<MailWorker>();
 
