@@ -8,7 +8,11 @@ namespace Backend.Features.Persistence;
 
 /// <summary>
 /// Seeds the Danish meal and category taxonomy, and the household settings row, when the tables are
-/// empty. Invoked through <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c>.
+/// empty. Invoked through <c>UseSeeding</c>/<c>UseAsyncSeeding</c>, which EF fires from <c>Migrate()</c>
+/// — so this runs on every start, and the emptiness checks are what make that a handful of
+/// <c>SELECT EXISTS</c> rather than repeated work. They guard whole tables, not individual rows: a
+/// deleted category is not restored, and an existing <c>PipelineSettings</c> row keeps whatever model
+/// it already names regardless of <see cref="Extraction.LLM.OllamaOptions.DefaultModel"/>.
 /// </summary>
 // TODO: This could be part of an onboarding flow rather than fixed seed data.
 internal static class DatabaseSeeder
@@ -35,7 +39,7 @@ internal static class DatabaseSeeder
 		("Andet", [])
 	];
 
-	public static void Seed(DbContext context)
+	public static void Seed(DbContext context, string defaultOllamaModel)
 	{
 		bool needsMeals = !context.Set<Meal>().Any();
 		bool needsCategories = !context.Set<Category>().Any();
@@ -47,13 +51,13 @@ internal static class DatabaseSeeder
 
 		using IDbContextTransaction transaction = context.Database.BeginTransaction();
 
-		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings);
+		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings, defaultOllamaModel);
 
 		context.SaveChanges();
 		transaction.Commit();
 	}
 
-	public static async Task SeedAsync(DbContext context, CancellationToken ct)
+	public static async Task SeedAsync(DbContext context, string defaultOllamaModel, CancellationToken ct)
 	{
 		bool needsMeals = !await context.Set<Meal>().AnyAsync(ct);
 		bool needsCategories = !await context.Set<Category>().AnyAsync(ct);
@@ -65,14 +69,15 @@ internal static class DatabaseSeeder
 
 		await using IDbContextTransaction transaction = await context.Database.BeginTransactionAsync(ct);
 
-		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings);
+		AddPending(context, needsMeals, needsCategories, needsHouseholdSettings, needsPipelineSettings, defaultOllamaModel);
 
 		await context.SaveChangesAsync(ct);
 		await transaction.CommitAsync(ct);
 	}
 
 	private static void AddPending(
-		DbContext context, bool needsMeals, bool needsCategories, bool needsHouseholdSettings, bool needsPipelineSettings)
+		DbContext context, bool needsMeals, bool needsCategories, bool needsHouseholdSettings, bool needsPipelineSettings,
+		string defaultOllamaModel)
 	{
 		if (needsMeals)
 			context.Set<Meal>().AddRange(BuildMeals());
@@ -86,7 +91,7 @@ internal static class DatabaseSeeder
 			});
 
 		if (needsPipelineSettings)
-			context.Set<PipelineSettings>().Add(new PipelineSettings());
+			context.Set<PipelineSettings>().Add(new PipelineSettings { OllamaModel = defaultOllamaModel });
 	}
 
 	private static IEnumerable<Meal> BuildMeals() =>

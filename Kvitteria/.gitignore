@@ -1,7 +1,6 @@
-/.idea
+﻿/.idea
 /Backend/bin
 /Backend/obj
-/Backend/appsettings.Local.json
 /supabase/signing_keys.json
 
 Kvitteria.sln.DotSettings.user

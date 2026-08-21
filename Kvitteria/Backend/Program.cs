@@ -11,25 +11,31 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
+// Configuration is whatever CreateBuilder assembles: appsettings.json, then the environment's
+// overlay, then environment variables. Nothing is layered on top, so `Database__ConnectionString`
+// and friends are the last word — a file added here would sit above the environment provider and
+// silently win over compose.
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-
-// TODO: Testing config.
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional:true, reloadOnChange:true);
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddHouseholdAuth(builder.Configuration);
+builder.Services.AddHouseholdAuth(builder.Configuration, builder.Environment);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 
 builder.Services.AddOptionsSection<DatabaseOptions>(builder.Configuration);
+builder.Services.AddOptionsSection<OllamaOptions>(builder.Configuration);
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	DatabaseOptions databaseOptions = sp.GetRequiredService<IOptionsMonitor<DatabaseOptions>>().CurrentValue;
 	options.UseNpgsql(databaseOptions.ConnectionString);
-	
-	options.UseSeeding((context, _) => DatabaseSeeder.Seed(context));
-	options.UseAsyncSeeding((context, _, ct) => DatabaseSeeder.SeedAsync(context, ct));
+
+	// The model name is a seed value, not live configuration: it decides what the first
+	// PipelineSettings row asks for, and the row owns it from then on.
+	string defaultModel = sp.GetRequiredService<IOptionsMonitor<OllamaOptions>>().CurrentValue.DefaultModel;
+
+	options.UseSeeding((context, _) => DatabaseSeeder.Seed(context, defaultModel));
+	options.UseAsyncSeeding((context, _, ct) => DatabaseSeeder.SeedAsync(context, defaultModel, ct));
 });
 
 // Mailboxes live in the database, so their passwords need protecting at rest. The key ring goes in the
@@ -42,7 +48,7 @@ builder.Services.AddSingleton<MailboxSecrets>();
 builder.Services.AddSingleton<MailFetcher>();
 builder.Services.AddHostedService<MailWorker>();
 
-builder.Services.AddOptionsSection<OllamaOptions>(builder.Configuration);
+// OllamaOptions is registered above, alongside the DbContext that seeds the model name from it.
 builder.Services.AddHttpClient<OllamaClient>((sp, client) => {
 	OllamaOptions ollama = sp.GetRequiredService<IOptionsMonitor<OllamaOptions>>().CurrentValue;
 	client.BaseAddress = new Uri(ollama.BaseUrl);
@@ -56,6 +62,8 @@ builder.Services.AddSingleton<PersistenceQueue>();
 builder.Services.AddHostedService<ReceiptFactoryWorker>();
 
 WebApplication app = builder.Build();
+
+await app.MigrateDatabaseAsync();
 
 app.UseExceptionHandler();
 

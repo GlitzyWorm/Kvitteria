@@ -5,8 +5,7 @@ namespace Backend.Features.Persistence.Model;
 /// same way <see cref="Users.HouseholdSettings"/> is one row for permissions. Kept separate from
 /// <see cref="Users.HouseholdSettings"/> because this is about pipeline behavior, not who may do what.
 /// Everything that would break connectivity or requires an out-of-band action (Database connection
-/// string, Auth signing, Ollama base URL, pulling a new Ollama model before selecting it) stays in
-/// appsettings instead.
+/// string, Auth signing, Ollama base URL) stays in the environment instead.
 /// </summary>
 public sealed class PipelineSettings
 {
@@ -17,7 +16,13 @@ public sealed class PipelineSettings
 	/// <summary>Caps one poll so a large unseen backlog cannot hold the IMAP session open indefinitely.</summary>
 	public int ImapMaxMessagesPerPoll { get; set; } = 25;
 
-	public string OllamaModel { get; set; } = "qwen3.5:4b";
+	/// <summary>
+	/// Seeded from <see cref="Extraction.LLM.OllamaOptions.DefaultModel"/> when the row is created, so
+	/// the model this pipeline asks for and the model the Ollama container pulls come from one value.
+	/// Authoritative thereafter: <c>PUT /api/settings/pipeline</c> validates a new name against
+	/// Ollama's <c>/api/tags</c> before saving it.
+	/// </summary>
+	public string OllamaModel { get; set; } = string.Empty;
 
 	public bool OllamaThinkingMode { get; set; }
 
