@@ -1,14 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 
-        <!-- Pinned because the codebase relies on C# 14 extension blocks; without it the language
-             version is whatever SDK happens to be installed. -->
-        <LangVersion>14.0</LangVersion>
+        <!-- TargetFramework, Nullable, ImplicitUsings and LangVersion come from
+             ../Directory.Build.props, shared with the test project and any future MAUI project. -->
 
         <!-- Warnings were previously invisible: five real nullability issues sat in the build output
              unnoticed because nothing failed on them. -->
