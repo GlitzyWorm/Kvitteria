@@ -1,4 +1,5 @@
-﻿using Backend.Features.Auth;
+﻿using Backend.Abstractions;
+using Backend.Features.Auth;
 using Backend.Features.Endpoints;
 using Backend.Features.Extraction;
 using Backend.Features.Extraction.LLM;
@@ -21,7 +22,7 @@ builder.Services.AddHouseholdAuth(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 
-builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
+builder.Services.AddOptionsSection<DatabaseOptions>(builder.Configuration);
 builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	DatabaseOptions databaseOptions = sp.GetRequiredService<IOptionsMonitor<DatabaseOptions>>().CurrentValue;
 	options.UseNpgsql(databaseOptions.ConnectionString);
@@ -30,11 +31,11 @@ builder.Services.AddDbContext<KvitteriaDbContext>((sp, options) => {
 	options.UseAsyncSeeding((context, _, ct) => DatabaseSeeder.SeedAsync(context, ct));
 });
 
-builder.Services.Configure<ImapOptions>(builder.Configuration.GetSection(ImapOptions.SectionName));
+builder.Services.AddOptionsSection<ImapOptions>(builder.Configuration);
 builder.Services.AddSingleton<MailFetcher>();
 builder.Services.AddHostedService<MailWorker>();
 
-builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection(OllamaOptions.SectionName));
+builder.Services.AddOptionsSection<OllamaOptions>(builder.Configuration);
 builder.Services.AddHttpClient<OllamaClient>((sp, client) => {
 	OllamaOptions ollama = sp.GetRequiredService<IOptionsMonitor<OllamaOptions>>().CurrentValue;
 	client.BaseAddress = new Uri(ollama.BaseUrl);

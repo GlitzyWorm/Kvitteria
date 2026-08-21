@@ -1,0 +1,28 @@
+{
+  "Imap": {
+    "Folders": [
+      {
+        "Host": "imap.example.com",
+        "Port": 993,
+        "UseSsl": true,
+        "Username": "member@example.com",
+        "Password": "REPLACE_ME",
+        "Folder": "INBOX.Receipts",
+        "MemberName": "Example Member",
+        "MemberEmail": "member@example.com"
+      }
+    ]
+  },
+  "Database": {
+    "ConnectionString": "Host=127.0.0.1;Port=54322;Database=postgres;Username=postgres;Password=postgres"
+  },
+  "Ollama": {
+    "BaseUrl": "http://localhost:11434",
+    "RequestTimeoutSeconds": 1200
+  },
+  "Auth": {
+    "Issuer": "http://127.0.0.1:54321/auth/v1",
+    "Audience": "authenticated",
+    "JwksUrl": "http://127.0.0.1:54321/auth/v1/.well-known/jwks.json"
+  }
+}

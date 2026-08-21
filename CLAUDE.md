@@ -83,15 +83,33 @@ is still manual: bring the stack up against a running Supabase and watch the pip
 
 ## Configuration
 
-Secrets live in the gitignored `Backend/appsettings.Local.json`, loaded on top of the normal
-appsettings chain in `Program.cs`. Options classes implement `Backend.Abstractions.IOptionsSection`,
-which declares a `static abstract string SectionName` — the section name lives on the class, not at
-the registration site. Register them with the `AddOptionsSection<T>(IConfiguration)` extension, which
-binds the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration
-fails at startup instead of inside the first poll. Sections: `Database`, `Imap`, `Ollama`, `Auth`. All
-are bound with `IOptionsMonitor<T>` and read via `.CurrentValue`, so `reloadOnChange` edits take effect
-live. `Auth` is the exception: it is read once at registration, because the bearer scheme is built at
-startup and the framework cannot rebuild it on a config edit.
+Secrets and infrastructure addresses live in the gitignored `Backend/appsettings.Local.json`
+(`.example` template checked in), loaded on top of the normal appsettings chain in `Program.cs`.
+Options classes implement `Backend.Abstractions.IOptionsSection`, which declares a
+`static abstract string SectionName` — the section name lives on the class, not at the registration
+site. All four are registered with the `AddOptionsSection<T>(IConfiguration)` extension, which binds
+the named section and adds `ValidateDataAnnotations().ValidateOnStart()`, so misconfiguration fails
+at startup instead of inside the first poll. Sections: `Database` (`ConnectionString`), `Imap`
+(`Folders` only), `Ollama` (`BaseUrl`, `RequestTimeoutSeconds`), `Auth`. These stay file-only on
+purpose: each either breaks connectivity/security on a bad value, is baked into an object built once
+at startup (the `DbContext` factory, the typed `HttpClient`, the JWT bearer scheme), or — for
+`Imap:Folders` — carries plaintext mailbox credentials that aren't linked to an `AppUser` yet.
+
+Everything else that used to live in `Ollama`/`Imap` and is safe to change without a restart —
+`Ollama:Model`, `ThinkingMode`, `NumCtx`, `KeepAlive`, `MaxExtractionAttempts`, `RetryTemperature`,
+`ReconciliationToleranceKr`, and `Imap:PollIntervalSeconds`/`MaxMessagesPerPoll` — moved into
+`PipelineSettings` (`Features/Persistence/Model/PipelineSettings.cs`), a single-row database table
+in the same shape as `HouseholdSettings`, editable by an admin through
+`GET`/`PUT /api/settings/pipeline` (`Features/Endpoints/SettingsEndpoints.cs`,
+`PermissionPolicies.Name(Permission.ManageSettings)` on the `PUT`). There is no cache in front of it —
+unlike `PermissionCache`, these values are read only a few times a minute (once per mail poll, once
+per extraction attempt), so `MailWorker`, `MailFetcher`, `ExtractionWorker`, and `OllamaClient` each
+query it fresh through a scoped `KvitteriaDbContext` (singletons go through `IServiceScopeFactory`).
+Changing `Ollama:Model` validates the new value against Ollama's own `/api/tags`
+(`OllamaClient.GetAvailableModelsAsync`) before saving, so a typo or an unpulled model can't silently
+break every future extraction. `PipelineSettingsValidation.TryValidate` (`Features/Shared/`) enforces
+the same numeric ranges the fields carried as `[Range]` attributes back when they were `Options`
+classes.
 
 `ValidateDataAnnotations` does not recurse into collection elements, so per-entry IMAP completeness
 is checked by `ImapFolderOptions.IsComplete()` and reported by `MailFetcher`, which can name the
@@ -113,18 +131,18 @@ The two queue consumers derive from `QueueWorker<T>`, which owns the drain loop 
 `try`/`catch`, so the "one bad receipt must never kill a worker" rule is structural rather than
 remembered. `MailWorker` is a poller, not a consumer, and stands alone.
 
-1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `Imap:PollIntervalSeconds`, backing off
-   exponentially with jitter after consecutive failures. `MailFetcher` streams up to
-   `Imap:MaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
+1. **`MailWorker`** — polls IMAP on a `PeriodicTimer` every `PipelineSettings.ImapPollIntervalSeconds`,
+   backing off exponentially with jitter after consecutive failures. `MailFetcher` streams up to
+   `ImapMaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
    invokes a callback that enqueues to `ExtractionQueue`. A message is flagged `Seen` **only after**
    that callback returns, so anything that throws first leaves it unread for the next poll. One
    `ImapClient` per configured folder, since each entry is a different member's account.
 2. **`ExtractionWorker`** — calls `OllamaClient` (`/api/chat`, non-streaming, JSON-schema-constrained
-   output from `ReceiptExtractionPrompt.Schema`). Retries up to 3 times: attempt 1 at temperature 0,
-   retries at `Ollama:RetryTemperature`. Success = **reconciliation**: `Reconciliation.IsReconciled`,
-   i.e. `grand_total - sum(line_totals) - pant_total` within `Ollama:ReconciliationToleranceKr` of
-   zero (default 0.01 — Danish receipts round to øre, and exact equality burned every retry on a
-   1-øre difference). Unreconciled attempts feed a natural-language `hint` back describing the
+   output from `ReceiptExtractionPrompt.Schema`). Retries up to `PipelineSettings.OllamaMaxExtractionAttempts`
+   times: attempt 1 at temperature 0, retries at `OllamaRetryTemperature`. Success = **reconciliation**:
+   `Reconciliation.IsReconciled`, i.e. `grand_total - sum(line_totals) - pant_total` within
+   `OllamaReconciliationToleranceKr` of zero (default 0.01 — Danish receipts round to øre, and exact
+   equality burned every retry on a 1-øre difference). Unreconciled attempts feed a natural-language `hint` back describing the
    delta. `OllamaClient` distinguishes `OllamaResponseException` (the model answered with something
    unusable — the only case where a "your JSON was malformed" hint is truthful) from
    `OllamaTransportException` (the model never saw the prompt, so retry unchanged and with no hint).
@@ -198,7 +216,9 @@ is why no `service_role` key and no SMTP configuration are needed anywhere in th
 Reads are never gated: the household sees everything. `Permission` covers the writes —
 `CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`. `Admin` holds all
 of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
-`HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`.
+`HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`
+(see [Configuration](#configuration) for the sibling `PUT /api/settings/pipeline`, gated by the same
+`ManageSettings` permission).
 `AppUser.PermissionOverrides` is honoured by `PermissionResolution.Resolve` but written by nothing yet —
 the column exists so per-user overrides need no migration.
 

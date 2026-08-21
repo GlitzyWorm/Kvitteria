@@ -19,6 +19,7 @@ public sealed partial class MailFetcher(
 	/// </summary>
 	public async Task<int> FetchUnseenAsync(
 		Func<ReceiptRecord, CancellationToken, ValueTask> onFetched,
+		int maxMessagesPerPoll,
 		CancellationToken ct)
 	{
 		ImapOptions imap = options.CurrentValue;
@@ -46,7 +47,7 @@ public sealed partial class MailFetcher(
 
 				try
 				{
-					fetched += await FetchFolderAsync(folder, folderOptions, onFetched, imap.MaxMessagesPerPoll-fetched, ct);
+					fetched += await FetchFolderAsync(folder, folderOptions, onFetched, maxMessagesPerPoll-fetched, ct);
 				}
 				finally
 				{

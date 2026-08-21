@@ -23,6 +23,47 @@ namespace Backend.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.PipelineSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ImapMaxMessagesPerPoll")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ImapPollIntervalSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OllamaKeepAlive")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("OllamaMaxExtractionAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OllamaModel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("OllamaNumCtx")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("OllamaReconciliationToleranceKr")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<double>("OllamaRetryTemperature")
+                        .HasColumnType("double precision");
+
+                    b.Property<bool>("OllamaThinkingMode")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PipelineSettings");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
                 {
                     b.Property<Guid>("Id")

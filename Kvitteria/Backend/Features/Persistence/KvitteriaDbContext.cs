@@ -1,4 +1,5 @@
-﻿using Backend.Features.Persistence.Model.Receipts;
+﻿using Backend.Features.Persistence.Model;
+using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Persistence.Model.Users;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Persistence;
@@ -15,6 +16,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<Merchant> Merchants => Set<Merchant>();
 	public DbSet<AppUser> AppUsers => Set<AppUser>();
 	public DbSet<HouseholdSettings> HouseholdSettings => Set<HouseholdSettings>();
+	public DbSet<PipelineSettings> PipelineSettings => Set<PipelineSettings>();
 
 	/// <summary>Money is kroner with øre.</summary>
 	private const int MoneyPrecision = 12;
@@ -202,6 +204,12 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			entity.Property(e => e.MemberPermissions)
 			      .HasConversion(new PermissionSetConverter(), new PermissionSetComparer())
 			      .HasColumnType("text[]");
+		});
+
+		modelBuilder.Entity<PipelineSettings>(entity => {
+			entity.HasKey(e => e.Id);
+
+			entity.Property(e => e.OllamaReconciliationToleranceKr).HasPrecision(MoneyPrecision, MoneyScale);
 		});
 	}
 }

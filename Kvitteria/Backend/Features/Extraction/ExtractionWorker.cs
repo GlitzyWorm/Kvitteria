@@ -1,15 +1,16 @@
 ﻿using Backend.Features.Extraction.LLM;
 using Backend.Features.Mail;
+using Backend.Features.Persistence;
 using Backend.Features.Persistence.Factory;
+using Backend.Features.Persistence.Model;
 using Backend.Features.Shared;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Extraction;
 
 public sealed class ExtractionWorker(
 	ExtractionQueue queue,
 	PersistenceQueue persistenceQueue,
 	IServiceScopeFactory scopeFactory,
-	IOptionsMonitor<OllamaOptions> options,
 	ILogger<ExtractionWorker> logger
 ) : QueueWorker<ReceiptRecord>(queue, logger)
 {
@@ -32,8 +33,10 @@ public sealed class ExtractionWorker(
 		// rotate.
 		using IServiceScope scope = scopeFactory.CreateScope();
 		var client = scope.ServiceProvider.GetRequiredService<OllamaClient>();
+		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
+		PipelineSettings settings = await dbContext.PipelineSettings.AsNoTracking().FirstAsync(ct);
 
-		ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, mail.BodyText, mail.Subject, ct);
+		ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, mail.Subject, ct);
 
 		mail.Extracted = outcome.Receipt;
 		mail.Reconciled = outcome.Reconciled;
@@ -60,11 +63,10 @@ public sealed class ExtractionWorker(
 		string? Warning);
 
 	private async Task<ExtractionOutcome> ExtractWithRetriesAsync(
-		OllamaClient client, string bodyText, string subject, CancellationToken ct)
+		OllamaClient client, PipelineSettings settings, string bodyText, string subject, CancellationToken ct)
 	{
-		OllamaOptions ollamaOptions = options.CurrentValue;
-		int maxAttempts = Math.Max(1, ollamaOptions.MaxExtractionAttempts);
-		decimal tolerance = Math.Abs(ollamaOptions.ReconciliationToleranceKr);
+		int maxAttempts = Math.Max(1, settings.OllamaMaxExtractionAttempts);
+		decimal tolerance = Math.Abs(settings.OllamaReconciliationToleranceKr);
 
 		ExtractedReceipt? best = null;
 		decimal bestDelta = decimal.MaxValue;
@@ -76,7 +78,7 @@ public sealed class ExtractionWorker(
 		while (attempt < maxAttempts && !reconciled)
 		{
 			attempt++;
-			double temperature = attempt == 1 ? 0 : ollamaOptions.RetryTemperature;
+			double temperature = attempt == 1 ? 0 : settings.OllamaRetryTemperature;
 			ExtractedReceipt result;
 
 			try

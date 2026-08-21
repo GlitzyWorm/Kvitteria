@@ -1,17 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Backend.Abstractions;
+﻿using Backend.Abstractions;
 namespace Backend.Features.Mail;
 
 public sealed class ImapOptions : IOptionsSection
 {
 	public static string SectionName => "Imap";
-
-	[Range(1, 86_400)]
-	public int PollIntervalSeconds { get; set; } = 60;
-
-	/// <summary>Caps one poll so a large unseen backlog cannot hold the IMAP session open indefinitely.</summary>
-	[Range(1, 1_000)]
-	public int MaxMessagesPerPoll { get; set; } = 25;
 
 	/// <summary>One entry per household member's receipt folder.</summary>
 	public List<ImapFolderOptions> Folders { get; set; } = [];
