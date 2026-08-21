@@ -1,13 +1,7 @@
 ﻿<Project>
 
-    <PropertyGroup Label="Version">
-        <!-- release-please owns this line. The trailing marker comment is how its generic updater
-             finds the version to rewrite, so both must stay on one line together.
-
-             VersionPrefix rather than Version, so `dotnet publish -p:Version=` in the Dockerfile
-             still wins for a container build. -->
-        <VersionPrefix>0.1.0</VersionPrefix> <!-- x-release-please-version -->
-    </PropertyGroup>
+    <!-- No version here. Components are versioned independently, so each project owns its own
+         VersionPrefix and release-please rewrites it in place — see Backend.csproj. -->
 
     <PropertyGroup Label="Shared">
         <!-- Hoisted out of the individual projects so a MAUI project added under Kvitteria/ inherits

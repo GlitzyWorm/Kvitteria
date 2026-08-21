@@ -56,3 +56,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Node tooling. Nothing here ships JavaScript yet, but commitlint runs in CI and the Angular app
+# will live at the top level.
+node_modules/
