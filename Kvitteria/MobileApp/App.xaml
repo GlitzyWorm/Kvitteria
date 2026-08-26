@@ -9,7 +9,11 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <!-- Order is load-bearing: Styles.xaml and Tokens.xaml both resolve
+                     StaticResource keys that Colors.xaml owns, and a merged dictionary can
+                     only see keys merged before it. -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Tokens.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

@@ -78,10 +78,10 @@
 
 	<ItemGroup>
 		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0B1914" />
 
 		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0B1914" BaseSize="128,128" />
 
 		<!-- Images -->
 		<MauiImage Include="Resources\Images\*" />
@@ -99,11 +99,21 @@
 		     ever one copy of each to keep current. -->
 		<MauiAsset Include="LICENSE" LogicalName="licenses/MPL-2.0.txt" />
 		<MauiAsset Include="..\Contracts\LICENSE" LogicalName="licenses/MIT.txt" />
+
+		<!-- Montserrat and Poppins ship inside the package as MauiFonts. The SIL Open Font License
+		     requires its notice to travel with the font, and it is a different licence per family
+		     (different copyright lines), so both texts are here rather than one shared copy. They
+		     live in licenses\ and not Resources\Fonts\, because the MauiFont glob above would
+		     otherwise try to embed a .txt as a typeface. -->
+		<MauiAsset Include="licenses\OFL-Montserrat.txt" LogicalName="licenses/OFL-Montserrat.txt" />
+		<MauiAsset Include="licenses\OFL-Poppins.txt" LogicalName="licenses/OFL-Poppins.txt" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<!-- Versions come from ../Directory.Packages.props. The template pins them inline, which
 		     central package management rejects with NU1008. -->
+		<PackageReference Include="CommunityToolkit.Maui" />
+		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
 	</ItemGroup>

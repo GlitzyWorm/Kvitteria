@@ -4,8 +4,9 @@
 namespace MobileApp
 {
 	/// <summary>
-	/// Shows the licence texts shipped as app-package assets. MIT requires its notice to accompany
-	/// the software, and someone who installs the app never sees the repository.
+	/// Shows the licence texts shipped as app-package assets. MIT and the SIL Open Font
+	/// License both require their notice to accompany the software, and someone who installs
+	/// the app never sees the repository.
 	/// </summary>
 	public partial class LicensesPage : ContentPage
 	{
@@ -20,6 +21,8 @@ namespace MobileApp
 
 			MplText.Text = await ReadAssetAsync("licenses/MPL-2.0.txt");
 			MitText.Text = await ReadAssetAsync("licenses/MIT.txt");
+			MontserratOflText.Text = await ReadAssetAsync("licenses/OFL-Montserrat.txt");
+			PoppinsOflText.Text = await ReadAssetAsync("licenses/OFL-Poppins.txt");
 		}
 
 		/// <summary>
@@ -37,7 +40,8 @@ namespace MobileApp
 			catch (Exception ex)
 			{
 				return $"Could not load {logicalName} ({ex.GetType().Name}). "
-					+ "The full text is at https://mozilla.org/MPL/2.0/ and https://opensource.org/license/mit.";
+					+ "The full texts are at https://mozilla.org/MPL/2.0/, https://opensource.org/license/mit "
+					+ "and https://openfontlicense.org.";
 			}
 		}
 	}

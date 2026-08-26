@@ -1,4 +1,5 @@
-﻿using Backend.Features.Shared;
+﻿using Kvitteria.Contracts.Shared;
+
 namespace Backend.Tests;
 
 public class PagingTests

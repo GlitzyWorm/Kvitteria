@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <!-- This Source Code Form is subject to the terms of the Mozilla Public
      License, v. 2.0. If a copy of the MPL was not distributed with this
      file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
@@ -6,29 +6,43 @@
     x:Class="MobileApp.LicensesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="Licenses">
+    Title="Licenser">
 
     <ScrollView>
-        <VerticalStackLayout Padding="24" Spacing="12">
+        <VerticalStackLayout Padding="{StaticResource PaddingPanel}" Spacing="{StaticResource Space4}">
 
-            <Label
-                Text="Kvitteria"
-                FontSize="24"
-                FontAttributes="Bold" />
+            <Label Text="Om" Style="{StaticResource Eyebrow}" />
+            <Label Text="Kvitteria" Style="{StaticResource H3}" />
 
-            <Label Text="This app is licensed under the Mozilla Public License 2.0. It includes Kvitteria.Contracts, licensed under the MIT License. The Kvitteria backend it talks to is licensed separately, under the GNU Affero General Public License v3." />
+            <Label Text="This app is licensed under the Mozilla Public License 2.0. It includes Kvitteria.Contracts, licensed under the MIT License. It bundles the Montserrat and Poppins typefaces under the SIL Open Font License 1.1. The Kvitteria backend it talks to is licensed separately, under the GNU Affero General Public License v3." />
 
-            <Label
-                Text="Mozilla Public License 2.0 — this app"
-                FontAttributes="Bold"
-                Margin="0,12,0,0" />
-            <Label x:Name="MplText" FontFamily="OpenSansRegular" FontSize="11" />
+            <BoxView Style="{StaticResource HorizontalRule}" />
 
-            <Label
-                Text="MIT License — Kvitteria.Contracts"
-                FontAttributes="Bold"
-                Margin="0,12,0,0" />
-            <Label x:Name="MitText" FontFamily="OpenSansRegular" FontSize="11" />
+            <Label Text="Mozilla Public License 2.0 — this app" Style="{StaticResource H6}" />
+            <!-- The licence texts keep OpenSans rather than the Kvitteria body face: they are a wall
+                 of legal prose nobody reads for pleasure, and a neutral face at a small size is more
+                 legible here than Poppins. The size is below the type scale's smallest step for the
+                 same reason — this is a verbatim document, not interface copy. -->
+            <Label x:Name="MplText" FontFamily="OpenSansRegular" FontSize="11"
+                   TextColor="{StaticResource Neutral400}" LineHeight="1.4" />
+
+            <BoxView Style="{StaticResource HorizontalRule}" />
+
+            <Label Text="MIT License — Kvitteria.Contracts" Style="{StaticResource H6}" />
+            <Label x:Name="MitText" FontFamily="OpenSansRegular" FontSize="11"
+                   TextColor="{StaticResource Neutral400}" LineHeight="1.4" />
+
+            <BoxView Style="{StaticResource HorizontalRule}" />
+
+            <!-- Two separate OFL notices rather than one: the licence is per family and each carries
+                 its own copyright line. -->
+            <Label Text="SIL Open Font License 1.1 — Montserrat" Style="{StaticResource H6}" />
+            <Label x:Name="MontserratOflText" FontFamily="OpenSansRegular" FontSize="11"
+                   TextColor="{StaticResource Neutral400}" LineHeight="1.4" />
+
+            <Label Text="SIL Open Font License 1.1 — Poppins" Style="{StaticResource H6}" />
+            <Label x:Name="PoppinsOflText" FontFamily="OpenSansRegular" FontSize="11"
+                   TextColor="{StaticResource Neutral400}" LineHeight="1.4" />
 
         </VerticalStackLayout>
     </ScrollView>

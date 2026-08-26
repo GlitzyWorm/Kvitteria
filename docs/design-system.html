@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kvitteria — Design System Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Montserrat:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style>
+
+/* ══════════════════════════════════════════════════════════════════════
+   TOKENS
+   Base structure (spacing / radius / shadow shape, component rules) comes
+   from the mockup's underlying "Nocturne" design system. Color and type
+   have been overridden in the mockup itself — this page reproduces those
+   overrides exactly rather than Nocturne's own blurple/Inter defaults:
+     · accent hue moved from blurple (289°) to a green (158–170°) family
+     · type moved from Inter/Inter to Poppins (headings) / Montserrat (body)
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --color-accent-100: oklch(0.94  0.038  158);
+  --color-accent-200: oklch(0.88  0.038  158);
+  --color-accent-300: oklch(0.80  0.085  158);
+  --color-accent-400: oklch(0.74  0.085  158);
+  --color-accent-500: oklch(0.675 0.085  158);
+  --color-accent-600: oklch(0.60  0.085  158);
+  --color-accent-700: oklch(0.50  0.085  158);
+  --color-accent-800: oklch(0.375 0.085  158);
+  --color-accent-900: oklch(0.265 0.0595 158);
+  --color-accent: oklch(0.675 0.085 158);
+  /* mono scheme: accent-2 is a machine-derived stand-in, resolves the same as accent */
+  --color-accent-2: var(--color-accent);
+
+  --color-section: oklch(0.34 0.0765 158);
+
+  --color-bg:      oklch(0.198 0.022 170);
+  --color-surface: oklch(0.252 0.018 170);
+  --color-text:    oklch(0.930 0.006 170);
+  --color-divider: color-mix(in srgb, oklch(0.930 0.006 170) 16%, transparent);
+
+  --color-neutral-100: oklch(0.960 0.006 170);
+  --color-neutral-200: oklch(0.910 0.008 170);
+  --color-neutral-300: oklch(0.850 0.010 170);
+  --color-neutral-400: oklch(0.760 0.012 170);
+  --color-neutral-500: oklch(0.660 0.014 170);
+  --color-neutral-600: oklch(0.550 0.014 170);
+  --color-neutral-700: oklch(0.450 0.014 170);
+  --color-neutral-800: oklch(0.350 0.016 170);
+  --color-neutral-900: oklch(0.268 0.016 170);
+
+  --font-heading: 'Montserrat', system-ui, sans-serif;
+  --font-heading-weight: 500;
+  --font-body: 'Poppins', system-ui, sans-serif;
+
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 0 0 1px var(--color-neutral-800);
+  --shadow-md: 0 0 0 1px var(--color-neutral-700), 0 6px 18px rgba(0,0,0,0.55);
+  --shadow-lg: 0 0 0 1px var(--color-neutral-500), 0 16px 40px rgba(0,0,0,0.65);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--color-bg); color: var(--color-text);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55; font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+}
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+p { margin: 0 0 var(--space-3); }
+a { color: var(--color-accent); text-underline-offset: 3px; }
+code, .mono { font-variant-numeric: tabular-nums; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--color-neutral-800); border-radius: 8px; }
+
+.text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+.eyebrow {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--color-accent);
+}
+.eyebrow::after { content: ''; width: 26px; height: 1px; background: var(--color-accent); opacity: .5; }
+
+/* — page shell — */
+.shell { max-width: 1080px; margin: 0 auto; padding: 0 32px 120px; }
+header.top {
+  display: flex; align-items: center; gap: 12px; padding: 18px 32px;
+  border-bottom: 1px solid var(--color-divider); position: sticky; top: 0; z-index: 5;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent); backdrop-filter: blur(8px);
+}
+header.top .mark {
+  width: 26px; height: 26px; flex: none; border-radius: 7px; border: 1px solid var(--color-accent);
+  display: grid; place-items: center; color: var(--color-accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+header.top .name { font-family: var(--font-heading); font-weight: 500; font-size: 16px; letter-spacing: -0.02em; }
+header.top nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+header.top nav a {
+  font-size: 12.5px; padding: 6px 10px; border-radius: 7px; color: var(--color-neutral-400); text-decoration: none;
+}
+header.top nav a:hover { color: var(--color-text); background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+
+.hero {
+  padding: 64px 0 40px;
+}
+.hero .tag-outline { margin-bottom: 18px; }
+.hero h1 { max-width: 720px; }
+.hero p.lead { max-width: 560px; font-size: 16px; color: var(--color-neutral-300); }
+
+section.block { padding: 56px 0; border-top: 1px solid var(--color-divider); }
+section.block:first-of-type { border-top: none; }
+section.block > h6 { color: var(--color-accent-300); margin-bottom: 6px; }
+section.block > h2 { margin-bottom: 10px; }
+section.block > p.desc { max-width: 620px; color: var(--color-neutral-400); font-size: 13.5px; margin-bottom: 32px; }
+
+.grid { display: grid; gap: 14px; }
+.grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.grid.cols-9 { grid-template-columns: repeat(9, 1fr); }
+@media (max-width: 760px) {
+  .grid.cols-2, .grid.cols-3, .grid.cols-4, .grid.cols-9 { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* — swatches — */
+.swatch { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-divider); }
+.swatch .fill { height: 64px; }
+.swatch .meta { padding: 9px 10px; background: var(--color-surface); }
+.swatch .meta .tok { font-size: 11.5px; font-family: var(--font-heading); }
+.swatch .meta .val { font-size: 10.5px; color: var(--color-neutral-500); word-break: break-all; }
+.swatch.lg .fill { height: 96px; }
+
+/* — component demo frames — */
+.demo {
+  padding: 28px; border-radius: var(--radius-lg); background: var(--color-surface);
+  box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 18px;
+}
+.demo .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.demo .label { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-neutral-500); margin-bottom: 10px; }
+
+/* ══════════ Nocturne component layer (as used by the mockup) ══════════ */
+.hr {
+  height: 1px; border: 0; margin: var(--space-4) 0;
+  background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent);
+}
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text);
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; }
+
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px; border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent { background: var(--color-accent-800); color: var(--color-accent-100); }
+.tag-accent-2 { background: var(--color-accent-800); color: var(--color-accent-100); }
+.tag-neutral { background: var(--color-neutral-800); color: var(--color-neutral-100); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+.field > label {
+  display: block; font-size: 12px; margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  background: var(--color-bg); border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.radio input, .seg-opt input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.radio .dot { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid var(--color-divider); }
+.radio:hover .dot { border-color: var(--color-accent); }
+.radio input:checked + .dot { border-color: var(--color-accent); background: var(--color-accent); box-shadow: inset 0 0 0 4px var(--color-bg); }
+.seg { display: inline-flex; overflow: hidden; border: 1px solid var(--color-divider); border-radius: var(--radius-md); }
+.seg-opt { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt:has(input:checked) { color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+
+.card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-bg);
+}
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+.card-title { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 17px; line-height: 1.2; }
+.card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+.card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: color-mix(in srgb, var(--color-text) 50%, transparent); }
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+.kv-navitem { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; font-size: 13.5px; cursor: pointer; border: none; background: transparent; color: var(--color-text); width: 100%; text-align: left; }
+.kv-navitem:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); color: var(--color-accent); }
+.kv-navitem.active { background: color-mix(in srgb, var(--color-accent) 14%, transparent); color: var(--color-accent); }
+
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); padding: var(--space-2); }
+.table td { padding: var(--space-2); }
+.table thead tr { background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+.table tbody tr { background: linear-gradient(to right, transparent, color-mix(in srgb, var(--color-text) 8%, transparent) 48px, color-mix(in srgb, var(--color-text) 8%, transparent) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+.table tbody tr:hover { background: linear-gradient(color-mix(in srgb, var(--color-text) 4%, transparent), color-mix(in srgb, var(--color-text) 4%, transparent)) no-repeat 0 0 / 100% 100%, linear-gradient(to right, transparent, color-mix(in srgb, var(--color-text) 8%, transparent) 48px, color-mix(in srgb, var(--color-text) 8%, transparent) calc(100% - 48px), transparent) no-repeat bottom / 100% 1px; }
+
+.dialog { width: min(420px, 100%); display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--color-bg); box-shadow: var(--shadow-lg); }
+.dialog-title { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 20px; }
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+.kv-num { font-variant-numeric: tabular-nums; }
+
+/* — usage list — */
+ul.rules { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+ul.rules li { display: flex; gap: 10px; font-size: 13.5px; color: var(--color-neutral-300); }
+ul.rules li i { flex: none; margin-top: 3px; font-size: 15px; }
+ul.rules.do li i { color: var(--color-accent); }
+ul.rules.dont li i { color: var(--color-neutral-500); }
+
+footer.pagefoot { padding: 40px 0 0; color: var(--color-neutral-600); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span class="mark"><i class="ph ph-receipt" style="font-size:15px"></i></span>
+  <span class="name">Kvitteria</span>
+  <nav>
+    <a href="#color">Farve</a>
+    <a href="#type">Typografi</a>
+    <a href="#space">Afstand &amp; elevation</a>
+    <a href="#buttons">Knapper</a>
+    <a href="#forms">Formularer</a>
+    <a href="#cards">Kort</a>
+    <a href="#nav">Navigation</a>
+    <a href="#table">Tabel</a>
+    <a href="#dialog">Dialog</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <div class="hero">
+    <span class="tag tag-outline">Design system reference</span>
+    <h1>Kvitteria design system</h1>
+    <p class="lead">A quiet, compact dark interface reskinned in Kvitteria's own green, set in Poppins over Montserrat. Extracted directly from the product mockup's live tokens and component classes.</p>
+    <p class="text-muted" style="font-size:12.5px; max-width:640px">
+      Base structure — spacing, radius, shadow shape and the component set — comes from the underlying <strong>Nocturne</strong> system the mockup was built on. Two things were overridden for Kvitteria: the accent moved from Nocturne's blurple to this green, and the typefaces moved from Inter/Inter to Poppins (headings) / Montserrat (body). Everything on this page reflects those overrides, not Nocturne's own defaults.
+    </p>
+  </div>
+
+  <!-- ═══════════════════════ COLOR ═══════════════════════ -->
+  <section class="block" id="color">
+    <h6>Foundation</h6>
+    <h2>Farve</h2>
+    <p class="desc">A dark ground with one accent voice — a green, at oklch hue 158–170 — carried across a 100–900 tonal ramp. This is a mono scheme: no second accent hue is used; <code>--color-accent-2</code> resolves to the same value. Contrast comes from the tonal steps, not from added saturation.</p>
+
+    <div class="grid cols-4" style="margin-bottom:14px">
+      <div class="swatch lg"><div class="fill" style="background:var(--color-bg)"></div><div class="meta"><div class="tok">--color-bg</div><div class="val">oklch(0.198 0.022 170)</div></div></div>
+      <div class="swatch lg"><div class="fill" style="background:var(--color-surface)"></div><div class="meta"><div class="tok">--color-surface</div><div class="val">oklch(0.252 0.018 170)</div></div></div>
+      <div class="swatch lg"><div class="fill" style="background:var(--color-text)"></div><div class="meta"><div class="tok">--color-text</div><div class="val">oklch(0.930 0.006 170)</div></div></div>
+      <div class="swatch lg"><div class="fill" style="background:var(--color-accent)"></div><div class="meta"><div class="tok">--color-accent</div><div class="val">oklch(0.675 0.085 158)</div></div></div>
+    </div>
+
+    <div class="label">Accent ramp — 100 → 900</div>
+    <div class="grid cols-9" style="margin-bottom:28px">
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-100)"></div><div class="meta"><div class="tok">100</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-200)"></div><div class="meta"><div class="tok">200</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-300)"></div><div class="meta"><div class="tok">300</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-400)"></div><div class="meta"><div class="tok">400</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-500)"></div><div class="meta"><div class="tok">500</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-600)"></div><div class="meta"><div class="tok">600</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-700)"></div><div class="meta"><div class="tok">700</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-800)"></div><div class="meta"><div class="tok">800</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-accent-900)"></div><div class="meta"><div class="tok">900</div></div></div>
+    </div>
+
+    <div class="label">Neutral ramp — 100 → 900</div>
+    <div class="grid cols-9" style="margin-bottom:28px">
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-100)"></div><div class="meta"><div class="tok">100</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-200)"></div><div class="meta"><div class="tok">200</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-300)"></div><div class="meta"><div class="tok">300</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-400)"></div><div class="meta"><div class="tok">400</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-500)"></div><div class="meta"><div class="tok">500</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-600)"></div><div class="meta"><div class="tok">600</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-700)"></div><div class="meta"><div class="tok">700</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-800)"></div><div class="meta"><div class="tok">800</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-neutral-900)"></div><div class="meta"><div class="tok">900</div></div></div>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="swatch"><div class="fill" style="background:var(--color-section)"></div><div class="meta"><div class="tok">--color-section</div><div class="val">Deck / stat-band ground only — a saturated presence, not an interface color</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--color-divider)"></div><div class="meta"><div class="tok">--color-divider</div><div class="val">color-mix(in srgb, text 16%, transparent)</div></div></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ TYPE ═══════════════════════ -->
+  <section class="block" id="type">
+    <h6>Foundation</h6>
+    <h2>Typografi</h2>
+    <p class="desc">Montserrat for headings, Poppins for body — a deliberate pairing move away from Nocturne's Inter-over-Inter. Heading weight stays capped at 500; hierarchy comes from size and space, not bold weight.</p>
+
+    <div class="demo" style="margin-bottom:20px">
+      <div class="label">Font pairing</div>
+      <div style="font-family:var(--font-heading); font-weight:500; font-size:15px">Montserrat <span class="text-muted" style="font-family:var(--font-body); font-weight:400">— --font-heading, weight 500</span></div>
+      <div style="font-family:var(--font-body); font-weight:400; font-size:15px">Poppins <span class="text-muted">— --font-body, weight 400</span></div>
+    </div>
+
+    <div class="demo">
+      <div class="label">Scale</div>
+      <h1 style="margin:0">Husstandens forbrug</h1>
+      <h2 style="margin:0">Husstandens forbrug</h2>
+      <h3 style="margin:0">Husstandens forbrug</h3>
+      <h4 style="margin:0">Husstandens forbrug</h4>
+      <h5 style="margin:0">Husstandens forbrug</h5>
+      <h6 style="margin:0">Husstandens forbrug</h6>
+      <p style="margin:0; font-size:15px">Body 15px — Montserrat 400. Denne kvittering blev automatisk kategoriseret ud fra tidligere indkøb i husstanden.</p>
+      <p style="margin:0; font-size:13px" class="text-muted">Small 13px, muted — meta rows, captions, table headers.</p>
+      <div class="kv-num" style="font-family:var(--font-heading); font-weight:500; font-size:34px; letter-spacing:-0.03em">2.438,27 kr</div>
+      <div class="text-muted" style="font-size:11px">.kv-num — tabular figures for amounts, Montserrat 500</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ SPACE / ELEVATION ═══════════════════════ -->
+  <section class="block" id="space">
+    <h6>Foundation</h6>
+    <h2>Afstand &amp; elevation</h2>
+    <p class="desc">A 0.70× density scale and an 8px base radius, unchanged from Nocturne. Elevation on a dark ground is a hairline edge plus ambient darkness, never a stacked drop shadow.</p>
+
+    <div class="grid cols-2" style="margin-bottom:28px">
+      <div class="demo">
+        <div class="label">Spacing scale</div>
+        <div style="display:flex; flex-direction:column; gap:8px">
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted mono" style="font-size:12px">space-1</span><span style="height:14px; width:var(--space-1); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">2.8px</span></div>
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted" style="font-size:12px">space-2</span><span style="height:14px; width:var(--space-2); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">5.6px</span></div>
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted" style="font-size:12px">space-3</span><span style="height:14px; width:var(--space-3); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">8.4px</span></div>
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted" style="font-size:12px">space-4</span><span style="height:14px; width:var(--space-4); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">11.2px</span></div>
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted" style="font-size:12px">space-6</span><span style="height:14px; width:var(--space-6); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">16.8px</span></div>
+          <div style="display:flex; align-items:center; gap:10px"><span style="width:56px" class="text-muted" style="font-size:12px">space-8</span><span style="height:14px; width:var(--space-8); background:var(--color-accent-600)"></span><span class="text-muted" style="font-size:11px">22.4px</span></div>
+        </div>
+      </div>
+      <div class="demo">
+        <div class="label">Radius</div>
+        <div style="display:flex; gap:14px; align-items:flex-end">
+          <div style="width:56px; height:56px; border-radius:var(--radius-sm); background:var(--color-accent-800); display:grid; place-items:center; font-size:10px; color:var(--color-accent-100)">sm 4</div>
+          <div style="width:56px; height:56px; border-radius:var(--radius-md); background:var(--color-accent-800); display:grid; place-items:center; font-size:10px; color:var(--color-accent-100)">md 8</div>
+          <div style="width:56px; height:56px; border-radius:var(--radius-lg); background:var(--color-accent-800); display:grid; place-items:center; font-size:10px; color:var(--color-accent-100)">lg 14</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid cols-3">
+      <div class="card elev-sm"><div class="card-kicker">elev-sm</div><div class="card-body">Hairline edge only — resting surfaces.</div></div>
+      <div class="card elev-md"><div class="card-kicker">elev-md</div><div class="card-body">Edge + soft ambient fall — raised panels.</div></div>
+      <div class="card elev-lg"><div class="card-kicker">elev-lg</div><div class="card-body">Widest fall — dialogs, the top layer.</div></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ BUTTONS & TAGS ═══════════════════════ -->
+  <section class="block" id="buttons">
+    <h6>Component</h6>
+    <h2>Knapper &amp; tags</h2>
+    <p class="desc">Primary actions are an accent outline on transparent, never a solid fill — the accent is a line and a glow here, not a flood.</p>
+    <div class="demo">
+      <div class="label">Buttons</div>
+      <div class="row">
+        <button class="btn btn-primary">Gem ændringer</button>
+        <button class="btn btn-secondary">Annullér</button>
+        <button class="btn btn-ghost">Ryd filter</button>
+        <button class="btn btn-primary" disabled>Deaktiveret</button>
+        <button class="btn btn-icon btn-secondary"><i class="ph ph-gear"></i></button>
+      </div>
+      <div class="hr"></div>
+      <div class="label">Tags</div>
+      <div class="row">
+        <span class="tag tag-accent">Dagligvarer</span>
+        <span class="tag tag-neutral">3 kvitteringer</span>
+        <span class="tag tag-outline">Afventer</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ FORMS ═══════════════════════ -->
+  <section class="block" id="forms">
+    <h6>Component</h6>
+    <h2>Formularer</h2>
+    <p class="desc">Native form elements, themed states — no scripted widgets. Focus is always the 2px accent ring.</p>
+    <div class="demo" style="max-width:420px">
+      <div class="field">
+        <label>E-mail</label>
+        <input class="input" type="email" placeholder="dig@husstand.dk">
+      </div>
+      <div class="field">
+        <label>Kategori</label>
+        <div class="seg" style="width:100%">
+          <label class="seg-opt" style="flex:1; justify-content:center"><input type="radio" name="ds-seg" checked>Web</label>
+          <label class="seg-opt" style="flex:1; justify-content:center"><input type="radio" name="ds-seg">Mobil</label>
+        </div>
+      </div>
+      <label class="radio">
+        <input type="radio" name="ds-radio" checked><span class="dot"></span> Administrator
+      </label>
+      <label class="radio">
+        <input type="radio" name="ds-radio"><span class="dot"></span> Medlem
+      </label>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ CARDS ═══════════════════════ -->
+  <section class="block" id="cards">
+    <h6>Component</h6>
+    <h2>Kort</h2>
+    <p class="desc">Surface-filled content blocks with a kicker, title, body and meta row.</p>
+    <div class="grid cols-3">
+      <div class="card elev-sm">
+        <div class="card-kicker">Denne måned</div>
+        <div class="card-title">Dagligvarer</div>
+        <p class="card-body">736,87 kr på tværs af 14 kvitteringer, +5,8 % ift. sidste måned.</p>
+        <div class="card-meta"><i class="ph ph-trend-up"></i> +5,8 %</div>
+      </div>
+      <div class="card elev-sm">
+        <div class="card-kicker">Pipeline</div>
+        <div class="card-title">Udtrækning i kø</div>
+        <p class="card-body">2 kvitteringer venter, qwen3.5:4b, forsøg 2/3.</p>
+        <div class="card-meta"><i class="ph ph-lightning"></i> ExtractionQueue · kap. 100</div>
+      </div>
+      <div class="card elev-sm">
+        <div class="card-kicker">Husstand</div>
+        <div class="card-title">3 medlemmer</div>
+        <p class="card-body">Administrator og to medlemmer med delt adgang til kategorier.</p>
+        <div class="card-meta"><i class="ph ph-users"></i> Delt visning</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ NAVIGATION ═══════════════════════ -->
+  <section class="block" id="nav">
+    <h6>Component</h6>
+    <h2>Navigation</h2>
+    <p class="desc">The left sidebar pattern from the web shell — active state is an accent tint fill plus accent text, not a border.</p>
+    <div class="demo" style="max-width:240px; padding:12px">
+      <button class="kv-navitem active"><i class="ph ph-chart-pie-slice"></i><span style="flex:1; text-align:left">Oversigt</span></button>
+      <button class="kv-navitem"><i class="ph ph-lightning"></i><span style="flex:1; text-align:left">Sortér</span><span class="tag tag-accent kv-num">3</span></button>
+      <button class="kv-navitem"><i class="ph ph-receipt"></i><span style="flex:1; text-align:left">Kvitteringer</span></button>
+      <button class="kv-navitem"><i class="ph ph-trend-up"></i><span style="flex:1; text-align:left">Indsigt</span></button>
+      <button class="kv-navitem"><i class="ph ph-flow-arrow"></i><span style="flex:1; text-align:left">Pipeline</span></button>
+      <button class="kv-navitem"><i class="ph ph-sliders-horizontal"></i><span style="flex:1; text-align:left">Indstillinger</span></button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ TABLE ═══════════════════════ -->
+  <section class="block" id="table">
+    <h6>Component</h6>
+    <h2>Tabel</h2>
+    <p class="desc">Rows separated by a whisper of the text color, fading at both edges rather than a hard rule.</p>
+    <div class="demo">
+      <table class="table">
+        <thead><tr><th>Butik</th><th>Kategori</th><th>Beløb</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Netto</td><td>Dagligvarer</td><td class="kv-num">284,50 kr</td><td><span class="tag tag-accent">Fuldført</span></td></tr>
+          <tr><td>Rema 1000</td><td>Dagligvarer</td><td class="kv-num">412,20 kr</td><td><span class="tag tag-accent">Fuldført</span></td></tr>
+          <tr><td>Bilka</td><td>Husholdning</td><td class="kv-num">96,00 kr</td><td><span class="tag tag-neutral">Udtrukket</span></td></tr>
+          <tr><td>føtex</td><td>Dagligvarer</td><td class="kv-num">—</td><td><span class="tag tag-outline">Mislykkedes</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ DIALOG ═══════════════════════ -->
+  <section class="block" id="dialog">
+    <h6>Component</h6>
+    <h2>Dialog</h2>
+    <p class="desc">A modal surface at the top elevation — <code>--shadow-lg</code>, shown here inside a static frame.</p>
+    <div class="demo" style="background:var(--color-bg); align-items:center">
+      <div class="dialog">
+        <div class="dialog-title">Slet kvittering?</div>
+        <div class="dialog-body">Denne handling kan ikke fortrydes. Alle linjer og tilknyttede måltider fjernes fra husstandens forbrug.</div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary">Annullér</button>
+          <button class="btn btn-primary">Slet</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ USAGE ═══════════════════════ -->
+  <section class="block">
+    <h6>Guidance</h6>
+    <h2>Brug</h2>
+    <div class="grid cols-2">
+      <div class="demo">
+        <div class="label" style="color:var(--color-accent-300)">Gør</div>
+        <ul class="rules do">
+          <li><i class="ph ph-check-circle"></i>Tag alle farver, skrifttyper, afstande, radier og skygger fra variablerne — aldrig en hardcodet hex, fontnavn eller px-værdi.</li>
+          <li><i class="ph ph-check-circle"></i>Hold primærknapper som en outline; lad <code>:focus-visible</code> bære accentfarven.</li>
+          <li><i class="ph ph-check-circle"></i>Brug den kompakte afstandsskala (0,7×) — systemet er tæt med vilje.</li>
+          <li><i class="ph ph-check-circle"></i>Lad hierarki komme fra størrelse og luft, ikke fed vægt.</li>
+        </ul>
+      </div>
+      <div class="demo">
+        <div class="label">Gør ikke</div>
+        <ul class="rules dont">
+          <li><i class="ph ph-x-circle"></i>Oversvøm ikke store flader med accentfarven — den optræder som streger og glød, ikke som flade.</li>
+          <li><i class="ph ph-x-circle"></i>Brug ikke ren sort eller hvid — alle værdier kommer fra ramperne.</li>
+          <li><i class="ph ph-x-circle"></i>Stak ikke tunge skygger — elevation her er en kant plus omgivende mørke.</li>
+          <li><i class="ph ph-x-circle"></i>Gør ikke overskrifter federe end 500 — det bryder skalaens rytme.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    Kvitteria design system — extracted from the product mockup. Component structure derives from the Nocturne base system; color (green, oklch hue 158–170) and type (Poppins / Montserrat) are Kvitteria-specific overrides captured here.
+  </footer>
+
+</div>
+</body>
+</html>

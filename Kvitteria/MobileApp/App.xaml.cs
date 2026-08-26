@@ -10,6 +10,12 @@ namespace MobileApp
         public App()
         {
             InitializeComponent();
+
+            // The Kvitteria palette is dark-only — there is no light ramp designed, so the styles
+            // carry flat token colours rather than AppThemeBinding pairs. Without pinning the theme,
+            // a phone in light mode would still hand platform chrome (pickers, dialogs, the keyboard,
+            // the Android status bar) its light colours over this dark ground.
+            UserAppTheme = AppTheme.Dark;
         }
 
         protected override Window CreateWindow(IActivationState? activationState)

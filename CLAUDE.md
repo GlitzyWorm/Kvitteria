@@ -55,6 +55,15 @@ Three rules follow, and breaking any of them silently collapses the split:
    `MobileApp/.editorconfig` sets `file_header_template` and promotes IDE0073 to an **error**, so a
    new `.cs` file fails the build. XAML is not covered by that analyzer — those headers are manual.
 
+The two bundled typefaces are the one third-party licence in the app: Montserrat and Poppins ship as
+`MauiFont`s under the SIL Open Font License 1.1, which is permissive and file-scoped to the font
+itself, so it neither reaches the surrounding code nor troubles the MPL split. It does require its
+notice to travel with the binary — `licenses/OFL-Montserrat.txt` and `licenses/OFL-Poppins.txt`,
+shipped as `MauiAsset`s and rendered by `LicensesPage` alongside MPL and MIT. They sit in
+`MobileApp/licenses/` rather than beside the fonts because the `MauiFont` glob is
+`Resources\Fonts\*` and would try to embed a `.txt` as a typeface. One notice per family, since each
+carries its own copyright line.
+
 Relicensing is currently free: `git log` shows one human author. That stops being true the moment an
 outside contribution lands without a CLA, or an AGPL/GPL third-party package enters the app.
 
@@ -391,6 +400,53 @@ as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Pr
 (not in `OnConfiguring`, which re-ran on every `DbContext` construction). EF fires these from
 `Migrate()`, which includes the `dotnet ef database update` path above. Both inserts share one
 transaction, so a partial seed cannot leave meals present and categories permanently blocked.
+
+## Mobile design system
+
+`docs/design-system.html` is the reference: a standalone page holding the tokens and the component
+layer, extracted from the product mockup. It is the source of truth — every value in
+`MobileApp/Resources/Styles/` was transcribed from it, and a change there is what should drive a
+change here rather than the other way round.
+
+The palette is a green at oklch hue 158–170 on a dark ground, with type set in Montserrat (headings,
+capped at weight 500) over Poppins (body). Note the reference contradicts itself on that pairing in
+its prose while its `font-heading`/`font-body` tokens are unambiguous; the tokens won.
+
+Three dictionaries, merged in this order from `App.xaml` because each can only see keys merged before
+it:
+
+```
+Colors.xaml   the palette             every value carries its original oklch in a comment
+Tokens.xaml   type, space, radius,    the 0.70× density scale, verbatim including the fractions
+              elevation
+Styles.xaml   the component layer     implicit styles + the named variants
+```
+
+Four things follow from the system that are easy to undo by accident:
+
+1. **It is dark-only.** There is no light ramp designed, so nothing uses `AppThemeBinding` and
+   `App.xaml.cs` pins `UserAppTheme = AppTheme.Dark`. Without that pin the platform's own chrome —
+   pickers, dialogs, the keyboard, the Android status bar — comes up light over a dark page. The
+   native colours in `Platforms/Android/Resources/values/colors.xml` mirror the same three tokens,
+   because Android paints the window before any MAUI page exists.
+2. **The accent is a line and a glow, never a flood.** So the *implicit* `Button` style is the quiet
+   secondary — a divider-coloured outline — and `ButtonPrimary` is opted into. Reversing that makes
+   every incidental button shout.
+3. **Nothing hardcodes a value.** Colours, sizes, radii, spacing and font names are all
+   `StaticResource`; a font file is named in exactly one place, `MauiProgram.ConfigureFonts`, and XAML
+   only ever sees the `FontHeading`/`FontBody` aliases.
+4. **Elevation is an edge plus ambient darkness**, so each level is two halves: a `Shadow` from
+   `Tokens.xaml` *and* a step up the neutral ramp on the `Border`'s `Stroke`. `ElevationSm` has no
+   shadow at all and is deliberately not defined; it is the implicit `Border` style.
+
+Two things the reference does that MAUI cannot, and where the approximation is: the faded-at-both-
+ends rules (`.hr`, table row separators) are flat lines here, and `font-variant-numeric: tabular-nums`
+has no equivalent, so aligned amounts depend on the `KvNum` styles using the heading face.
+
+XAML comments cannot contain `--`, which rules out quoting the reference's CSS custom-property names
+directly; they are spelled without the prefix throughout. The same applies to
+`Platforms/Android/Resources/values/colors.xml`, where it fails as an `aapt2` error naming only the
+file.
 
 ## API and code conventions
 
