@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        # Where the solution and both props files live.
+        # Where both props files and global.json live.
         working-directory: Kvitteria
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +28,14 @@ jobs:
           # Honours Kvitteria/global.json, so CI and a developer machine agree on the SDK.
           global-json-file: Kvitteria/global.json
 
-      - run: dotnet restore
+      # Scoped to the test project rather than the solution: Kvitteria.slnx now contains MobileApp,
+      # whose Mac Catalyst target cannot build on Linux at all and whose Android target would pull a
+      # MAUI workload install into every backend pull request. The project reference chain still
+      # covers everything this job cares about — Backend.Tests → Backend → Contracts.
+      - run: dotnet restore Backend.Tests/Backend.Tests.csproj
 
-      # Backend.csproj sets TreatWarningsAsErrors, so a new analyzer wave fails here rather than
-      # accumulating unnoticed in build output.
-      - run: dotnet build --no-restore --configuration Release
+      # Backend.csproj and Contracts.csproj both set TreatWarningsAsErrors, so a new analyzer wave
+      # fails here rather than accumulating unnoticed in build output.
+      - run: dotnet build Backend.Tests/Backend.Tests.csproj --no-restore --configuration Release
 
-      - run: dotnet test --no-build --configuration Release --verbosity normal
+      - run: dotnet test Backend.Tests/Backend.Tests.csproj --no-build --configuration Release --verbosity normal

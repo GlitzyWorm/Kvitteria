@@ -1,0 +1,115 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!-- Android builds on any host, so it is the unconditional entry. The others are added only
+		     where their toolchain exists: listing Mac Catalyst unconditionally makes `dotnet build`
+		     on the solution fail on Windows and on every Linux runner, which is where the backend's
+		     own CI builds.
+		     Windows is a *development* target, not a shipping one. On a Windows machine it is much
+		     the fastest way to run the app, and it is what the template's only launch profile
+		     ("Windows Machine" in Properties/launchSettings.json) selects. Without it Visual Studio
+		     offers that profile with no framework behind it and the run fails with 0x80008083, which
+		     names nothing.
+		     The template also matched Mac Catalyst twice on macOS, since `!linux` and `osx` both
+		     applied. iOS is still deliberately absent — add it the same way once there is a Mac. -->
+		<TargetFrameworks>net10.0-android</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-maccatalyst</TargetFrameworks>
+
+		<!-- Note for MacCatalyst:
+		The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
+		When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
+		The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
+		either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
+		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
+
+		<!-- Overrides the AGPL-3.0-or-later in ../Directory.Build.props. MPL-2.0 so this can ship
+		     through app stores, whose terms conflict with GPLv3 §6 (installation information) and
+		     §10 (no further restrictions). MPL's copyleft is per file and attaches through the
+		     Exhibit A header, so every source file here carries one — see ./LICENSE and
+		     ./.editorconfig. -->
+		<PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+
+		<!-- So IDE0073 (file header) actually fails the build rather than only showing in an IDE.
+		     TreatWarningsAsErrors stays off: the MAUI template warns about unrelated things, and a
+		     missing licence header should not be indistinguishable from those. -->
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+		<OutputType>Exe</OutputType>
+		<RootNamespace>MobileApp</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- Enable XAML source generation for faster build times and improved performance.
+		     This generates C# code from XAML at compile time instead of runtime inflation.
+		     To disable, remove this line.
+		     For individual files, you can override by setting Inflator metadata:
+		       <MauiXaml Update="MyPage.xaml" Inflator="Default" /> (reverts to defaults: Runtime for Debug, XamlC for Release)
+		       <MauiXaml Update="MyPage.xaml" Inflator="Runtime" /> (force runtime inflation) -->
+		<MauiXamlInflator>SourceGen</MauiXamlInflator>
+
+		<!-- Display name -->
+		<ApplicationTitle>Kvitteria</ApplicationTitle>
+
+		<!-- App Identifier -->
+		<ApplicationId>dev.jelshoj.kvitteria</ApplicationId>
+
+		<!-- The version this component reports, and the single source of truth for it. release-please
+		     rewrites this line and finds it by the trailing marker comment, so both must stay together
+		     on one line — see Backend.csproj, which is versioned the same way. -->
+		<ApplicationDisplayVersion>0.0.0</ApplicationDisplayVersion> <!-- x-release-please-version -->
+
+		<!-- Android's versionCode and iOS' CFBundleVersion: a monotonically increasing integer, which
+		     a semver string cannot supply. CI passes the run number; this local default only has to
+		     be valid, not meaningful. -->
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
+		<WindowsPackageType>None</WindowsPackageType>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- App Icon -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+		<!-- Images -->
+		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+		
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+
+		<!-- Both licence texts ship inside the app package so LicensesPage can display them. MIT
+		     requires its notice to accompany the software and app users receive a binary, not this
+		     repository. Referenced in place rather than copied into Resources\Raw, so there is only
+		     ever one copy of each to keep current. -->
+		<MauiAsset Include="LICENSE" LogicalName="licenses/MPL-2.0.txt" />
+		<MauiAsset Include="..\Contracts\LICENSE" LogicalName="licenses/MIT.txt" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Versions come from ../Directory.Packages.props. The template pins them inline, which
+		     central package management rejects with NU1008. -->
+		<PackageReference Include="Microsoft.Maui.Controls" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Contracts\Contracts.csproj" />
+	</ItemGroup>
+
+</Project>

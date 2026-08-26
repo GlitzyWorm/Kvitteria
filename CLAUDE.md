@@ -8,14 +8,60 @@ Kvitteria ingests Danish grocery-receipt emails, extracts them into structured l
 local LLM, persists them to Postgres, and exposes a minimal-API surface for categorizing lines
 (canonical items, categories, meals).
 
-Single project: `Kvitteria/Backend/Backend.csproj` (ASP.NET Core, **.NET 10**), solution file
-`Kvitteria/Kvitteria.slnx`. `Kvitteria/` is the .NET root and holds `Directory.Build.props`,
-`Directory.Packages.props` and `global.json`; it is also the Docker build context. A MAUI app goes
-beside `Backend/`, an Angular app at the repo root.
+Three projects in `Kvitteria/Kvitteria.slnx`, all **.NET 10**:
+
+```
+Backend        ASP.NET Core, the whole server           net10.0
+Backend.Tests  xUnit over the pure logic                net10.0
+Contracts      the wire types both sides share          net10.0
+MobileApp      .NET MAUI, ships Android and Mac Catalyst  net10.0-android (+ -windows on Windows, -maccatalyst on macOS)
+```
+
+The reference graph is **`MobileApp → Contracts ← Backend`**, and the missing edge is deliberate:
+`MobileApp` must never reference `Backend`. The app talks to the server over HTTP, so the two are
+separate programs and `Contracts` is the only thing they share. An Angular app goes at the repo root
+beside `caddy/`.
+
+`Kvitteria/` is the .NET root and holds `Directory.Build.props`, `Directory.Packages.props` and
+`global.json`; it is also the Docker build context. `TargetFramework` is **not** in
+`Directory.Build.props` — it was hoisted there when the backend was the only project, but a
+single-targeting `TargetFramework` silently wins over `TargetFrameworks`, so a MAUI project
+inheriting it builds plain `net10.0` and fails without naming the cause. Each project declares its
+own; everything else genuinely shared stays hoisted.
 
 User-facing documentation lives in `README.md` and `docs/` (`configuration.md`, `troubleshooting.md`,
 `development.md`). This file is the internal counterpart — keep the rationale here and the
 instructions there rather than duplicating either.
+
+## Licensing
+
+Three licenses, one per subtree, and the arrangement constrains the code:
+
+- **`LICENSE`, AGPL-3.0-or-later** — the backend and everything not listed below. §13 is the point:
+  the backend is the part someone could run as a service, and that clause makes them publish changes.
+- **`Kvitteria/Contracts/LICENSE`, MIT** — compiled into *both* other projects, so it has to be
+  weaker than either. Anything stronger here pulls one license into the other.
+- **`Kvitteria/MobileApp/LICENSE`, MPL-2.0** — app store terms conflict with GPLv3 §6 (installation
+  information, which iOS code signing makes impossible) and §10 (no further restrictions, which
+  Apple's EULA imposes). MPL is App Store compatible in practice — Firefox for iOS ships under it.
+
+Three rules follow, and breaking any of them silently collapses the split:
+
+1. **`MobileApp` must never reference `Backend`.** They are separate programs over HTTP; a project
+   reference would compile AGPL code into an MPL app.
+2. **`Contracts` stays permissive.** If it ever needs to be relicensed, MIT or Apache-2.0 only.
+3. **Every source file under `MobileApp/` carries the MPL Exhibit A header.** MPL's copyleft is per
+   file and attaches through that notice, so a file without it is not clearly covered.
+   `MobileApp/.editorconfig` sets `file_header_template` and promotes IDE0073 to an **error**, so a
+   new `.cs` file fails the build. XAML is not covered by that analyzer — those headers are manual.
+
+Relicensing is currently free: `git log` shows one human author. That stops being true the moment an
+outside contribution lands without a CLA, or an AGPL/GPL third-party package enters the app.
+
+Both license texts ship as `MauiAsset`s (`licenses/MPL-2.0.txt`, `licenses/MIT.txt`) and are rendered
+by `LicensesPage`. MIT requires its notice to accompany the software, and someone installing the app
+receives a binary rather than this repository. They are referenced in place rather than copied into
+`Resources/Raw`, so there is one copy of each to keep current.
 
 ## Commands
 
@@ -65,10 +111,18 @@ reconciliation tolerance, Danish purchase-date parsing including the DST gap, `N
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
-mailbox write validation, and the mailbox secret round-trip. Run it from `Kvitteria`:
+mailbox write validation, and the mailbox secret round-trip. Run it from `Kvitteria`, naming the
+project — a bare `dotnet test` resolves to the solution and now builds MobileApp on the way past:
 
 ```bash
-dotnet test
+dotnet test Backend.Tests/Backend.Tests.csproj
+```
+
+The mobile app builds on its own. Android works on any host; Mac Catalyst needs macOS and is built
+only in CI:
+
+```bash
+dotnet build MobileApp/MobileApp.csproj -f net10.0-android
 ```
 
 There are no integration or endpoint tests. For anything touching HTTP or the database, verification
@@ -349,9 +403,19 @@ context. Structural rules worth testing live outside the endpoint files as pure 
 endpoints keep the HTTP concerns.
 
 C# 14 **extension blocks** (`extension(RouteGroupBuilder app) { ... }`) are the idiom for endpoint
-registration and (`extension(string rawName)`) for string helpers. DTOs live in
-`Features/Endpoints/DTO` and each carries its own `ToDto()` extension in the same file — keep
-mapping there rather than introducing a mapper layer.
+registration and (`extension(string rawName)`) for string helpers.
+
+DTOs are **split across two projects**, and the split is forced rather than chosen. The records live
+in `Contracts` (`Kvitteria.Contracts.DTO`), because the app compiles against them. Their `ToDto()`
+extensions cannot follow: they take EF entities from `Features/Persistence/Model`, and `Contracts`
+must stay referenceable from MAUI. So the mapping lives in
+`Backend/Features/Endpoints/Extensions/<Name>Extension.cs` — one file per DTO, mirroring the record
+it maps to. Still no mapper layer; do not add one.
+
+What may go in `Contracts`: records, enums that cross the wire, and nothing else. It has zero
+`PackageReference`s and no `FrameworkReference` — see Gotchas. `Permission` deliberately stayed in
+`Features/Auth`: permissions cross the wire as `List<string>` in `MemberPermissionsDto` and
+`CurrentUserDto`, so the enum itself is a server concern.
 
 Errors are returned as RFC 7807 problem details via `Results.Problem(statusCode:, detail:)`, and
 every route declares `.WithName()`, `.Produces<T>()`, and `.ProducesProblem(...)` for the OpenAPI
@@ -395,3 +459,45 @@ right-hand side, `CancellationToken ct` as the parameter name.
 - Tags pushed with the default `GITHUB_TOKEN` do **not** trigger other workflows, so image publishing
   runs as a job inside `release-please.yml` gated on its outputs. An `on: release` trigger would never
   fire, and every release would look successful with no image behind it.
+- `Contracts` must never gain a `FrameworkReference` to `Microsoft.AspNetCore.App`. A MAUI project
+  cannot consume the ASP.NET Core shared framework, so one `FrameworkReference` there breaks the app
+  build — and it is the natural thing to reach for the first time a DTO wants `IResult` or a
+  `[FromBody]` attribute. If a type in `Contracts` needs a package, it belongs in `Backend` instead.
+- The MAUI template pins its two `PackageReference` versions inline, which central package management
+  rejects with **NU1008** — not the NU1010 you would get from an omitted version. The fix is the
+  `Label="Mobile"` group in `Directory.Packages.props`; everything else MAUI needs is an implicit
+  reference from the workload, which sets its own versions and is exempt. `$(MauiVersion)` does
+  resolve inside `Directory.Packages.props` despite how early that file is evaluated, so the pin
+  tracks the installed workload rather than a literal that would drift from `global.json`.
+  Transitive pinning was **not** a problem and stays enabled.
+- `MobileApp.csproj` gates each platform TFM on the host that can build it: `net10.0-android`
+  unconditionally, `net10.0-windows10.0.19041.0` under `IsOSPlatform('windows')`,
+  `net10.0-maccatalyst` under `IsOSPlatform('osx')`. Listing Mac Catalyst unconditionally makes
+  `dotnet build` on the solution fail on Windows and on every Linux runner. The template also matched
+  it twice on macOS, since `!linux` and `osx` both applied.
+- **The Windows TFM is a development target, and removing it breaks F5 in a way that names nothing.**
+  `Properties/launchSettings.json` contains exactly one profile, `Windows Machine`. With no
+  `net10.0-windows` framework behind it, Visual Studio still offers it, launches `dotnet.exe` against
+  a project it cannot run, and reports `The target process exited without raising a CoreCLR started
+  event` with exit code `0x80008083`. Shipping targets are Android and Mac Catalyst; that is not a
+  reason to drop the target the developer actually presses F5 on.
+- **Visual Studio caches the TFM list**, so editing `TargetFrameworks` needs a project reload before
+  the debug-target dropdown is truthful. Until then it offers targets the project no longer has and
+  omits ones it just gained — indistinguishable from the project being misconfigured. Deleting
+  `MobileApp/obj` forces it.
+- `test.yml` builds `Backend.Tests/Backend.Tests.csproj`, not the solution, because the solution now
+  contains MobileApp. The project reference chain still covers `Backend` and `Contracts`, so nothing
+  is lost and a backend pull request never installs a MAUI workload. Do not "simplify" it back to a
+  bare `dotnet build`.
+- `mobile.yml` filters on paths, `test.yml` deliberately does not. A path-skipped run of a **required**
+  check stays pending forever and nothing can merge, so only the workflow that is expensive and
+  non-blocking gets a filter.
+- `Contracts` is deliberately not a release-please component: nothing distributes it, so its own tag
+  and changelog would be noise. release-please attributes a commit to every package whose path it
+  touches, so a contracts change committed together with its consumer already lands in that
+  consumer's changelog — which is the shape you want anyway, since a DTO change with no consumer
+  change is dead code. Revisit only if it is ever published as a NuGet package.
+- `MobileApp`'s `ApplicationVersion` is Android's `versionCode`: an integer that must only ever
+  increase, which a semver string cannot supply. release-please owns `ApplicationDisplayVersion`;
+  CI passes `-p:ApplicationVersion=` from the run number. Getting this wrong is only discovered at
+  store-upload time.

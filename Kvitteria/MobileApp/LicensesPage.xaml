@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+<ContentPage
+    x:Class="MobileApp.LicensesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Licenses">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="12">
+
+            <Label
+                Text="Kvitteria"
+                FontSize="24"
+                FontAttributes="Bold" />
+
+            <Label Text="This app is licensed under the Mozilla Public License 2.0. It includes Kvitteria.Contracts, licensed under the MIT License. The Kvitteria backend it talks to is licensed separately, under the GNU Affero General Public License v3." />
+
+            <Label
+                Text="Mozilla Public License 2.0 — this app"
+                FontAttributes="Bold"
+                Margin="0,12,0,0" />
+            <Label x:Name="MplText" FontFamily="OpenSansRegular" FontSize="11" />
+
+            <Label
+                Text="MIT License — Kvitteria.Contracts"
+                FontAttributes="Bold"
+                Margin="0,12,0,0" />
+            <Label x:Name="MitText" FontFamily="OpenSansRegular" FontSize="11" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

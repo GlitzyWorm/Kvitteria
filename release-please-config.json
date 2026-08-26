@@ -35,6 +35,19 @@
           "path": "Backend.csproj"
         }
       ]
+    },
+
+    "Kvitteria/MobileApp": {
+      "release-type": "simple",
+      "component": "mobile",
+      "package-name": "kvitteria-mobile",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "MobileApp.csproj"
+        }
+      ]
     }
   }
 }

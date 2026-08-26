@@ -26,6 +26,15 @@
         <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
     </ItemGroup>
 
+    <ItemGroup Label="Mobile">
+        <!-- The only two the MAUI template declares explicitly; everything else the app needs is an
+             implicit reference from the workload, which sets its own versions and is exempt from
+             NU1008. MauiVersion comes from the installed workload, so this tracks it rather than
+             pinning a number that would drift out of step with the SDK band in global.json. -->
+        <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    </ItemGroup>
+
     <ItemGroup Label="Testing">
         <PackageVersion Include="coverlet.collector" Version="6.0.4" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />

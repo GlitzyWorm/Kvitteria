@@ -5,6 +5,11 @@
 	  <RootNamespace>Kvitteria.Contracts</RootNamespace>
 	  <AssemblyName>Kvitteria.Contracts</AssemblyName>
 	  <IsPackable>false</IsPackable>
+
+	  <!-- Overrides the AGPL-3.0-or-later in ../Directory.Build.props. MIT deliberately: this
+	       assembly is compiled into both the AGPL backend and the MPL app, and anything stronger
+	       would pull one of those licenses into the other. See ./LICENSE. -->
+	  <PackageLicenseExpression>MIT</PackageLicenseExpression>
 	  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 	  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 	  <AnalysisLevel>latest</AnalysisLevel>

@@ -1,0 +1,101 @@
+name: mobile
+
+# Paths rather than every push: a MAUI build needs a workload install and a platform SDK, which is
+# minutes of runner time that a backend-only change should not pay. Contracts is in the list because
+# the app compiles against it, so a DTO change can break this build without touching MobileApp/.
+#
+# Note that `test.yml` deliberately has no paths filter. If it is ever made a required check, a
+# path-skipped run stays pending forever and nothing can merge.
+on:
+  pull_request:
+    paths:
+      - "Kvitteria/MobileApp/**"
+      - "Kvitteria/Contracts/**"
+      - "Kvitteria/Directory.Build.props"
+      - "Kvitteria/Directory.Packages.props"
+      - "Kvitteria/global.json"
+      - ".github/workflows/mobile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "Kvitteria/MobileApp/**"
+      - "Kvitteria/Contracts/**"
+      - "Kvitteria/Directory.Build.props"
+      - "Kvitteria/Directory.Packages.props"
+      - "Kvitteria/global.json"
+      - ".github/workflows/mobile.yml"
+
+# A newer push to the same ref makes the older run pointless.
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # One job per platform rather than one multi-targeting build: MobileApp.csproj adds
+  # net10.0-maccatalyst only on macOS, so a single runner can never cover both.
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # Honours Kvitteria/global.json, so CI and a developer machine agree on the SDK.
+          global-json-file: Kvitteria/global.json
+
+      # The .NET Android SDK arrives with the workload, but it still needs a JDK, and the Android
+      # platform SDK it compiles against comes from the runner image via ANDROID_HOME.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Not cacheable in any useful way — the workload installs into the SDK root, which
+      # actions/setup-dotnet replaces on every run.
+      - run: dotnet workload install maui-android
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-mobile-${{ runner.os }}-${{ hashFiles('Kvitteria/Directory.Packages.props') }}
+          restore-keys: nuget-mobile-${{ runner.os }}-
+
+      - run: dotnet restore Kvitteria/MobileApp/MobileApp.csproj
+
+      # ApplicationVersion is Android's versionCode: an integer that must only ever increase. Passing
+      # it here also proves the override works before a release depends on it.
+      - run: >
+          dotnet build Kvitteria/MobileApp/MobileApp.csproj
+          --no-restore --configuration Release
+          --framework net10.0-android
+          -p:ApplicationVersion=${{ github.run_number }}
+
+  maccatalyst:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: Kvitteria/global.json
+
+      - run: dotnet workload install maui-maccatalyst
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-mobile-${{ runner.os }}-${{ hashFiles('Kvitteria/Directory.Packages.props') }}
+          restore-keys: nuget-mobile-${{ runner.os }}-
+
+      - run: dotnet restore Kvitteria/MobileApp/MobileApp.csproj
+
+      # This is the only place Mac Catalyst is built at all — it cannot be built on Windows, which is
+      # where the app is developed.
+      - run: >
+          dotnet build Kvitteria/MobileApp/MobileApp.csproj
+          --no-restore --configuration Release
+          --framework net10.0-maccatalyst
+          -p:ApplicationVersion=${{ github.run_number }}
