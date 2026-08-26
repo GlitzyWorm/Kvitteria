@@ -6,7 +6,6 @@
     <PropertyGroup Label="Shared">
         <!-- Hoisted out of the individual projects so a MAUI project added under Kvitteria/ inherits
              them rather than restating them. -->
-        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
 

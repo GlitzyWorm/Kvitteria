@@ -1,8 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- TargetFramework, Nullable and ImplicitUsings come from ../Directory.Build.props. -->
+    <!-- Nullable and ImplicitUsings come from ../Directory.Build.props. -->
     <IsPackable>false</IsPackable>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

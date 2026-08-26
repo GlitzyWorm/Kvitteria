@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
         <!-- The version this component reports, and the single source of truth for it. release-please
              rewrites this line and finds it by the trailing marker comment, so both must stay together
              on one line. The Dockerfile passes `-p:Version=` only when CI gives it one, so an ordinary
