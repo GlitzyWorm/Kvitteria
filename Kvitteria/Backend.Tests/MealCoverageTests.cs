@@ -1,6 +1,7 @@
-﻿using Backend.Features.Endpoints.DTO;
-using Backend.Features.Persistence.Model.Receipts;
+﻿using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Receipts;
+using Kvitteria.Contracts.DTO;
+
 namespace Backend.Tests;
 
 public class MealCoverageTests

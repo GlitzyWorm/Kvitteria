@@ -1,5 +1,6 @@
 ﻿using Backend.Features.Extraction;
-using Backend.Features.Shared;
+using Kvitteria.Contracts.Shared;
+
 namespace Backend.Features.Mail;
 
 public sealed class ReceiptRecord(

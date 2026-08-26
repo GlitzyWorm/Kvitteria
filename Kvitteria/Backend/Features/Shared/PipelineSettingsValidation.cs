@@ -1,4 +1,5 @@
-using Backend.Features.Endpoints.DTO;
+using Kvitteria.Contracts.DTO;
+
 namespace Backend.Features.Shared;
 
 /// <summary>

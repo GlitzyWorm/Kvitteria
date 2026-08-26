@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	  <TargetFramework>net10.0</TargetFramework>
+	  <RootNamespace>Kvitteria.Contracts</RootNamespace>
+	  <AssemblyName>Kvitteria.Contracts</AssemblyName>
+	  <IsPackable>false</IsPackable>
+	  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+	  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+	  <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+</Project>

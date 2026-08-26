@@ -1,6 +1,6 @@
-﻿using Backend.Features.Endpoints.DTO;
-using Backend.Features.Persistence;
+﻿using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
+using Kvitteria.Contracts.DTO;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Receipts;
 

@@ -4,6 +4,7 @@ using Backend.Features.Persistence;
 using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Model;
 using Backend.Features.Shared;
+using Kvitteria.Contracts.Shared;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Extraction;
 

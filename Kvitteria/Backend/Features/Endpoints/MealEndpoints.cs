@@ -1,8 +1,9 @@
 ﻿using Backend.Features.Auth;
-using Backend.Features.Endpoints.DTO;
+using Backend.Features.Endpoints.Extensions;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
+using Kvitteria.Contracts.DTO;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Endpoints;
 

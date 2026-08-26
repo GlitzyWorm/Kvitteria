@@ -2,6 +2,7 @@
 using Backend.Features.Mail;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
+using Kvitteria.Contracts.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Persistence.Factory;

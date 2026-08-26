@@ -1,4 +1,5 @@
-﻿using Backend.Features.Shared;
+﻿using Kvitteria.Contracts.Shared;
+
 namespace Backend.Features.Persistence.Model.Receipts;
 
 public sealed class Receipt

@@ -1,5 +1,6 @@
-using Backend.Features.Endpoints.DTO;
 using Backend.Features.Shared;
+using Kvitteria.Contracts.DTO;
+
 namespace Backend.Tests;
 
 public class PipelineSettingsValidationTests

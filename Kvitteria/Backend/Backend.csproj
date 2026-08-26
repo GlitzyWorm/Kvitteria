@@ -49,4 +49,8 @@
       <PackageReference Include="Scalar.AspNetCore" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Contracts\Contracts.csproj" />
+    </ItemGroup>
+
 </Project>
