@@ -696,6 +696,150 @@
         </Setter>
     </Style>
 
+    <!-- ════════════════════════════ Segmented control ════════════════════════════ -->
+
+    <!-- .seg / .seg-opt — a hairline-edged strip of mutually exclusive options, hairline-divided.
+         Built on RadioButton rather than two Buttons because that is what the source is: its
+         .seg-opt wraps a visually hidden radio input, so the semantics, the keyboard behaviour and
+         the screen-reader announcement all come for free. The chrome is replaced wholesale by a
+         ControlTemplate, since the platform radio dot has no place in this shape.
+
+         The source marks the checked option with an inset 1px box-shadow — a ring drawn inside the
+         option's own bounds. MAUI has no inset shadow, but the inner Border *is* inside those
+         bounds, so its stroke lands in the same place; this is the one component where the
+         approximation is exact rather than merely close. -->
+    <Style x:Key="Seg" TargetType="Border">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Stroke" Value="{StaticResource Divider}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeHairline}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusMd}" />
+        </Setter>
+    </Style>
+
+    <!-- The rule between two options. The source reaches for an adjacent-sibling selector, which has
+         no MAUI equivalent, so the divider is placed explicitly between them. -->
+    <Style x:Key="SegDivider" TargetType="BoxView">
+        <Setter Property="Color" Value="{StaticResource Divider}" />
+        <Setter Property="WidthRequest" Value="{StaticResource StrokeHairline}" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+    </Style>
+
+    <Style x:Key="SegOption" TargetType="RadioButton">
+        <!-- A keyed style does not inherit the implicit one, so the 44px touch minimum the implicit
+             RadioButton carries has to be restated. The width minimum is dropped instead: these sit
+             in a Grid that gives them half the row each, and 44 there would fight the layout. -->
+        <Setter Property="MinimumWidthRequest" Value="0" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="ControlTemplate">
+            <ControlTemplate>
+                <Border x:Name="SegOptionSurface"
+                        Padding="12,7"
+                        BackgroundColor="Transparent"
+                        Stroke="Transparent"
+                        StrokeThickness="{StaticResource StrokeHairline}">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="{StaticResource RadiusMd}" />
+                    </Border.StrokeShape>
+                    <Label x:Name="SegOptionLabel"
+                           FontFamily="{StaticResource FontBody}"
+                           FontSize="{StaticResource FontSizeSmall}"
+                           HorizontalTextAlignment="Center"
+                           Text="{TemplateBinding Content}"
+                           TextColor="{StaticResource TextMuted70}"
+                           VerticalOptions="Center" />
+                    <VisualStateManager.VisualStateGroups>
+                        <VisualStateGroupList>
+                            <VisualStateGroup x:Name="CheckedStates">
+                                <VisualState x:Name="Unchecked" />
+                                <VisualState x:Name="Checked">
+                                    <VisualState.Setters>
+                                        <Setter TargetName="SegOptionSurface" Property="Border.Stroke" Value="{StaticResource Accent}" />
+                                        <Setter TargetName="SegOptionLabel" Property="Label.TextColor" Value="{StaticResource Accent}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateGroupList>
+                    </VisualStateManager.VisualStateGroups>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <!-- ════════════════════════════ Callouts ════════════════════════════ -->
+
+    <!-- The accent-tinted block the source uses for anything the user must read before continuing —
+         an inline form error, and the "signed in as" panel on the no-access screen. An accent edge
+         over an accent wash: still a line and a glow, not a flood. -->
+    <Style x:Key="Callout" TargetType="Border">
+        <Setter Property="Padding" Value="12,11" />
+        <Setter Property="BackgroundColor" Value="{StaticResource AccentTint10}" />
+        <Setter Property="Stroke" Value="{StaticResource AccentTint30}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeHairline}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusMd}" />
+        </Setter>
+    </Style>
+
+    <Style x:Key="CalloutText" TargetType="Label">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+        <Setter Property="TextColor" Value="{StaticResource Accent300}" />
+    </Style>
+
+    <!-- The muted counterpart, for a footnote that is information rather than a problem. -->
+    <Style x:Key="Note" TargetType="Border">
+        <Setter Property="Padding" Value="12,11" />
+        <Setter Property="BackgroundColor" Value="{StaticResource TextWash4}" />
+        <Setter Property="Stroke" Value="Transparent" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="{StaticResource RadiusMd}" />
+        </Setter>
+    </Style>
+
+    <!-- ════════════════════════════ Icons and brand ════════════════════════════ -->
+
+    <!-- A Phosphor glyph. Inherits nothing implicitly, so it sets its own colour; override TextColor
+         in place the way the source overrides colour on its icon elements. -->
+    <Style x:Key="Icon" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource FontIcons}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeIcon}" />
+        <Setter Property="TextColor" Value="{StaticResource Neutral400}" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+        <Setter Property="VerticalTextAlignment" Value="Center" />
+    </Style>
+
+    <!-- The brand mark: an accent-outlined square holding the receipt glyph, with the accent glow
+         behind it. The source's header draws this on every screen. -->
+    <Style x:Key="BrandMark" TargetType="Border">
+        <Setter Property="WidthRequest" Value="26" />
+        <Setter Property="HeightRequest" Value="26" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Stroke" Value="{StaticResource Accent}" />
+        <Setter Property="StrokeThickness" Value="{StaticResource StrokeHairline}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="Shadow" Value="{StaticResource AccentGlow}" />
+        <Setter Property="StrokeShape">
+            <RoundRectangle CornerRadius="7" />
+        </Setter>
+    </Style>
+
+    <Style x:Key="BrandMarkGlyph" TargetType="Label" BasedOn="{StaticResource Icon}">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeIconSm}" />
+        <Setter Property="TextColor" Value="{StaticResource Accent}" />
+    </Style>
+
+    <!-- The wordmark beside it. -->
+    <Style x:Key="Wordmark" TargetType="Label">
+        <Setter Property="FontFamily" Value="{StaticResource FontHeading}" />
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="TextColor" Value="{StaticResource TextColor}" />
+        <Setter Property="CharacterSpacing" Value="-0.34" />
+        <!-- -0.02em at 17px -->
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
     <!-- ════════════════════════════ Feedback ════════════════════════════ -->
 
     <Style TargetType="ActivityIndicator">

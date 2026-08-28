@@ -23,6 +23,7 @@ namespace MobileApp
 			MitText.Text = await ReadAssetAsync("licenses/MIT.txt");
 			MontserratOflText.Text = await ReadAssetAsync("licenses/OFL-Montserrat.txt");
 			PoppinsOflText.Text = await ReadAssetAsync("licenses/OFL-Poppins.txt");
+			PhosphorMitText.Text = await ReadAssetAsync("licenses/MIT-Phosphor.txt");
 		}
 
 		/// <summary>
