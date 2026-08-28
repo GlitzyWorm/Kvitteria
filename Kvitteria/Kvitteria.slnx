@@ -3,4 +3,5 @@
   <Project Path="Backend.Tests/Backend.Tests.csproj" />
   <Project Path="Contracts/Contracts.csproj" Id="28d87233-a9bc-478f-90e2-41ddb8944365" />
   <Project Path="MobileApp/MobileApp.csproj" Id="c622d80f-7e84-4888-bff8-7420d6de8917" />
+  <Project Path="MobileApp.Tests/MobileApp.Tests.csproj" />
 </Solution>
