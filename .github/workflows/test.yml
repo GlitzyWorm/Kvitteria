@@ -39,3 +39,15 @@ jobs:
       - run: dotnet build Backend.Tests/Backend.Tests.csproj --no-restore --configuration Release
 
       - run: dotnet test Backend.Tests/Backend.Tests.csproj --no-build --configuration Release --verbosity normal
+
+      # The mobile app's pure helpers — URL normalization, the readiness-report parse, the GoTrue
+      # error mapping, token expiry. MobileApp.Tests links them as source rather than referencing
+      # MobileApp, which it could not do: MobileApp targets net10.0-android and a plain net10.0
+      # project cannot reference it. That is what makes running them here cheap — no MAUI workload,
+      # so a backend pull request pays nothing for them — and it is why they belong in this
+      # workflow rather than in the path-filtered, non-blocking mobile.yml.
+      - run: dotnet restore MobileApp.Tests/MobileApp.Tests.csproj
+
+      - run: dotnet build MobileApp.Tests/MobileApp.Tests.csproj --no-restore --configuration Release
+
+      - run: dotnet test MobileApp.Tests/MobileApp.Tests.csproj --no-build --configuration Release --verbosity normal

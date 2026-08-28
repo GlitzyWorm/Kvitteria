@@ -107,6 +107,10 @@
 		     otherwise try to embed a .txt as a typeface. -->
 		<MauiAsset Include="licenses\OFL-Montserrat.txt" LogicalName="licenses/OFL-Montserrat.txt" />
 		<MauiAsset Include="licenses\OFL-Poppins.txt" LogicalName="licenses/OFL-Poppins.txt" />
+
+		<!-- Phosphor is MIT rather than OFL, but the obligation is the same shape: the notice has to
+		     travel with the binary, and an app user receives a binary rather than this repository. -->
+		<MauiAsset Include="licenses\MIT-Phosphor.txt" LogicalName="licenses/MIT-Phosphor.txt" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -116,10 +120,83 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" />
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+		<PackageReference Include="Microsoft.Extensions.Http" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\Contracts\Contracts.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Danish is the *neutral* set and English the satellite, which is the opposite of the usual
+		     arrangement and is the point: the app is Danish-first, so a device in a language nobody
+		     has translated should fall back to Danish rather than to English.
+
+		     Generator is cleared deliberately. ResXFileCodeGenerator is a Visual Studio single-file
+		     generator rather than an MSBuild target, so a designer file that is not committed simply
+		     does not exist on a CI runner — and mobile.yml builds this project on Ubuntu. Nothing
+		     needs generating: strings are read through ILocalizationService's indexer so they can
+		     change language at runtime, which generated static properties cannot do. -->
+		<EmbeddedResource Update="Localization\AppResources.resx">
+			<Generator></Generator>
+		</EmbeddedResource>
+		<EmbeddedResource Update="Localization\AppResources.en.resx">
+			<Generator></Generator>
+		</EmbeddedResource>
+	</ItemGroup>
+
+	<!-- AndroidManifest.xml references @xml/network_security_config unconditionally, and exactly one
+	     of these two files supplies it. Two files rather than one excluded in Release, because a
+	     dangling resource reference fails at aapt2 with a message about the manifest rather than
+	     about the missing file.
+
+	     Debug permits cleartext so the emulator can reach http://10.0.2.2:8080, where the compose
+	     stack has no certificate in front of it. Release forbids it: the server address is typed by
+	     the user, and permitting cleartext in a shipped app would let a typo or a hostile network
+	     downgrade every request — bearer token included. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<AndroidResource Remove="Platforms\Android\Resources\xml\network_security_config.debug.xml" />
+		<AndroidResource Remove="Platforms\Android\Resources\xml\network_security_config.release.xml" />
+
+		<AndroidResource Condition="'$(Configuration)' == 'Debug'" Include="Platforms\Android\Resources\xml\network_security_config.debug.xml" Link="Resources\xml\network_security_config.xml" />
+
+		<AndroidResource Condition="'$(Configuration)' != 'Debug'" Include="Platforms\Android\Resources\xml\network_security_config.release.xml" Link="Resources\xml\network_security_config.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Update="Features\Insights\InsightsPage.xaml.cs">
+	    <DependentUpon>InsightsPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\OverviewPage.xaml.cs">
+	    <DependentUpon>OverviewPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Pipeline\PipelinePage.xaml.cs">
+	    <DependentUpon>PipelinePage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Receipts\ReceiptsPage.xaml.cs">
+	    <DependentUpon>ReceiptsPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Sort\SortPage.xaml.cs">
+	    <DependentUpon>SortPage.xaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiXaml Update="Features\Insights\InsightsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Pipeline\PipelinePage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Receipts\ReceiptsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Sort\SortPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\OverviewPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	</ItemGroup>
 
 </Project>

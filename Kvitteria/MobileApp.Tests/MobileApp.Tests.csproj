@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Nullable and ImplicitUsings come from ../Directory.Build.props. -->
+    <IsPackable>false</IsPackable>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- Overrides the AGPL-3.0-or-later in ../Directory.Build.props, matching MobileApp. The files
+         under test are linked in as source and compile into this assembly, so one licence has to
+         cover both — see ./LICENSE and ./.editorconfig. -->
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+
+    <!-- So IDE0073 fails the build here the same way it does in MobileApp. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!-- Linked source rather than a ProjectReference, because there cannot be one: MobileApp targets
+       net10.0-android (and, per host, Windows or Mac Catalyst) and a plain net10.0 project cannot
+       reference any of them. Adding a net10.0 TFM to MobileApp to make it possible would mean
+       guarding every MAUI file in the project.
+
+       The cost is one line here per helper. The benefit is that it keeps these four honest: a helper
+       that reaches for Preferences, SecureStorage or anything else out of Microsoft.Maui stops
+       compiling in this project immediately — which is the same discipline that keeps CategoryTree
+       and Reconciliation testable on the backend. Anything needing a MAUI type belongs in
+       MobileApp/Services instead, which is deliberately not linked here. -->
+  <ItemGroup>
+    <Compile Include="..\MobileApp\Features\Auth\ServerUrl.cs" Link="Auth\ServerUrl.cs" />
+    <Compile Include="..\MobileApp\Features\Auth\HealthProbe.cs" Link="Auth\HealthProbe.cs" />
+    <Compile Include="..\MobileApp\Features\Auth\AuthErrorMapper.cs" Link="Auth\AuthErrorMapper.cs" />
+    <Compile Include="..\MobileApp\Features\Auth\StoredSession.cs" Link="Auth\StoredSession.cs" />
+  </ItemGroup>
+
+</Project>

@@ -6,17 +6,80 @@
     x:Class="MobileApp.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:MobileApp.Features.Auth"
+    xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+    xmlns:insights="clr-namespace:MobileApp.Features.Insights"
     xmlns:local="clr-namespace:MobileApp"
+    xmlns:overview="clr-namespace:MobileApp.Features.Overview"
+    xmlns:pipeline="clr-namespace:MobileApp.Features.Pipeline"
+    xmlns:receipts="clr-namespace:MobileApp.Features.Receipts"
+    xmlns:sort="clr-namespace:MobileApp.Features.Sort"
     Title="Kvitteria">
 
-    <ShellContent
-        Title="Home"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <!-- The gate is first, so it is the route the app starts on. Nothing decides where the user
+         belongs except this page, and it decides on every appearance.
 
-    <!-- <ShellContent -->
-    <!--     Title="Licenses" -->
-    <!--     ContentTemplate="{DataTemplate local:LicensesPage}" -->
-    <!--     Route="LicensesPage" /> -->
+         These four sit outside the TabBar deliberately: they are states of the application rather
+         than sections of it, so they carry no tab chrome, and everything navigates to them
+         absolutely (//gate, //auth) so the tab bar is never left on the back stack behind someone
+         who is not signed in. Route names are spelled once, in Features/Shared/AppRoutes.cs. -->
+    <ShellContent ContentTemplate="{DataTemplate auth:GatePage}" Route="gate" />
+    <ShellContent ContentTemplate="{DataTemplate auth:ServerPage}" Route="server" />
+    <ShellContent ContentTemplate="{DataTemplate auth:ClaimPage}" Route="claim" />
+    <ShellContent ContentTemplate="{DataTemplate auth:AuthPage}" Route="auth" />
+
+    <!-- Titles are set from AppShell.xaml.cs rather than here: the language is switchable at
+         runtime, and a Tab's Title is not a bindable target this app can reach with the localize
+         markup extension.
+
+         Icons are the same Phosphor glyphs the source's nav uses, drawn as FontImageSource rather
+         than as five image assets — one font file already ships, and it scales to every density. -->
+    <TabBar Route="main">
+        <Tab x:Name="OverviewTab">
+            <Tab.Icon>
+                <FontImageSource
+                    Color="{StaticResource Neutral400}"
+                    FontFamily="{StaticResource FontIcons}"
+                    Glyph="{x:Static icons:PhosphorIcons.ChartPieSlice}" />
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate overview:OverviewPage}" />
+        </Tab>
+        <Tab x:Name="SortTab">
+            <Tab.Icon>
+                <FontImageSource
+                    Color="{StaticResource Neutral400}"
+                    FontFamily="{StaticResource FontIcons}"
+                    Glyph="{x:Static icons:PhosphorIcons.Lightning}" />
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate sort:SortPage}" />
+        </Tab>
+        <Tab x:Name="ReceiptsTab">
+            <Tab.Icon>
+                <FontImageSource
+                    Color="{StaticResource Neutral400}"
+                    FontFamily="{StaticResource FontIcons}"
+                    Glyph="{x:Static icons:PhosphorIcons.Receipt}" />
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate receipts:ReceiptsPage}" />
+        </Tab>
+        <Tab x:Name="InsightsTab">
+            <Tab.Icon>
+                <FontImageSource
+                    Color="{StaticResource Neutral400}"
+                    FontFamily="{StaticResource FontIcons}"
+                    Glyph="{x:Static icons:PhosphorIcons.TrendUp}" />
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate insights:InsightsPage}" />
+        </Tab>
+        <Tab x:Name="PipelineTab">
+            <Tab.Icon>
+                <FontImageSource
+                    Color="{StaticResource Neutral400}"
+                    FontFamily="{StaticResource FontIcons}"
+                    Glyph="{x:Static icons:PhosphorIcons.FlowArrow}" />
+            </Tab.Icon>
+            <ShellContent ContentTemplate="{DataTemplate pipeline:PipelinePage}" />
+        </Tab>
+    </TabBar>
 
 </Shell>

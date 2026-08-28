@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<!-- Which server this app talks to. The product mockup has no counterpart — it is a web app, served
+     from the server it talks to — so this is drawn from the design tokens rather than transcribed. -->
+<ContentPage
+    x:Class="MobileApp.Features.Auth.ServerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:MobileApp.Features.Auth"
+    xmlns:loc="clr-namespace:MobileApp.Localization"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+
+    <auth:AuthScaffold
+        Blurb="{loc:Localize ServerBlurb}"
+        Kicker="{loc:Localize ServerKicker}"
+        Title="{loc:Localize ServerTitle}">
+
+        <VerticalStackLayout Spacing="16.8">
+
+            <VerticalStackLayout>
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize ServerLabel}" />
+                <Entry
+                    Keyboard="Url"
+                    IsSpellCheckEnabled="False"
+                    IsTextPredictionEnabled="False"
+                    Placeholder="{loc:Localize ServerPlaceholder}"
+                    ReturnCommand="{Binding ConnectCommand}"
+                    ReturnType="Go"
+                    Text="{Binding Address}" />
+
+                <!-- Fires while typing when the address carries /api or /auth/v1, which submitting
+                     would silently trim off. Saying so beats rewriting what someone typed. -->
+                <Label
+                    IsVisible="{Binding Hint, Converter={StaticResource IsPresent}}"
+                    Margin="0,5.6,0,0"
+                    Style="{StaticResource SmallText}"
+                    Text="{Binding Hint}"
+                    TextColor="{StaticResource TextMuted55}" />
+            </VerticalStackLayout>
+
+            <Border IsVisible="{Binding Error, Converter={StaticResource IsPresent}}" Style="{StaticResource Callout}">
+                <Label Style="{StaticResource CalloutText}" Text="{Binding Error}" />
+            </Border>
+
+            <Grid>
+                <Button
+                    Command="{Binding ConnectCommand}"
+                    IsVisible="{Binding IsIdle}"
+                    Style="{StaticResource ButtonPrimary}"
+                    Text="{loc:Localize ServerContinue}" />
+
+                <ActivityIndicator
+                    HeightRequest="20"
+                    IsRunning="{Binding IsBusy}"
+                    IsVisible="{Binding IsBusy}"
+                    WidthRequest="20" />
+            </Grid>
+
+            <Label Style="{StaticResource SmallText}" Text="{loc:Localize ServerFoot}" TextColor="{StaticResource TextMuted55}" />
+        </VerticalStackLayout>
+    </auth:AuthScaffold>
+</ContentPage>

@@ -26,6 +26,12 @@
     <x:String x:Key="FontBody">KvitteriaBody</x:String>
     <x:String x:Key="FontBodyMedium">KvitteriaBodyMedium</x:String>
 
+    <!-- The bundled Phosphor face, which the product mockup draws every icon from (ph ph-receipt and
+         friends). An icon is a glyph here, not an image: one file scales to every density, takes the
+         TextColor of whatever it sits in, and needs no per-icon asset. Code points are named in
+         Features/Shared/PhosphorIcons.cs — XAML never spells a private-use character out. -->
+    <x:String x:Key="FontIcons">KvitteriaIcons</x:String>
+
     <x:Double x:Key="FontSizeH1">42</x:Double>
     <x:Double x:Key="FontSizeH2">32</x:Double>
     <x:Double x:Key="FontSizeH3">25</x:Double>
@@ -37,6 +43,11 @@
     <x:Double x:Key="FontSizeSmall">13</x:Double>
     <x:Double x:Key="FontSizeMeta">11</x:Double>
     <x:Double x:Key="FontSizeLabel">12</x:Double>
+
+    <!-- Icon steps, from the mockup's inline font-size on each <i>: 15px for the brand mark, 17px
+         for a control glyph, 16px for a nav item. -->
+    <x:Double x:Key="FontSizeIconSm">15</x:Double>
+    <x:Double x:Key="FontSizeIcon">17</x:Double>
 
     <!-- Headings run tight (line-height 1.12, letter-spacing -0.015em); body is airy at 1.55. -->
     <x:Double x:Key="LineHeightHeading">1.12</x:Double>

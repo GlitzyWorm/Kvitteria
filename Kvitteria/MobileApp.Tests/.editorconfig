@@ -1,0 +1,12 @@
+# Scoped to this project on purpose, and identical to MobileApp/.editorconfig. The files under test
+# are *linked* from MobileApp (see MobileApp.Tests.csproj), so they arrive already carrying the
+# Exhibit A header; this rule is what keeps the tests written beside them carrying one too. MPL-2.0's
+# copyleft is per file and attaches through that notice, so one licence covers everything compiled
+# into this assembly rather than two.
+#
+# No `root = true`: if a repo-wide .editorconfig is ever added, this subtree should still inherit its
+# conventions and only add the header rule on top.
+
+[*.cs]
+file_header_template = This Source Code Form is subject to the terms of the Mozilla Public\nLicense, v. 2.0. If a copy of the MPL was not distributed with this\nfile, You can obtain one at https://mozilla.org/MPL/2.0/.
+dotnet_diagnostic.IDE0073.severity = error

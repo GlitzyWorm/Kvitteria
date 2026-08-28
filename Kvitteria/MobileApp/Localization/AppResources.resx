@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppName" xml:space="preserve">
+    <value>Kvitteria</value>
+  </data>
+  <data name="TabOverview" xml:space="preserve">
+    <value>Oversigt</value>
+  </data>
+  <data name="TabSort" xml:space="preserve">
+    <value>Sortér</value>
+  </data>
+  <data name="TabReceipts" xml:space="preserve">
+    <value>Kvitteringer</value>
+  </data>
+  <data name="TabInsights" xml:space="preserve">
+    <value>Indsigt</value>
+  </data>
+  <data name="TabPipeline" xml:space="preserve">
+    <value>Pipeline</value>
+  </data>
+  <data name="GateUnreachableKicker" xml:space="preserve">
+    <value>Forbindelse</value>
+  </data>
+  <data name="GateUnreachableTitle" xml:space="preserve">
+    <value>Kan ikke nå serveren</value>
+  </data>
+  <data name="GateUnreachableBlurb" xml:space="preserve">
+    <value>Serveren svarede ikke. Den kan være slukket, eller adressen kan være forkert.</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>Prøv igen</value>
+  </data>
+  <data name="ServerKicker" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="ServerTitle" xml:space="preserve">
+    <value>Vælg din server</value>
+  </data>
+  <data name="ServerBlurb" xml:space="preserve">
+    <value>Kvitteria kører på din egen server. Indtast adressen på husstandens installation.</value>
+  </data>
+  <data name="ServerLabel" xml:space="preserve">
+    <value>Serveradresse</value>
+  </data>
+  <data name="ServerPlaceholder" xml:space="preserve">
+    <value>https://kvitteria.eksempel.dk</value>
+  </data>
+  <data name="ServerFoot" xml:space="preserve">
+    <value>Adressen er den samme, du åbner Kvitteria på i en browser. https antages, hvis du ikke skriver andet.</value>
+  </data>
+  <data name="ServerContinue" xml:space="preserve">
+    <value>Forbind</value>
+  </data>
+  <data name="ChangeServer" xml:space="preserve">
+    <value>Skift server</value>
+  </data>
+  <data name="ServerErrorEmpty" xml:space="preserve">
+    <value>Indtast en serveradresse.</value>
+  </data>
+  <data name="ServerErrorUnparseable" xml:space="preserve">
+    <value>Det ligner ikke en adresse. Prøv fx kvitteria.eksempel.dk.</value>
+  </data>
+  <data name="ServerErrorUnsupportedScheme" xml:space="preserve">
+    <value>Kun http og https understøttes.</value>
+  </data>
+  <data name="ServerErrorNotKvitteria" xml:space="preserve">
+    <value>Noget svarede på den adresse, men det var ikke en Kvitteria-server.</value>
+  </data>
+  <data name="ServerErrorUnreachable" xml:space="preserve">
+    <value>Ingen svarede på den adresse. Tjek at serveren kører.</value>
+  </data>
+  <data name="ServerRouteHint" xml:space="preserve">
+    <value>Skriv kun adressen — /api og /auth/v1 hører til serveren og skal ikke med.</value>
+  </data>
+  <data name="ClaimKicker" xml:space="preserve">
+    <value>Ny server</value>
+  </data>
+  <data name="ClaimTitle" xml:space="preserve">
+    <value>Ingen medlemmer endnu</value>
+  </data>
+  <data name="ClaimBlurb" xml:space="preserve">
+    <value>Ingen medlemmer endnu. Den første konto der logger ind, overtager husstanden som administrator.</value>
+  </data>
+  <data name="ClaimDetail" xml:space="preserve">
+    <value>Som administrator kan du give resten af husstanden adgang, tilføje postkasser og styre pipelinen.</value>
+  </data>
+  <data name="ClaimContinue" xml:space="preserve">
+    <value>Opret administratorkonto</value>
+  </data>
+  <data name="SignIn" xml:space="preserve">
+    <value>Log ind</value>
+  </data>
+  <data name="SignUp" xml:space="preserve">
+    <value>Opret konto</value>
+  </data>
+  <data name="SignOut" xml:space="preserve">
+    <value>Log ud</value>
+  </data>
+  <data name="SignOutOther" xml:space="preserve">
+    <value>Log ud og prøv en anden konto</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="EmailPlaceholder" xml:space="preserve">
+    <value>dig@husstand.dk</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Adgangskode</value>
+  </data>
+  <data name="PasswordHint" xml:space="preserve">
+    <value>Mindst 8 tegn</value>
+  </data>
+  <data name="PasswordRule" xml:space="preserve">
+    <value>Mindst 8 tegn. Der sendes ingen bekræftelsesmail — kontoen er klar med det samme.</value>
+  </data>
+  <data name="WelcomeBack" xml:space="preserve">
+    <value>Velkommen tilbage</value>
+  </data>
+  <data name="CreateAccount" xml:space="preserve">
+    <value>Opret din konto</value>
+  </data>
+  <data name="SignInBlurb" xml:space="preserve">
+    <value>Log ind med den e-mail din husstand har givet adgang.</value>
+  </data>
+  <data name="SignUpBlurb" xml:space="preserve">
+    <value>Opret en konto på den e-mail en administrator har givet adgang. Er husstanden helt ny, bliver den første konto administrator.</value>
+  </data>
+  <data name="SignInFoot" xml:space="preserve">
+    <value>Har du ikke fået adgang endnu? Bed en administrator om at invitere din e-mail.</value>
+  </data>
+  <data name="NoAccess" xml:space="preserve">
+    <value>Ingen adgang</value>
+  </data>
+  <data name="SignedInAs" xml:space="preserve">
+    <value>Logget ind som</value>
+  </data>
+  <data name="Rejected" xml:space="preserve">
+    <value>Kontoen er ikke medlem af husstanden</value>
+  </data>
+  <data name="RejectedHelp" xml:space="preserve">
+    <value>Du er logget ind, men e-mailen står ikke på husstandens liste. Bed en administrator om at invitere netop denne adresse — så virker samme login med det samme.</value>
+  </data>
+  <data name="AuthErrorEmailRequired" xml:space="preserve">
+    <value>Indtast en gyldig e-mailadresse.</value>
+  </data>
+  <data name="AuthErrorPasswordTooShort" xml:space="preserve">
+    <value>Adgangskoden skal være mindst 8 tegn.</value>
+  </data>
+  <data name="AuthErrorInvalidCredentials" xml:space="preserve">
+    <value>Forkert e-mail eller adgangskode.</value>
+  </data>
+  <data name="AuthErrorUserAlreadyExists" xml:space="preserve">
+    <value>Den e-mail har allerede en konto. Log ind i stedet.</value>
+  </data>
+  <data name="AuthErrorWeakPassword" xml:space="preserve">
+    <value>Adgangskoden er for svag. Vælg en længere.</value>
+  </data>
+  <data name="AuthErrorEmailInvalid" xml:space="preserve">
+    <value>Serveren afviste den e-mailadresse.</value>
+  </data>
+  <data name="AuthErrorEmailNotConfirmed" xml:space="preserve">
+    <value>Kontoen er ikke bekræftet endnu.</value>
+  </data>
+  <data name="AuthErrorRateLimited" xml:space="preserve">
+    <value>For mange forsøg. Vent et øjeblik og prøv igen.</value>
+  </data>
+  <data name="AuthErrorSignupDisabled" xml:space="preserve">
+    <value>Serveren tillader ikke nye konti.</value>
+  </data>
+  <data name="AuthErrorSessionExpired" xml:space="preserve">
+    <value>Din session er udløbet. Log ind igen.</value>
+  </data>
+  <data name="AuthErrorConfirmationRequired" xml:space="preserve">
+    <value>Serveren kræver en bekræftelsesmail, men den sender ingen. Bed administratoren slå bekræftelse fra.</value>
+  </data>
+  <data name="AuthErrorServer" xml:space="preserve">
+    <value>Serveren har et problem. Prøv igen om lidt.</value>
+  </data>
+  <data name="AuthErrorNetwork" xml:space="preserve">
+    <value>Kunne ikke nå serveren.</value>
+  </data>
+  <data name="AuthErrorGeneric" xml:space="preserve">
+    <value>Noget gik galt — prøv igen.</value>
+  </data>
+  <data name="GreetingMorning" xml:space="preserve">
+    <value>Godmorgen</value>
+  </data>
+  <data name="GreetingAfternoon" xml:space="preserve">
+    <value>God eftermiddag</value>
+  </data>
+  <data name="GreetingEvening" xml:space="preserve">
+    <value>Godaften</value>
+  </data>
+  <data name="RoleAdmin" xml:space="preserve">
+    <value>Administrator</value>
+  </data>
+  <data name="RoleMember" xml:space="preserve">
+    <value>Medlem</value>
+  </data>
+  <data name="Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Sprog</value>
+  </data>
+  <data name="LanguageDanish" xml:space="preserve">
+    <value>Dansk</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>Engelsk</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Luk</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Annullér</value>
+  </data>
+  <data name="ConfirmSignOutTitle" xml:space="preserve">
+    <value>Log ud?</value>
+  </data>
+  <data name="ConfirmSignOutMessage" xml:space="preserve">
+    <value>Du skal indtaste din adgangskode igen næste gang.</value>
+  </data>
+  <data name="ConfirmChangeServerTitle" xml:space="preserve">
+    <value>Skift server?</value>
+  </data>
+  <data name="ConfirmChangeServerMessage" xml:space="preserve">
+    <value>Det logger dig ud. Adgangen gælder kun den server, du er logget ind på.</value>
+  </data>
+</root>

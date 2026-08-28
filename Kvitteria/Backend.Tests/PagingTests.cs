@@ -1,4 +1,5 @@
-﻿using Kvitteria.Contracts.Shared;
+﻿using Backend.Features.Shared;
+using Kvitteria.Contracts.Shared;
 
 namespace Backend.Tests;
 

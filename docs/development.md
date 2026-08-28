@@ -107,11 +107,46 @@ would use. **Emulator and simulator only.** iOS App Transport Security blocks pl
 Android device on the same network cannot reach a `localhost` stack either, so a physical device needs
 this served over TLS first. An Android emulator reaches the host at `10.0.2.2`.
 
+### Signing in
+
+The app asks for a server address before anything else. A Debug build prefills
+`http://10.0.2.2:8080` — the emulator's route to the host, on the port `.env.example` gives Caddy — so
+F5 to signed-in needs no typing. A Release build starts empty.
+
+Plain HTTP works there **only because it is a Debug build**. `AndroidManifest.xml` points
+`networkSecurityConfig` at `@xml/network_security_config`, and `MobileApp.csproj` supplies that
+resource from one of two files depending on configuration: the Debug one permits cleartext, the
+Release one forbids it. A shipped app therefore needs the stack behind TLS. Both files exist so the
+manifest's reference always resolves — excluding a single file in Release would fail at `aapt2` with
+a message about the manifest instead.
+
+What happens after the address is accepted depends on the server:
+
+- **No members yet** — the readiness report's `household` check says `Degraded`, and the app shows
+  the claim screen before sending you to sign-up. Signing up then claims the household as admin.
+  There is no claim endpoint; `UserProvisioning.Decide` settles it as a side effect of the first
+  authenticated request, so the screen exists to say so beforehand.
+- **Already claimed** — straight to sign in / sign up. An email an admin has not pre-authorized
+  gets an account at GoTrue and a 403 from `/api/users/me`, which the app shows as "ingen adgang"
+  with a sign-out button rather than as a failed sign-in.
+
+To walk the unclaimed branch again on a stack that already has members, empty the table and
+reinstall the app so its stored session goes with it:
+
+```bash
+docker compose exec postgres psql -U postgres -c 'truncate "AppUsers" cascade'
+```
+
+The session lives in `SecureStorage` and the server address in `Preferences`, so clearing app data
+(or reinstalling) is what resets the flow. In the running app, the control in the top-right corner of
+the overview offers **Log ud**, **Skift server** and the language toggle.
+
 ## Tests
 
 ```bash
 cd Kvitteria
 dotnet test Backend.Tests/Backend.Tests.csproj
+dotnet test MobileApp.Tests/MobileApp.Tests.csproj
 ```
 
 Name the project. A bare `dotnet test` resolves to `Kvitteria.slnx`, which now contains the MAUI app,
@@ -122,6 +157,21 @@ reason plus a larger one: Mac Catalyst cannot build on a Linux runner at all.
 Danish date parsing including the DST gap, the category tree rules, meal-coverage diffing, paging,
 the HTML-to-text converter, the user-provisioning decision, permission resolution and the last-admin
 guard, the auth options rules, mailbox validation, and the mailbox secret round-trip.
+
+`MobileApp.Tests` covers the mobile app's pure logic on the same principle: server-address
+normalization, reading the household state out of a readiness report, mapping GoTrue's error codes,
+and token-expiry arithmetic.
+
+It **links those four files as source** rather than referencing `MobileApp`, because it cannot
+reference it: `MobileApp` targets `net10.0-android` (plus Windows or Mac Catalyst per host) and a
+plain `net10.0` project cannot reference any of those. The cost is one `<Compile Include>` line per
+helper; the benefit is that a helper reaching for `Preferences`, `SecureStorage` or anything else out
+of `Microsoft.Maui` stops compiling here immediately. Anything that needs a MAUI type belongs in
+`MobileApp/Services`, which is deliberately not linked in.
+
+That is also why these run in `test.yml` beside the backend tests rather than in `mobile.yml`: they
+install no MAUI workload, so a backend pull request pays nothing for them, and `test.yml` is the
+workflow without a paths filter.
 
 There are no integration or endpoint tests. Anything touching HTTP or the database is verified by
 bringing the stack up and reading `docker compose logs -f backend`.
