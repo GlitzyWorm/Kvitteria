@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<!-- The sheet behind the control in the top-right corner of the overview.
+
+     Built from the design system rather than shown as a platform action sheet: this app pins
+     UserAppTheme to Dark because there is no light ramp designed, and native chrome would arrive
+     light over a dark page — the exact mismatch that pin exists to prevent. It is also the first
+     real use of CommunityToolkit.Maui, which has been referenced and unused since the app was
+     scaffolded.
+
+     The mockup puts all three of these under Settings; there is no settings screen yet, so they
+     live where the control that opens them does. -->
+<ContentView
+    x:Class="MobileApp.Features.Overview.AccountSheet"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+    xmlns:loc="clr-namespace:MobileApp.Localization">
+
+    <Border MaximumWidthRequest="400" Style="{StaticResource DialogSurface}" WidthRequest="340">
+        <VerticalStackLayout Padding="{StaticResource PaddingPanel}" Spacing="16.8">
+
+            <VerticalStackLayout Spacing="2.8">
+                <Label Style="{StaticResource Eyebrow}" Text="{loc:Localize Account}" />
+                <Label
+                    LineBreakMode="TailTruncation"
+                    Style="{StaticResource BodyText}"
+                    Text="{Binding SignedInAs}" />
+                <Label
+                    LineBreakMode="CharacterWrap"
+                    Style="{StaticResource SmallText}"
+                    Text="{Binding ServerDisplay}"
+                    TextColor="{StaticResource TextMuted55}" />
+            </VerticalStackLayout>
+
+            <BoxView Style="{StaticResource HorizontalRule}" />
+
+            <VerticalStackLayout Spacing="8.4">
+                <HorizontalStackLayout Spacing="8">
+                    <Label
+                        FontSize="{StaticResource FontSizeSmall}"
+                        Style="{StaticResource Icon}"
+                        Text="{x:Static icons:PhosphorIcons.Translate}"
+                        TextColor="{StaticResource TextMuted70}" />
+                    <Label Margin="0" Style="{StaticResource FieldLabel}" Text="{loc:Localize Language}" />
+                </HorizontalStackLayout>
+                <Border HorizontalOptions="Fill" Style="{StaticResource Seg}">
+                    <Grid ColumnDefinitions="*,Auto,*">
+                        <RadioButton
+                            Content="{loc:Localize LanguageDanish}"
+                            GroupName="AppLanguage"
+                            IsChecked="{Binding IsDanish}"
+                            Style="{StaticResource SegOption}" />
+
+                        <BoxView Grid.Column="1" Style="{StaticResource SegDivider}" />
+
+                        <RadioButton
+                            Grid.Column="2"
+                            Content="{loc:Localize LanguageEnglish}"
+                            GroupName="AppLanguage"
+                            IsChecked="{Binding IsEnglish}"
+                            Style="{StaticResource SegOption}" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+
+            <BoxView Style="{StaticResource HorizontalRule}" />
+
+            <VerticalStackLayout Spacing="8.4">
+                <Button
+                    Command="{Binding SignOutCommand}"
+                    ContentLayout="Left,10"
+                    Style="{StaticResource ButtonPrimary}"
+                    Text="{loc:Localize SignOut}">
+                    <Button.ImageSource>
+                        <FontImageSource
+                            Color="{StaticResource Accent}"
+                            FontFamily="{StaticResource FontIcons}"
+                            Glyph="{x:Static icons:PhosphorIcons.SignOut}"
+                            Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+
+                <Button
+                    Command="{Binding ChangeServerCommand}"
+                    ContentLayout="Left,10"
+                    Text="{loc:Localize ChangeServer}">
+                    <Button.ImageSource>
+                        <FontImageSource
+                            Color="{StaticResource TextColor}"
+                            FontFamily="{StaticResource FontIcons}"
+                            Glyph="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
+                            Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+
+                <Button
+                    Command="{Binding DismissCommand}"
+                    Style="{StaticResource ButtonGhost}"
+                    Text="{loc:Localize Close}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>
