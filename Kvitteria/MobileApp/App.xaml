@@ -5,6 +5,7 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:MobileApp"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="MobileApp.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -16,6 +17,12 @@
                 <ResourceDictionary Source="Resources/Styles/Tokens.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Converters, merged after the dictionaries so a style can never depend on one.
+                 IsPresent drives every "show this only when there is something to show" case:
+                 an inline form error, a typing hint. The alternative is a bool property beside
+                 every string on every view model, which is the same rule written five times. -->
+            <toolkit:IsStringNotNullOrEmptyConverter x:Key="IsPresent" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
