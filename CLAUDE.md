@@ -15,6 +15,7 @@ Backend        ASP.NET Core, the whole server           net10.0
 Backend.Tests  xUnit over the pure logic                net10.0
 Contracts      the wire types both sides share          net10.0
 MobileApp      .NET MAUI, ships Android and Mac Catalyst  net10.0-android (+ -windows on Windows, -maccatalyst on macOS)
+MobileApp.Tests  xUnit over the app's MAUI-free helpers  net10.0
 ```
 
 The reference graph is **`MobileApp → Contracts ← Backend`**, and the missing edge is deliberate:
@@ -54,6 +55,8 @@ Three rules follow, and breaking any of them silently collapses the split:
    file and attaches through that notice, so a file without it is not clearly covered.
    `MobileApp/.editorconfig` sets `file_header_template` and promotes IDE0073 to an **error**, so a
    new `.cs` file fails the build. XAML is not covered by that analyzer — those headers are manual.
+   `MobileApp.Tests` carries its own `LICENSE` and an identical `.editorconfig` for the same reason:
+   it compiles MPL source files in by link, so one licence covers the whole assembly.
 
 The two bundled typefaces are the one third-party licence in the app: Montserrat and Poppins ship as
 `MauiFont`s under the SIL Open Font License 1.1, which is permissive and file-scoped to the font
@@ -63,6 +66,14 @@ shipped as `MauiAsset`s and rendered by `LicensesPage` alongside MPL and MIT. Th
 `MobileApp/licenses/` rather than beside the fonts because the `MauiFont` glob is
 `Resources\Fonts\*` and would try to embed a `.txt` as a typeface. One notice per family, since each
 carries its own copyright line.
+
+Phosphor joined them as `Resources/Fonts/Phosphor-Regular.ttf`, registered as the `KvitteriaIcons`
+alias. The product mockup draws every icon from it (`ph ph-receipt` and friends), and an icon is a
+glyph rather than an image here: one file covers every density and each glyph takes the `TextColor`
+of whatever it sits in. Code points are named in `Features/Shared/PhosphorIcons.cs` — XAML never
+spells a private-use character out — and are transcribed from Phosphor's own `src/regular/style.css`.
+It is MIT rather than OFL, but the obligation has the same shape, so `licenses/MIT-Phosphor.txt`
+ships as a `MauiAsset` and `LicensesPage` renders it too.
 
 Relicensing is currently free: `git log` shows one human author. That stops being true the moment an
 outside contribution lands without a CLA, or an AGPL/GPL third-party package enters the app.
@@ -125,6 +136,14 @@ project — a bare `dotnet test` resolves to the solution and now builds MobileA
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
+```
+
+`Kvitteria/MobileApp.Tests` covers the mobile app's pure logic on the same principle — see
+[Mobile app: server connection and auth](#mobile-app-server-connection-and-auth) for why it links
+those files rather than referencing the project:
+
+```bash
+dotnet test MobileApp.Tests/MobileApp.Tests.csproj
 ```
 
 The mobile app builds on its own. Android works on any host; Mac Catalyst needs macOS and is built
@@ -448,6 +467,115 @@ directly; they are spelled without the prefix throughout. The same applies to
 `Platforms/Android/Resources/values/colors.xml`, where it fails as an `aapt2` error naming only the
 file.
 
+## Mobile app: server connection and auth
+
+The app knows nothing at startup: which server, and who you are on it. `Features/Auth` answers both,
+and everything behind the tab bar depends on it having done so.
+
+`AppShell.xaml` holds four `ShellContent` routes **outside** the `TabBar` — `gate`, `server`,
+`claim`, `auth` — plus the tab bar itself as `main`. They are states of the application rather than
+sections of it, so they carry no tab chrome and everything navigates to them absolutely
+(`GoToAsync("//auth")`); a relative push would leave the tab bar on the back stack behind someone who
+is not signed in. The names are spelled once, in `Features/Shared/AppRoutes.cs`. `gate` is first,
+which is what makes it the start route.
+
+`GateViewModel` resolves the whole question **on every appearance**, not once in a constructor:
+signing out navigates back to it and Shell keeps the page instance, so a one-shot would leave the
+second visit on a splash that never finishes. The order is load-bearing:
+
+1. **No stored server** → `//server`.
+2. **`GET /version`** — proves the origin is a Kvitteria backend rather than merely something that
+   answers, and fails fast. Without it a typo is only discovered at sign-in, as a confusing auth
+   error. Failure shows the retry state *on the gate*, naming the address; a failed probe is not
+   somewhere you navigate to, it is this screen not having finished.
+3. **No session** → `GET /health/ready`, whose `household` check decides `//claim` versus `//auth`.
+4. **An expiring session** → refresh before spending it on a request that would 401.
+5. **`GET /api/users/me`** → 200 caches the `CurrentUserDto` and goes to `//main`; **403** is
+   `//auth?state=rejected`; **401** clears the session and starts over at step 3.
+
+Four things about that are easy to undo by accident:
+
+1. **Step 5 is what claims a household.** There is no claim endpoint. `UserProvisioning.Decide`
+   bootstraps the first authenticated caller into the admin as a side effect of the first `/api`
+   request, under a `pg_advisory_xact_lock`. `ClaimPage` therefore calls nothing — it exists so the
+   person about to sign up learns beforehand what signing up will make them. The mockup carries the
+   same sentence as a footnote on its gate, which is easy to sign past without reading.
+2. **`/health/ready` must be parsed whatever the status code is.** The health middleware answers 503
+   for an unhealthy report, and an unpulled Ollama model makes the whole report unhealthy while the
+   `household` check beside it stays perfectly authoritative. Reading only 2xx bodies would strand a
+   fresh install on the wrong screen for a reason that has nothing to do with it.
+3. **A non-member gets 403, not 401.** GoTrue accepted the account and the household did not, which
+   is a different thing from a failed sign-in and says so: `AuthPage` switches to its rejected state
+   in place, keeping the session so it can name the address that was refused. One page, two states,
+   exactly as the mockup does it with `atGate`/`atRejected`.
+4. **Refreshes are serialised.** GoTrue rotates the refresh token on every use and honours the
+   previous one for only ten seconds, so two concurrent refreshes do not merely duplicate work — the
+   loser can spend a token the winner has already replaced and log the household out.
+   `SessionService` holds a `SemaphoreSlim(1,1)` and re-checks the access token after acquiring it,
+   so a burst of 401s produces one refresh. `AuthenticatedHttpMessageHandler` retries exactly once.
+   A refresh that fails for a *network* reason keeps the stored session: the token may well outlive
+   the outage, and signing the household out because a train went into a tunnel would be wrong.
+
+Two `HttpClient`s, differing by one handler: `HttpClients.Anonymous` for GoTrue and the probes, and
+`HttpClients.Api` for `/api`. GoTrue **must** use the anonymous one — refreshing through the handler
+that refreshes on 401 would recurse. Neither carries a `BaseAddress`, because the server is not known
+until someone types it; `IServerSettings.Resolve` composes an absolute URI from the live value
+instead, so changing server takes effect with no client to rebuild. The address lives in
+`Preferences` (it is not a secret) and the session in `SecureStorage` as one JSON blob — per-key
+writes are not atomic across keys, and a torn session with a fresh access token and a spent refresh
+token is unrecoverable.
+
+`ServerUrl.TryNormalize` defaults a missing scheme to **https**, since the insecure case is the one
+worth typing out, and discards everything after the authority: a pasted `/api` or `/auth/v1` would
+otherwise end up doubled in every request. `AndroidManifest.xml` points `networkSecurityConfig` at
+`@xml/network_security_config` and `MobileApp.csproj` supplies that resource from one of two files by
+configuration — Debug permits cleartext so the emulator can reach `http://10.0.2.2:8080`, Release
+forbids it. Both files exist so the reference always resolves; excluding one in Release would fail at
+`aapt2` with a message about the manifest instead.
+
+`Contracts` gains nothing from any of this. The GoTrue session shape belongs to the identity
+provider, not to this application, and lives in `Features/Auth/GoTrueSession.cs`.
+
+### Strings
+
+`Localization/AppResources.resx` is **Danish** and `AppResources.en.resx` is the English satellite —
+the opposite of the usual arrangement, and the point: the app is Danish-first, so a device in an
+untranslated language should fall back to Danish. Both string sets are lifted from the mockup's own
+bilingual `L` table where it has a counterpart.
+
+There is no generated designer class. `ResXFileCodeGenerator` is a Visual Studio single-file
+generator rather than an MSBuild target, so an uncommitted designer file simply does not exist on a
+CI runner — and `mobile.yml` builds this project on Ubuntu. The csproj clears `Generator` on both
+files, `Localization/AppResources.cs` is a hand-written marker whose full name is the manifest name,
+and strings are read through `ILocalizationService`'s `INotifyPropertyChanged` indexer so the
+language can change at runtime. XAML reads them as `{loc:Localize SignIn}`, which produces a
+`Binding` rather than a value — a value would resolve once at parse time and leave every built page
+in the old language.
+
+`LocalizationProvider` is the one seam where a service is reached statically. A markup extension is
+constructed by the XAML parser rather than by the container, so it cannot be injected;
+`MauiProgram` sets it once from the resolved singleton and nothing else reads it. Do not grow it into
+a general service locator. The five `Tab` titles are the other case the extension cannot reach, so
+`AppShell.xaml.cs` sets them and re-applies on the service's `PropertyChanged` — the Shell outlives
+every page and would otherwise keep the language the app started in.
+
+### `MobileApp.Tests`
+
+It **links four files as source** rather than referencing `MobileApp`, because it cannot reference
+it: `MobileApp` targets `net10.0-android` (plus Windows or Mac Catalyst per host) and a plain
+`net10.0` project cannot reference any of those. Adding a `net10.0` TFM to `MobileApp` to make it
+possible would mean guarding every MAUI file in the project.
+
+The cost is one `<Compile Include>` line per helper. The benefit is that it keeps `ServerUrl`,
+`HealthProbe`, `AuthErrorMapper` and `StoredSession` honest: one that reaches for `Preferences`,
+`SecureStorage` or anything else out of `Microsoft.Maui` stops compiling there immediately — the same
+discipline that keeps `CategoryTree` and `Reconciliation` testable on the backend. Anything needing a
+MAUI type belongs in `MobileApp/Services`, which is deliberately not linked.
+
+That is also why these run in `test.yml` beside the backend tests rather than in `mobile.yml`: they
+install no MAUI workload, so a backend pull request pays nothing for them, and `test.yml` is the
+workflow without a paths filter.
+
 ## API and code conventions
 
 Endpoints are static classes under `Features/Endpoints`, all mapped under the `/api` group from
@@ -519,6 +647,25 @@ right-hand side, `CancellationToken ct` as the parameter name.
   cannot consume the ASP.NET Core shared framework, so one `FrameworkReference` there breaks the app
   build — and it is the natural thing to reach for the first time a DTO wants `IResult` or a
   `[FromBody]` attribute. If a type in `Contracts` needs a package, it belongs in `Backend` instead.
+- **`CommunityToolkit.Maui` must stay inside the band the installed MAUI workload provides**, and
+  getting this wrong builds cleanly and then dies on launch. The toolkit depends on
+  `Microsoft.Maui.Controls`, which `Directory.Packages.props` pins to `$(MauiVersion)`. A toolkit
+  release wanting a newer Controls does **not** fail restore and does **not** warn: the central pin
+  wins for Controls, while the rest of the MAUI graph — `Microsoft.Maui.Core`, `Essentials`,
+  `Graphics` — is unpinned and floats up to satisfy the toolkit. The app then loads `Controls`
+  10.0.20 against `Core` 10.0.90, and since `Page` derives from Core types it crashes in
+  `AppHostBuilderExtensions.RemapForControls` with `System.TypeLoadException: Parent class vtable
+  failed to initialize ... VTable setup of type Microsoft.Maui.Controls.Page failed` — a stack that
+  names neither package. Check the split with:
+
+  ```bash
+  dotnet workload list   # the MauiVersion the workload supplies
+  ```
+
+  and by grepping `Microsoft.Maui.*` in `MobileApp/obj/project.assets.json`: every one of them must
+  carry the same version. Raise the toolkit only together with the workload — and remember CI takes
+  its workload from the SDK band in `global.json`, so a locally updated workload would diverge from
+  it silently, since CI only builds and never launches.
 - The MAUI template pins its two `PackageReference` versions inline, which central package management
   rejects with **NU1008** — not the NU1010 you would get from an omitted version. The fix is the
   `Label="Mobile"` group in `Directory.Packages.props`; everything else MAUI needs is an implicit
@@ -557,3 +704,21 @@ right-hand side, `CancellationToken ct` as the parameter name.
   increase, which a semver string cannot supply. release-please owns `ApplicationDisplayVersion`;
   CI passes `-p:ApplicationVersion=` from the run number. Getting this wrong is only discovered at
   store-upload time.
+- **`[ObservableProperty]` on a partial property cannot carry an initializer** — partial properties
+  cannot in C# at all, and the error names the property rather than the attribute. Default such a
+  value from a `Prepare()` the page calls on appearing (`ServerViewModel.Address` does, which it
+  wants anyway: reached from "skift server" the field should show the address currently in use), or
+  compute it rather than storing it (`AccountSheetViewModel.IsDanish` reads the localization service
+  directly, so the sheet cannot disagree with the language in force).
+- `CommunityToolkit.Maui`'s `ClosePopupAsync` extends **`Page`**, not the content view — closing is
+  addressed to the page the popup was shown over. `AccountSheet` therefore exposes its view model so
+  `OverviewPage` can hand it a close callback; the view model only knows it must be dismissed before
+  it navigates, since a route change under an open popup leaves the popup over the new screen.
+- Adding a file under `Platforms/Android/Resources` can leave `MobileApp/obj` stale, and the build
+  then fails at `aapt2` with `APT2000: ... .flata: No such file or directory` and `APT2066: failed
+  parsing overlays` — which name the intermediate file rather than the change that invalidated it.
+  Deleting `MobileApp/obj` fixes it, the same remedy as the cached TFM list above.
+- A bare `dotnet test` now resolves to a solution containing **two** MAUI-adjacent projects, so name
+  the project — `Backend.Tests/Backend.Tests.csproj` or `MobileApp.Tests/MobileApp.Tests.csproj`.
+  `MobileApp.Tests` must never gain a `ProjectReference` to `MobileApp`: it could not have one, and
+  the linked-source arrangement is what keeps the helpers free of MAUI types.
