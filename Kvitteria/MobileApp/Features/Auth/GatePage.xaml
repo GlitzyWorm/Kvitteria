@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<!-- The first thing the app draws, and the only screen that decides where you go next. It has two
+     faces: the branded splash while it is deciding, and the retry state when the server did not
+     answer. The second is here rather than on its own route because a failed probe is not a place
+     you navigate to — it is this screen not having finished. -->
+<ContentPage
+    x:Class="MobileApp.Features.Auth.GatePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:auth="clr-namespace:MobileApp.Features.Auth"
+    xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+    xmlns:loc="clr-namespace:MobileApp.Localization"
+    Shell.NavBarIsVisible="False"
+    Shell.TabBarIsVisible="False">
+
+    <Grid>
+
+        <!-- ══ Splash ══ -->
+        <VerticalStackLayout
+            HorizontalOptions="Center"
+            IsVisible="{Binding IsSplash}"
+            Spacing="22.4"
+            VerticalOptions="Center">
+
+            <HorizontalStackLayout HorizontalOptions="Center" Spacing="9">
+                <Border Style="{StaticResource BrandMark}">
+                    <Label Style="{StaticResource BrandMarkGlyph}" Text="{x:Static icons:PhosphorIcons.Receipt}" />
+                </Border>
+                <Label Style="{StaticResource Wordmark}" Text="{loc:Localize AppName}" />
+            </HorizontalStackLayout>
+
+            <!-- Appears only after the view model has been waiting ~400ms. A local server answers in
+                 far less, and a spinner that flashes reads as a glitch rather than as progress. -->
+            <ActivityIndicator
+                HeightRequest="20"
+                HorizontalOptions="Center"
+                IsRunning="{Binding ShowSpinner}"
+                IsVisible="{Binding ShowSpinner}"
+                WidthRequest="20" />
+        </VerticalStackLayout>
+
+        <!-- ══ Cannot reach the server ══ -->
+        <auth:AuthScaffold
+            Blurb="{loc:Localize GateUnreachableBlurb}"
+            IsVisible="{Binding IsUnreachable}"
+            Kicker="{loc:Localize GateUnreachableKicker}"
+            Title="{loc:Localize GateUnreachableTitle}">
+
+            <VerticalStackLayout Spacing="16.8">
+
+                <!-- The address that failed. A generic "cannot connect" is unactionable; the whole
+                     point is that the user can see the typo. -->
+                <Border Style="{StaticResource Callout}">
+                    <HorizontalStackLayout Spacing="10">
+                        <Label
+                            Style="{StaticResource Icon}"
+                            Text="{x:Static icons:PhosphorIcons.WarningCircle}"
+                            TextColor="{StaticResource Accent300}"
+                            VerticalOptions="Center" />
+                        <Label
+                            LineBreakMode="CharacterWrap"
+                            Style="{StaticResource CalloutText}"
+                            Text="{Binding ServerDisplay}"
+                            VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Border>
+
+                <Button
+                    Command="{Binding ResolveCommand}"
+                    ContentLayout="Left,10"
+                    IsEnabled="{Binding IsIdle}"
+                    Style="{StaticResource ButtonPrimary}"
+                    Text="{loc:Localize Retry}">
+                    <Button.ImageSource>
+                        <FontImageSource
+                            Color="{StaticResource Accent}"
+                            FontFamily="{StaticResource FontIcons}"
+                            Glyph="{x:Static icons:PhosphorIcons.ArrowClockwise}"
+                            Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+
+                <Button Command="{Binding ChangeServerCommand}" Text="{loc:Localize ChangeServer}" />
+            </VerticalStackLayout>
+        </auth:AuthScaffold>
+
+    </Grid>
+</ContentPage>
