@@ -11,7 +11,9 @@
     x:Class="MobileApp.Features.Overview.OverviewPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:icons="clr-namespace:MobileApp.Features.Shared">
+    xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+    xmlns:vm="clr-namespace:MobileApp.Features.Overview"
+    x:DataType="vm:OverviewViewModel">
 
     <Grid Padding="14,12,14,6" RowDefinitions="Auto,*">
 
