@@ -5,9 +5,11 @@ using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using MobileApp.Features.Auth;
 using MobileApp.Features.Overview;
+using MobileApp.Features.Overview.SettingViews;
 using MobileApp.Features.Shared;
 using MobileApp.Localization;
 using MobileApp.Services;
+using Sharpnado.Tabs;
 
 namespace MobileApp;
 
@@ -19,6 +21,7 @@ public static class MauiProgram
 		builder
 			.UseMauiApp<App>()
 			.UseMauiCommunityToolkit()
+            .UseSharpnadoTabs(loggerEnable: false)
 			.ConfigureFonts(fonts =>
 			{
 				// The only place a font file is named. XAML refers to these aliases through the
@@ -73,6 +76,10 @@ public static class MauiProgram
 			services.AddSingleton<ILocalizationService, LocalizationService>();
 			services.AddSingleton<INavigator, ShellNavigator>();
 
+			// Separate from INavigator, which stays about routes and confirmations. Both exist for the
+			// same reason: a view model must not reach into Shell.Current.
+			services.AddSingleton<IDialogService, ShellDialogService>();
+
 			services.AddSingleton<IServerSettings, ServerSettings>();
 			services.AddSingleton<ISessionStore, SecureSessionStore>();
 			services.AddSingleton<ISessionService, SessionService>();
@@ -91,6 +98,7 @@ public static class MauiProgram
 			// refreshes on 401 would recurse.
 			services.AddSingleton<GoTrueClient>();
 			services.AddSingleton<KvitteriaApiClient>();
+			services.AddSingleton<MailboxApiClient>();
 
 			return services;
 		}
@@ -119,11 +127,15 @@ public static class MauiProgram
 			services.AddTransient<OverviewViewModel>();
 			services.AddTransient<OverviewPage>();
 
-			// A factory, not the sheet itself: it is shown more than once, and a view that already
-			// has a parent cannot be added to a second one.
-			services.AddTransient<AccountSheetViewModel>();
-			services.AddTransient<AccountSheet>();
-			services.AddTransient<Func<AccountSheet>>(provider => provider.GetRequiredService<AccountSheet>);
+
+			services.AddTransient<AccountTabViewModel>();
+			services.AddTransient<InboxTabViewModel>();
+			services.AddTransient<SettingsPage>();
+
+			// The sheet is transient like every other screen: resolved fresh each time it is shown, so
+			// one mailbox's half-typed password can never appear over the next one.
+			services.AddTransient<MailboxSheetViewModel>();
+			services.AddTransient<MailboxSheet>();
 
 			return services;
 		}

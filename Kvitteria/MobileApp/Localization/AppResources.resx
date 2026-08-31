@@ -1,5 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -140,7 +199,7 @@
     <value>Ingen medlemmer endnu. Den første konto der logger ind, overtager husstanden som administrator.</value>
   </data>
   <data name="ClaimDetail" xml:space="preserve">
-    <value>Som administrator kan du give resten af husstanden adgang, tilføje postkasser og styre pipelinen.</value>
+    <value>Som administrator kan du give resten af husstanden adgang, tilføje indbakker og styre pipelinen.</value>
   </data>
   <data name="ClaimContinue" xml:space="preserve">
     <value>Opret administratorkonto</value>
@@ -285,5 +344,110 @@
   </data>
   <data name="ConfirmChangeServerMessage" xml:space="preserve">
     <value>Det logger dig ud. Adgangen gælder kun den server, du er logget ind på.</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Indstillinger</value>
+  </data>
+  <data name="InboxKicker" xml:space="preserve">
+    <value>Indbakke</value>
+  </data>
+  <data name="MailboxActive" xml:space="preserve">
+    <value>Aktiveret</value>
+  </data>
+  <data name="MailboxInactive" xml:space="preserve">
+    <value>Deaktiveret</value>
+  </data>
+  <data name="MyMailbox" xml:space="preserve">
+    <value>Din indbakke</value>
+  </data>
+  <data name="HouseholdMailboxes" xml:space="preserve">
+    <value>Husstandens indbakker</value>
+  </data>
+  <data name="AddMailbox" xml:space="preserve">
+    <value>Tilføj indbakke</value>
+  </data>
+  <data name="AddMyMailbox" xml:space="preserve">
+    <value>Tilføj min indbakke</value>
+  </data>
+  <data name="NoMailboxYet" xml:space="preserve">
+    <value>Du har endnu ikke tilføjet en indbakke.</value>
+  </data>
+  <data name="NoOtherMailboxes" xml:space="preserve">
+    <value>Ingen andre indbakker endnu.</value>
+  </data>
+  <data name="MailboxesReadOnly" xml:space="preserve">
+    <value>Kun medlemmer med rettigheden Håndtér indbakker kan tilføje eller ændre indbakker.</value>
+  </data>
+  <data name="MailboxNew" xml:space="preserve">
+    <value>Ny indbakke</value>
+  </data>
+  <data name="MailboxEdit" xml:space="preserve">
+    <value>Rediger indbakke</value>
+  </data>
+  <data name="Manage" xml:space="preserve">
+    <value>Håndtér</value>
+  </data>
+  <data name="BelongsTo" xml:space="preserve">
+    <value>Tilhører</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>Vært</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="TlsLabel" xml:space="preserve">
+    <value>Sikker forbindelse (TLS)</value>
+  </data>
+  <data name="Folder" xml:space="preserve">
+    <value>Mappe</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>Brugernavn</value>
+  </data>
+  <data name="PasswordHintEdit" xml:space="preserve">
+    <value>Lad stå tomt for at beholde den nuværende adgangskode.</value>
+  </data>
+  <data name="EnabledLabel" xml:space="preserve">
+    <value>Aktiveret</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Fjern</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Gem</value>
+  </data>
+  <data name="UnknownMember" xml:space="preserve">
+    <value>Ukendt medlem</value>
+  </data>
+  <data name="MailboxErrorRequiredFields" xml:space="preserve">
+    <value>Angiv vært, mappe og brugernavn.</value>
+  </data>
+  <data name="MailboxErrorPort" xml:space="preserve">
+    <value>Port skal være mellem 1 og 65535.</value>
+  </data>
+  <data name="MailboxErrorPasswordRequired" xml:space="preserve">
+    <value>Angiv en adgangskode.</value>
+  </data>
+  <data name="MailboxErrorNoOwner" xml:space="preserve">
+    <value>Vælg hvem indbakken tilhører.</value>
+  </data>
+  <data name="MailboxErrorForbidden" xml:space="preserve">
+    <value>Du har ikke rettigheden Håndtér indbakker.</value>
+  </data>
+  <data name="MailboxErrorNotFound" xml:space="preserve">
+    <value>Indbakken findes ikke længere.</value>
+  </data>
+  <data name="MailboxErrorUnauthenticated" xml:space="preserve">
+    <value>Din session er udløbet. Log ind igen.</value>
+  </data>
+  <data name="MailboxErrorUnreachable" xml:space="preserve">
+    <value>Kunne ikke nå serveren. Prøv igen.</value>
+  </data>
+  <data name="ConfirmRemoveMailboxTitle" xml:space="preserve">
+    <value>Fjern indbakke</value>
+  </data>
+  <data name="ConfirmRemoveMailboxMessage" xml:space="preserve">
+    <value>Indbakken og dens gemte adgangskode fjernes. Kvitteringer der allerede er hentet, bliver ikke berørt.</value>
   </data>
 </root>

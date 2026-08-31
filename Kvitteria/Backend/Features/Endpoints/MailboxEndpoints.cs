@@ -19,10 +19,16 @@ static class MailboxEndpoints
 
 			// GET /mailboxes — ungated like every read; the password is not part of the DTO.
 			mailboxGroup.MapGet("/", async (KvitteriaDbContext dbContext, CancellationToken ct) => {
-				            // No Include: ToDto reaches through AppUser, so the projection joins it in.
-				            // An Include ahead of a Select is ignored by EF anyway.
+				            // The Include is load-bearing, and the reason is subtle: ToDto is a method
+				            // call, which EF cannot translate, so this projection is client-evaluated.
+				            // That means the navigation is *not* joined in by reading it — and equally
+				            // that the Include is not discarded, as it would be ahead of a translated
+				            // Select. Without it AppUser is null on every row and MemberDisplayName and
+				            // MemberEmail come back empty, which is what the by-id route below already
+				            // guards against the same way.
 				            List<MailboxDto> mailboxes = await dbContext.Mailboxes
 				                                                        .AsNoTracking()
+				                                                        .Include(m => m.AppUser)
 				                                                        .OrderBy(m => m.Username)
 				                                                        .ThenBy(m => m.Folder)
 				                                                        .Select(m => m.ToDto())
@@ -119,17 +125,6 @@ static class MailboxEndpoints
 				            if (owner == null)
 					            return OwnerProblem(dto.AppUserId);
 
-				            string password;
-
-				            try
-				            {
-					            password = dto.Password ?? secrets.Unprotect(mailbox.EncryptedPassword);
-				            }
-				            catch (MailboxSecretException ex)
-				            {
-					            return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:ex.Message);
-				            }
-
 				            bool connectionChanged =
 					            dto.Password != null ||
 					            !string.Equals(mailbox.Host, dto.Host.Trim(), StringComparison.Ordinal) ||
@@ -148,9 +143,23 @@ static class MailboxEndpoints
 				            mailbox.IsEnabled = dto.IsEnabled;
 
 				            // Toggling IsEnabled or reassigning the owner touches nothing the server cares
-				            // about, so it does not have to cost a round-trip to the mail host.
+				            // about, so it does not have to cost a round-trip to the mail host — nor a
+				            // decryption. Unprotecting ahead of this branch meant a lost key ring turned
+				            // "disable this mailbox" into a 409 demanding the password be re-entered, which
+				            // is the one thing someone with a broken mailbox cannot supply.
 				            if (connectionChanged)
 				            {
+					            string password;
+
+					            try
+					            {
+						            password = dto.Password ?? secrets.Unprotect(mailbox.EncryptedPassword);
+					            }
+					            catch (MailboxSecretException ex)
+					            {
+						            return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:ex.Message);
+					            }
+
 					            string? failure = await ImapConnection.VerifyAsync(mailbox, password, ct);
 
 					            if (failure != null)

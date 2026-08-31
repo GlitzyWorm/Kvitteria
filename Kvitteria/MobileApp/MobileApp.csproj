@@ -66,6 +66,14 @@
 		     be valid, not meaningful. -->
 		<ApplicationVersion>1</ApplicationVersion>
 
+		<!-- The MAUI SDK maps ApplicationDisplayVersion onto Version (and hence PackageVersion) for
+		     Android/iOS/MacCatalyst, but the Windows packaging targets don't and fall back to the
+		     plain SDK default of 1.0.0. NuGet restore requires PackageVersion to agree across every
+		     TFM in a multi-targeted project, so left unset this fails restore with NU1105 the moment
+		     the Windows TFM is actually evaluated (i.e. on a Windows dev machine) — which then
+		     cascades into every reference failing to resolve. Pin it explicitly so it can't diverge. -->
+		<Version>$(ApplicationDisplayVersion)</Version>
+
 		<!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
 		<WindowsPackageType>None</WindowsPackageType>
 
@@ -121,6 +129,7 @@
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" />
 		<PackageReference Include="Microsoft.Extensions.Http" />
+		<PackageReference Include="Sharpnado.Tabs.Maui" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -167,8 +176,26 @@
 	  <Compile Update="Features\Insights\InsightsPage.xaml.cs">
 	    <DependentUpon>InsightsPage.xaml</DependentUpon>
 	  </Compile>
+	  <Compile Update="Features\Overview\SettingsPage.xaml.cs">
+	    <DependentUpon>SettingsPage.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Features\Overview\OverviewPage.xaml.cs">
 	    <DependentUpon>OverviewPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\AccountTab.xaml.cs">
+	    <DependentUpon>AccountTab.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\InboxTab.xaml.cs">
+	    <DependentUpon>InboxTab.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MailboxCard.xaml.cs">
+	    <DependentUpon>MailboxCard.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MemberMailboxCard.xaml.cs">
+	    <DependentUpon>MemberMailboxCard.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MailboxSheet.xaml.cs">
+	    <DependentUpon>MailboxSheet.xaml</DependentUpon>
 	  </Compile>
 	  <Compile Update="Features\Pipeline\PipelinePage.xaml.cs">
 	    <DependentUpon>PipelinePage.xaml</DependentUpon>
@@ -183,6 +210,24 @@
 
 	<ItemGroup>
 	  <MauiXaml Update="Features\Insights\InsightsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingsPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\AccountTab.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\InboxTab.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MailboxCard.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MemberMailboxCard.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MailboxSheet.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Features\Pipeline\PipelinePage.xaml">
