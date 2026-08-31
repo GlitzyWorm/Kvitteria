@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!-- This Source Code Form is subject to the terms of the Mozilla Public
      License, v. 2.0. If a copy of the MPL was not distributed with this
      file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
@@ -11,85 +11,143 @@
              x:Class="MobileApp.Features.Overview.SettingViews.InboxTab"
              x:DataType="vm:InboxTabViewModel">
 
-    <VerticalStackLayout Padding="{StaticResource PaddingPanel}" Spacing="{StaticResource Space6}">
-        <VerticalStackLayout Spacing="{StaticResource Space1}">
+    <VerticalStackLayout Spacing="{StaticResource Space6}">
 
-            <Label
-            LineBreakMode="TailTruncation"
-            Style="{StaticResource BodyText}"
-            Text="{loc:Localize InboxKicker}" />
+        <!-- A whole-tab failure: the list could not be loaded, so there is nothing below to act on. -->
+        <Border Style="{StaticResource Callout}"
+                IsVisible="{Binding Error, Converter={StaticResource IsPresent}}">
+            <VerticalStackLayout Spacing="{StaticResource Space2}">
+                <Label Style="{StaticResource CalloutText}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding Error}" />
+                <Button Command="{Binding ReloadCommand}"
+                        ContentLayout="Left,8"
+                        HorizontalOptions="Start"
+                        IsEnabled="{Binding IsIdle}"
+                        Text="{loc:Localize Retry}">
+                    <Button.ImageSource>
+                        <FontImageSource Color="{StaticResource TextColor}"
+                                         FontFamily="{StaticResource FontIcons}"
+                                         Glyph="{x:Static icons:PhosphorIcons.ArrowClockwise}"
+                                         Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+            </VerticalStackLayout>
+        </Border>
 
-            <vm:MailboxCard
-                Icon="{x:Static icons:PhosphorIcons.Inbox}"
-                InboxName="INBOX/Netto"
-                ImapAddress="imap.one.com"
-                IsActive="True" />
+        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="Center" />
 
-        </VerticalStackLayout>
+        <!-- ══ Din indbakke ══ -->
+        <VerticalStackLayout Spacing="{StaticResource Space2}">
 
+            <Label Style="{StaticResource BodyText}" Text="{loc:Localize MyMailbox}" />
 
-        <BoxView Style="{StaticResource HorizontalRule}"/>
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding MyMailboxes}"
+                                 IsVisible="{Binding HasMyMailbox}"
+                                 Spacing="{StaticResource Space2}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MailboxRowViewModel">
+                        <vm:MailboxCard />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
 
-        <!--<VerticalStackLayout Spacing="8.4">
-            <HorizontalStackLayout Spacing="8">
-                <Label
-                FontSize="{StaticResource FontSizeSmall}"
-                Style="{StaticResource Icon}"
-                Text="{x:Static icons:PhosphorIcons.Translate}"
-                TextColor="{StaticResource TextMuted70}"/>
-                <Label Margin="0" Style="{StaticResource FieldLabel}" Text="{loc:Localize Language}"/>
-            </HorizontalStackLayout>
-
-            <Border HorizontalOptions="Fill" Style="{StaticResource Seg}">
-                <Grid ColumnDefinitions="*,Auto,*">
-                    <RadioButton
-                    Content="{loc:Localize LanguageDanish}"
-                    GroupName="AppLanguage"
-                    IsChecked="{Binding IsDanish}"
-                    Style="{StaticResource SegOption}"/>
-
-                    <BoxView Grid.Column="1" Style="{StaticResource SegDivider}"/>
-
-                    <RadioButton
-                    Grid.Column="2"
-                    Content="{loc:Localize LanguageEnglish}"
-                    GroupName="AppLanguage"
-                    IsChecked="{Binding IsEnglish}"
-                    Style="{StaticResource SegOption}"/>
-                </Grid>
+            <!-- The empty state doubles as the call to action, as the source has it. -->
+            <Border Style="{StaticResource Panel}" IsVisible="{Binding HasNoMyMailbox}">
+                <VerticalStackLayout Spacing="{StaticResource Space3}">
+                    <Label Style="{StaticResource MutedText}"
+                           LineBreakMode="WordWrap"
+                           Text="{loc:Localize NoMailboxYet}" />
+                    <Button Command="{Binding AddMineCommand}"
+                            ContentLayout="Left,8"
+                            HeightRequest="{StaticResource ControlHeightSm}"
+                            HorizontalOptions="Start"
+                            IsEnabled="{Binding IsIdle}"
+                            IsVisible="{Binding CanManage}"
+                            MinimumHeightRequest="{StaticResource ControlHeightSm}"
+                            Style="{StaticResource ButtonPrimary}"
+                            Text="{loc:Localize AddMyMailbox}">
+                        <Button.ImageSource>
+                            <FontImageSource Color="{StaticResource Accent}"
+                                             FontFamily="{StaticResource FontIcons}"
+                                             Glyph="{x:Static icons:PhosphorIcons.Plus}"
+                                             Size="{StaticResource FontSizeIconSm}" />
+                        </Button.ImageSource>
+                    </Button>
+                </VerticalStackLayout>
             </Border>
+
+            <!-- Still offered once I have one: a member may keep more than one folder, and the server's
+                 uniqueness is per folder rather than per member. -->
+            <Button Command="{Binding AddMineCommand}"
+                    ContentLayout="Left,8"
+                    HeightRequest="{StaticResource ControlHeightSm}"
+                    HorizontalOptions="Start"
+                    IsEnabled="{Binding IsIdle}"
+                    IsVisible="{Binding CanAddAnotherOfMine}"
+                    MinimumHeightRequest="{StaticResource ControlHeightSm}"
+                    Text="{loc:Localize AddMyMailbox}">
+                <Button.ImageSource>
+                    <FontImageSource Color="{StaticResource TextColor}"
+                                     FontFamily="{StaticResource FontIcons}"
+                                     Glyph="{x:Static icons:PhosphorIcons.Plus}"
+                                     Size="{StaticResource FontSizeIconSm}" />
+                </Button.ImageSource>
+            </Button>
+
         </VerticalStackLayout>
 
         <BoxView Style="{StaticResource HorizontalRule}" />
 
-        <VerticalStackLayout Spacing="8.4">
-            <Button
-            Command="{Binding SignOutCommand}"
-            ContentLayout="Left,10"
-            Style="{StaticResource ButtonPrimary}"
-            Text="{loc:Localize SignOut}">
-                <Button.ImageSource>
-                    <FontImageSource
-                    Color="{StaticResource Accent}"
-                    FontFamily="{StaticResource FontIcons}"
-                    Glyph="{x:Static icons:PhosphorIcons.SignOut}"
-                    Size="{StaticResource FontSizeIconSm}" />
-                </Button.ImageSource>
-            </Button>
+        <!-- ══ Husstandens indbakker ══ -->
+        <VerticalStackLayout Spacing="{StaticResource Space2}">
 
-            <Button
-            Command="{Binding ChangeServerCommand}"
-            ContentLayout="Left,10"
-            Text="{loc:Localize ChangeServer}">
-                <Button.ImageSource>
-                    <FontImageSource
-                    Color="{StaticResource TextColor}"
-                    FontFamily="{StaticResource FontIcons}"
-                    Glyph="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
-                    Size="{StaticResource FontSizeIconSm}" />
-                </Button.ImageSource>
-            </Button>
-        </VerticalStackLayout>-->
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Style="{StaticResource BodyText}"
+                       Text="{loc:Localize HouseholdMailboxes}"
+                       VerticalOptions="Center" />
+
+                <Button Grid.Column="1"
+                        Command="{Binding AddOtherCommand}"
+                        ContentLayout="Left,8"
+                        HeightRequest="{StaticResource ControlHeightSm}"
+                        IsEnabled="{Binding IsIdle}"
+                        IsVisible="{Binding CanManage}"
+                        MinimumHeightRequest="{StaticResource ControlHeightSm}"
+                        Text="{loc:Localize AddMailbox}">
+                    <Button.ImageSource>
+                        <FontImageSource Color="{StaticResource TextColor}"
+                                         FontFamily="{StaticResource FontIcons}"
+                                         Glyph="{x:Static icons:PhosphorIcons.Plus}"
+                                         Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+            </Grid>
+
+            <VerticalStackLayout BindableLayout.ItemsSource="{Binding HouseholdMailboxes}"
+                                 Spacing="{StaticResource Space2}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MailboxRowViewModel">
+                        <vm:MemberMailboxCard />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+
+            <Label Style="{StaticResource MutedText}"
+                   IsVisible="{Binding HasNoHouseholdMailboxes}"
+                   LineBreakMode="WordWrap"
+                   Text="{loc:Localize NoOtherMailboxes}" />
+
+        </VerticalStackLayout>
+
+        <!-- Why every control above is missing, for a member without the permission. -->
+        <Border Style="{StaticResource Note}" IsVisible="{Binding IsReadOnly}">
+            <Label Style="{StaticResource MutedText}"
+                   LineBreakMode="WordWrap"
+                   Text="{loc:Localize MailboxesReadOnly}" />
+        </Border>
 
     </VerticalStackLayout>
 

@@ -37,4 +37,10 @@ public sealed record RefreshGrantRequest(
 [JsonSerializable(typeof(RefreshGrantRequest))]
 [JsonSerializable(typeof(CurrentUserDto))]
 [JsonSerializable(typeof(VersionDto))]
+[JsonSerializable(typeof(MailboxDto))]
+[JsonSerializable(typeof(List<MailboxDto>))]
+[JsonSerializable(typeof(CreateMailboxDto))]
+[JsonSerializable(typeof(PutMailboxDto))]
+[JsonSerializable(typeof(AppUserDto))]
+[JsonSerializable(typeof(List<AppUserDto>))]
 public sealed partial class KvitteriaJsonContext : JsonSerializerContext;

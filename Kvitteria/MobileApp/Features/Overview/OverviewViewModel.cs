@@ -35,8 +35,8 @@ public sealed partial class OverviewViewModel(ISessionService sessions, ILocaliz
 			? Localization["AppName"]
 			: $"{GreetingForHour(DateTime.Now.Hour)}, {user.DisplayName}";
 
-		// The source reads "Husstand · N medlemmer" here, which this app cannot ask for: listing
-		// members needs the ManageUsers permission, so a plain member would see nothing. Email and
+		// The source reads "Husstand · N medlemmer" here. Listing members is reachable now that
+		// GET /api/users is ungated, so this is simply not built yet rather than impossible. Email and
 		// role are already on CurrentUserDto, are true for everyone, and answer the question the
 		// control beside them raises — which account am I about to sign out of.
 		SubLine = user is null

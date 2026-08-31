@@ -27,6 +27,21 @@
             <!-- IsFalse negates a bool binding — the "show the other tag" half of an active/inactive
                  pair, where only one of two IsVisible bindings can invert the other's condition. -->
             <toolkit:InvertedBoolConverter x:Key="IsFalse" />
+
+            <!-- How every sheet is presented. Declared here rather than built in the dialog service
+                 so the scrim stays a token: a colour literal in C# is the one thing the design system
+                 forbids.
+
+                 Shape is explicitly null because the sheet paints its own DialogSurface border, so the
+                 rounding comes from the component layer like every other surface. Left at its default
+                 the toolkit wraps the content in a second, light-stroked 20-radius rectangle of its
+                 own — a pale ring around a dark card, on a design system with no light ramp at all.
+                 The matching half is BackgroundColor="Transparent" on the Popup itself, whose default
+                 is white. -->
+            <toolkit:PopupOptions x:Key="SheetPopupOptions"
+                                  CanBeDismissedByTappingOutsideOfPopup="True"
+                                  PageOverlayColor="{StaticResource Scrim}"
+                                  Shape="{x:Null}" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

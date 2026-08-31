@@ -357,4 +357,97 @@
   <data name="MailboxInactive" xml:space="preserve">
     <value>Inactive</value>
   </data>
+  <data name="MyMailbox" xml:space="preserve">
+    <value>Your mailbox</value>
+  </data>
+  <data name="HouseholdMailboxes" xml:space="preserve">
+    <value>Household mailboxes</value>
+  </data>
+  <data name="AddMailbox" xml:space="preserve">
+    <value>Add mailbox</value>
+  </data>
+  <data name="AddMyMailbox" xml:space="preserve">
+    <value>Add my mailbox</value>
+  </data>
+  <data name="NoMailboxYet" xml:space="preserve">
+    <value>You haven’t added a mailbox yet.</value>
+  </data>
+  <data name="NoOtherMailboxes" xml:space="preserve">
+    <value>No other mailboxes yet.</value>
+  </data>
+  <data name="MailboxesReadOnly" xml:space="preserve">
+    <value>Only members with the Manage mailboxes permission can add or edit mailboxes.</value>
+  </data>
+  <data name="MailboxNew" xml:space="preserve">
+    <value>New mailbox</value>
+  </data>
+  <data name="MailboxEdit" xml:space="preserve">
+    <value>Edit mailbox</value>
+  </data>
+  <data name="Manage" xml:space="preserve">
+    <value>Manage</value>
+  </data>
+  <data name="BelongsTo" xml:space="preserve">
+    <value>Belongs to</value>
+  </data>
+  <data name="Host" xml:space="preserve">
+    <value>Host</value>
+  </data>
+  <data name="Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="TlsLabel" xml:space="preserve">
+    <value>Secure connection (TLS)</value>
+  </data>
+  <data name="Folder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="PasswordHintEdit" xml:space="preserve">
+    <value>Leave blank to keep the current password.</value>
+  </data>
+  <data name="EnabledLabel" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="UnknownMember" xml:space="preserve">
+    <value>Unknown member</value>
+  </data>
+  <data name="MailboxErrorRequiredFields" xml:space="preserve">
+    <value>Enter a host, folder and username.</value>
+  </data>
+  <data name="MailboxErrorPort" xml:space="preserve">
+    <value>Port must be between 1 and 65535.</value>
+  </data>
+  <data name="MailboxErrorPasswordRequired" xml:space="preserve">
+    <value>Enter a password.</value>
+  </data>
+  <data name="MailboxErrorNoOwner" xml:space="preserve">
+    <value>Choose who the mailbox belongs to.</value>
+  </data>
+  <data name="MailboxErrorForbidden" xml:space="preserve">
+    <value>You don’t have the Manage mailboxes permission.</value>
+  </data>
+  <data name="MailboxErrorNotFound" xml:space="preserve">
+    <value>That mailbox no longer exists.</value>
+  </data>
+  <data name="MailboxErrorUnauthenticated" xml:space="preserve">
+    <value>Your session has expired. Sign in again.</value>
+  </data>
+  <data name="MailboxErrorUnreachable" xml:space="preserve">
+    <value>Could not reach the server. Try again.</value>
+  </data>
+  <data name="ConfirmRemoveMailboxTitle" xml:space="preserve">
+    <value>Remove mailbox</value>
+  </data>
+  <data name="ConfirmRemoveMailboxMessage" xml:space="preserve">
+    <value>The mailbox and its stored password will be removed. Receipts already collected are not affected.</value>
+  </data>
 </root>

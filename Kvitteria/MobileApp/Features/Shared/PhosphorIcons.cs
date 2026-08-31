@@ -50,6 +50,12 @@ public static class PhosphorIcons
 	/// <summary>ph-flow-arrow — the pipeline tab.</summary>
 	public const string FlowArrow = "\ue6ec";
 
-	/// <summary>ph-envelope-simple - Inbox icon</summary>
-    public const string Inbox = "\ue218";
+	/// <summary>ph-envelope-simple — the mailbox rows and the Inbox tab.</summary>
+	public const string Inbox = "\ue218";
+
+	/// <summary>ph-plus — adding a mailbox.</summary>
+	public const string Plus = "\ue3d4";
+
+	/// <summary>ph-trash — removing a mailbox.</summary>
+	public const string Trash = "\ue4a6";
 }

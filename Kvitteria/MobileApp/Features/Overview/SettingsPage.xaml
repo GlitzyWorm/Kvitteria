@@ -30,8 +30,10 @@
         <tabs:ViewSwitcher
             SelectedIndex="{Binding SelectedViewModelIndex, Mode=TwoWay, Source={x:Reference Page}}">
 
-            <settingViews:AccountTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
-            <settingViews:InboxTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
+            <!-- Each tab binds its own view model. Both used to bind CurrentViewModel, which meant the
+                 unselected view was handed the other tab's view model. -->
+            <settingViews:AccountTab BindingContext="{Binding AccountViewModel, Source={x:Reference Page}}" />
+            <settingViews:InboxTab BindingContext="{Binding InboxViewModel, Source={x:Reference Page}}" />
 
         </tabs:ViewSwitcher>
 

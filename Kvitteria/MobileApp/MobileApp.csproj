@@ -188,6 +188,15 @@
 	  <Compile Update="Features\Overview\SettingViews\InboxTab.xaml.cs">
 	    <DependentUpon>InboxTab.xaml</DependentUpon>
 	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MailboxCard.xaml.cs">
+	    <DependentUpon>MailboxCard.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MemberMailboxCard.xaml.cs">
+	    <DependentUpon>MemberMailboxCard.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\MailboxSheet.xaml.cs">
+	    <DependentUpon>MailboxSheet.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Features\Pipeline\PipelinePage.xaml.cs">
 	    <DependentUpon>PipelinePage.xaml</DependentUpon>
 	  </Compile>
@@ -212,6 +221,15 @@
 	  <MauiXaml Update="Features\Overview\SettingViews\InboxTab.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MailboxCard.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MemberMailboxCard.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\MailboxSheet.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="Features\Pipeline\PipelinePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
@@ -224,12 +242,6 @@
 	  <MauiXaml Update="Features\Overview\OverviewPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Update="Features\Overview\SettingsPages\AccountTab.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </None>
 	</ItemGroup>
 
 </Project>

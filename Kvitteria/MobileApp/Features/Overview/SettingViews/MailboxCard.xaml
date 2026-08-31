@@ -7,64 +7,76 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:loc="clr-namespace:MobileApp.Localization"
              xmlns:icons="clr-namespace:MobileApp.Features.Shared"
-             xmlns:views="clr-namespace:MobileApp.Features.Overview.SettingViews"
+             xmlns:vm="clr-namespace:MobileApp.Features.Overview.SettingViews"
              x:Class="MobileApp.Features.Overview.SettingViews.MailboxCard"
-             x:DataType="views:MailboxCard">
+             x:DataType="vm:MailboxRowViewModel">
 
+    <!-- No BindingContext is set here, unlike the first draft of this card: it is used inside a
+         BindableLayout now, and the item template's context is exactly what has to reach it. -->
     <Border Style="{StaticResource Panel}">
-        <HorizontalStackLayout
-            Spacing="{StaticResource Space4}">
+        <VerticalStackLayout Spacing="{StaticResource Space2}">
 
-            <Border Stroke="{StaticResource Accent600}"
-                    HorizontalOptions="Start"
-                    HeightRequest="40"
-                    WidthRequest="40">
-                <Label
-                    FontSize="{StaticResource FontBody}"
-                    Style="{StaticResource Icon}"
-                    Text="{Binding Icon}"
-                    TextColor="{StaticResource Accent600}"/>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{StaticResource Space3}">
+
+                <Border Stroke="{StaticResource Accent600}"
+                        HeightRequest="40"
+                        WidthRequest="40"
+                        VerticalOptions="Center">
+                    <Label FontSize="{StaticResource FontSizeIcon}"
+                           Style="{StaticResource Icon}"
+                           Text="{x:Static icons:PhosphorIcons.Inbox}"
+                           TextColor="{StaticResource Accent600}" />
+                </Border>
+
+                <VerticalStackLayout Grid.Column="1"
+                                     Spacing="{StaticResource Space1}"
+                                     VerticalOptions="Center">
+                    <Label LineBreakMode="CharacterWrap"
+                           Style="{StaticResource BodyText}"
+                           FontFamily="{StaticResource FontBodyMedium}"
+                           Text="{Binding Folder}" />
+                    <Label LineBreakMode="TailTruncation"
+                           Style="{StaticResource MutedText}"
+                           Text="{Binding Host}" />
+                </VerticalStackLayout>
+
+                <!-- Exactly one of these two is visible; which one is the enabled flag on the mailbox. -->
+                <Border Grid.Column="2"
+                        Style="{StaticResource TagAccent}"
+                        VerticalOptions="Center"
+                        IsVisible="{Binding IsEnabled}">
+                    <Label Style="{StaticResource TagText}"
+                           VerticalOptions="Center"
+                           Text="{loc:Localize MailboxActive}" />
+                </Border>
+
+                <Border Grid.Column="2"
+                        Style="{StaticResource TagNeutral}"
+                        VerticalOptions="Center"
+                        IsVisible="{Binding IsEnabled, Converter={StaticResource IsFalse}}">
+                    <Label Style="{StaticResource TagTextNeutral}"
+                           VerticalOptions="Center"
+                           Text="{loc:Localize MailboxInactive}" />
+                </Border>
+
+                <Button Grid.Column="3"
+                        Command="{Binding EditCommand}"
+                        CommandParameter="{Binding .}"
+                        IsVisible="{Binding CanManage}"
+                        Style="{StaticResource ButtonGhostIcon}"
+                        Text="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
+                        VerticalOptions="Center" />
+            </Grid>
+
+            <!-- Only when the mailbox is actually failing. The one signal that receipts have quietly
+                 stopped arriving; the server records it per mailbox for exactly this. -->
+            <Border Style="{StaticResource Callout}" IsVisible="{Binding HasError}">
+                <Label Style="{StaticResource CalloutText}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding LastError}" />
             </Border>
 
-            <VerticalStackLayout Spacing="{StaticResource Space1}">
-                <Label
-                    LineBreakMode="TailTruncation"
-                    Style="{StaticResource BodyText}"
-                    FontFamily="{StaticResource FontBodyMedium}"
-                    Text="{Binding InboxName}" />
-                <Label
-                    LineBreakMode="CharacterWrap"
-                    Style="{StaticResource MutedText}"
-                    Text="{Binding ImapAddress}" />
-            </VerticalStackLayout>
-
-            <!-- Exactly one of these two is visible; which one is the "active" flag on the mailbox. -->
-            <Border Style="{StaticResource TagAccent}"
-                    HeightRequest="30"
-                    HorizontalOptions="End"
-                    IsVisible="{Binding IsActive}">
-                <Label
-                    Style="{StaticResource TagText}"
-                    VerticalOptions="Center"
-                    Text="{loc:Localize MailboxActive}"/>
-            </Border>
-
-            <Border Style="{StaticResource TagNeutral}"
-                    HeightRequest="30"
-                    HorizontalOptions="End"
-                    IsVisible="{Binding IsActive, Converter={StaticResource IsFalse}}">
-                <Label
-                    Style="{StaticResource TagTextNeutral}"
-                    VerticalOptions="Center"
-                    Text="{loc:Localize MailboxInactive}"/>
-            </Border>
-
-            <!-- Ignored for now — no editing flow exists yet. -->
-            <Button Style="{StaticResource ButtonGhostIcon}"
-                    Text="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
-                    HorizontalOptions="End"/>
-
-        </HorizontalStackLayout>
+        </VerticalStackLayout>
     </Border>
 
 </ContentView>

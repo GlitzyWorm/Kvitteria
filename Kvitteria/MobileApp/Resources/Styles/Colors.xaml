@@ -19,6 +19,11 @@
     <!-- ══ Ground ══ -->
     <Color x:Key="Bg">#0B1914</Color>
     <!-- oklch(0.198 0.022 170) -->
+    <!-- The dialog backdrop: the page ground at 70%. The source's .dialog-backdrop is the one
+         component class the reference never gives a token, so this is derived rather than
+         transcribed — Bg, because a dialog dims the page towards the ground it already sits on
+         rather than towards black. -->
+    <Color x:Key="Scrim">#B30B1914</Color>
     <Color x:Key="Surface">#1A2521</Color>
     <!-- oklch(0.252 0.018 170) -->
     <Color x:Key="TextColor">#E4E9E7</Color>

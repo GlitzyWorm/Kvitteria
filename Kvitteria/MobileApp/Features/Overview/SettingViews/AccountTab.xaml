@@ -10,7 +10,7 @@
              xmlns:vm="clr-namespace:MobileApp.Features.Overview.SettingViews"
              x:Class="MobileApp.Features.Overview.SettingViews.AccountTab"
              x:DataType="vm:AccountTabViewModel">
-    <VerticalStackLayout Padding="{StaticResource PaddingPanel}" Spacing="16.8">
+    <VerticalStackLayout Spacing="16.8">
         <VerticalStackLayout Spacing="2.8">
 
             <Label

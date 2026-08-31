@@ -76,6 +76,10 @@ public static class MauiProgram
 			services.AddSingleton<ILocalizationService, LocalizationService>();
 			services.AddSingleton<INavigator, ShellNavigator>();
 
+			// Separate from INavigator, which stays about routes and confirmations. Both exist for the
+			// same reason: a view model must not reach into Shell.Current.
+			services.AddSingleton<IDialogService, ShellDialogService>();
+
 			services.AddSingleton<IServerSettings, ServerSettings>();
 			services.AddSingleton<ISessionStore, SecureSessionStore>();
 			services.AddSingleton<ISessionService, SessionService>();
@@ -94,6 +98,7 @@ public static class MauiProgram
 			// refreshes on 401 would recurse.
 			services.AddSingleton<GoTrueClient>();
 			services.AddSingleton<KvitteriaApiClient>();
+			services.AddSingleton<MailboxApiClient>();
 
 			return services;
 		}
@@ -124,8 +129,13 @@ public static class MauiProgram
 
 
 			services.AddTransient<AccountTabViewModel>();
-            services.AddTransient<InboxTabViewModel>();
+			services.AddTransient<InboxTabViewModel>();
 			services.AddTransient<SettingsPage>();
+
+			// The sheet is transient like every other screen: resolved fresh each time it is shown, so
+			// one mailbox's half-typed password can never appear over the next one.
+			services.AddTransient<MailboxSheetViewModel>();
+			services.AddTransient<MailboxSheet>();
 
 			return services;
 		}

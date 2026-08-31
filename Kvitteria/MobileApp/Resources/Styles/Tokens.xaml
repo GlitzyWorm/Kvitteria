@@ -75,6 +75,14 @@
     <!-- The mockup's mobile hero padding; it drops to 20/18 from the desktop 30/32. -->
     <Thickness x:Key="PaddingHero">18,20</Thickness>
 
+    <!-- ══ Control heights ══
+         The implicit Button carries a 44 touch-target floor, which is taller than the reference ever
+         draws one: .btn is 14px type at line-height 1.2 over space-2 vertical padding, and .btn-icon
+         is square at 36. This is that height, for the compact buttons that sit inside a panel rather
+         than ending a form. It has to be applied as both HeightRequest and MinimumHeightRequest,
+         since the floor otherwise wins over the request. -->
+    <x:Double x:Key="ControlHeightSm">36</x:Double>
+
     <!-- ══ Radius ══ -->
     <x:Single x:Key="RadiusSmValue">4</x:Single>
     <x:Single x:Key="RadiusMdValue">8</x:Single>
