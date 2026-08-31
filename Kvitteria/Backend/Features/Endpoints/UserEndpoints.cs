@@ -30,6 +30,11 @@ static class UserEndpoints
 			         .Produces<CurrentUserDto>()
 			         .ProducesProblem(StatusCodes.Status403Forbidden);
 
+			// Both reads below are ungated beyond the group's active-user policy, like every other
+			// read in this API: the household sees everything. They used to require ManageUsers, which
+			// put the member list out of reach of a member who may register a mailbox but not manage
+			// users — leaving the mailbox owner picker with no way to populate itself. The writes below
+			// keep their gate, so who *may* be edited is unchanged; only who may be listed.
 			// GET /users
 			userGroup.MapGet("/", async (KvitteriaDbContext dbContext, CancellationToken ct) => {
 				         List<AppUserDto> users = await dbContext.AppUsers
@@ -41,7 +46,6 @@ static class UserEndpoints
 				         return Results.Ok(users);
 			         })
 			         .WithName("GetUsers")
-			         .RequireAuthorization(PermissionPolicies.Name(Permission.ManageUsers))
 			         .Produces<List<AppUserDto>>();
 
 			// GET /users/{id}
@@ -55,7 +59,6 @@ static class UserEndpoints
 					         : Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"User with id {id} not found");
 			         })
 			         .WithName("GetUserById")
-			         .RequireAuthorization(PermissionPolicies.Name(Permission.ManageUsers))
 			         .Produces<AppUserDto>()
 			         .ProducesProblem(StatusCodes.Status404NotFound);
 
