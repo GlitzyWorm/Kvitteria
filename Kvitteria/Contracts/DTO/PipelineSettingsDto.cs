@@ -21,3 +21,5 @@ public record PutPipelineSettingsDto(
 	int OllamaMaxExtractionAttempts,
 	double OllamaRetryTemperature,
 	decimal OllamaReconciliationToleranceKr);
+
+public record OllamaModelsDto(List<string> Models);
