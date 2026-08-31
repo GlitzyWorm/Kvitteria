@@ -8,11 +8,11 @@ using System.ComponentModel;
 
 namespace MobileApp.Features.Overview;
 
-public partial class SettingPage : ContentPage
+public partial class SettingsPage : ContentPage
 {
     public static readonly BindableProperty SelectedViewModelIndexProperty = BindableProperty.Create(
-        nameof(SelectedViewModelIndex), typeof(int), typeof(SettingPage), 0,
-        propertyChanged: (bindable, _, _) => ((SettingPage)bindable).OnPropertyChanged(nameof(CurrentViewModel)));
+        nameof(SelectedViewModelIndex), typeof(int), typeof(SettingsPage), 0,
+        propertyChanged: (bindable, _, _) => ((SettingsPage)bindable).OnPropertyChanged(nameof(CurrentViewModel)));
 
     public int SelectedViewModelIndex
     {
@@ -26,13 +26,13 @@ public partial class SettingPage : ContentPage
 
     private readonly ILocalizationService _localization;
 
-    public SettingPage(ILocalizationService localization, AccountTabViewModel accountViewModel)
+    public SettingsPage(ILocalizationService localization, AccountTabViewModel accountViewModel, InboxTabViewModel inboxViewModel)
     {
         _localization = localization;
         _localization.PropertyChanged += OnLocalizationChanged;
         ApplyTitle();
 
-        _viewModels = [accountViewModel, accountViewModel];
+        _viewModels = [accountViewModel, inboxViewModel];
 
         InitializeComponent();
     }

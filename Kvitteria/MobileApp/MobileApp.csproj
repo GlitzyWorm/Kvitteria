@@ -176,14 +176,17 @@
 	  <Compile Update="Features\Insights\InsightsPage.xaml.cs">
 	    <DependentUpon>InsightsPage.xaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Features\Overview\SettingPage.xaml.cs">
-	    <DependentUpon>SettingPage.xaml</DependentUpon>
+	  <Compile Update="Features\Overview\SettingsPage.xaml.cs">
+	    <DependentUpon>SettingsPage.xaml</DependentUpon>
 	  </Compile>
 	  <Compile Update="Features\Overview\OverviewPage.xaml.cs">
 	    <DependentUpon>OverviewPage.xaml</DependentUpon>
 	  </Compile>
 	  <Compile Update="Features\Overview\SettingViews\AccountTab.xaml.cs">
 	    <DependentUpon>AccountTab.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Features\Overview\SettingViews\InboxTab.xaml.cs">
+	    <DependentUpon>InboxTab.xaml</DependentUpon>
 	  </Compile>
 	  <Compile Update="Features\Pipeline\PipelinePage.xaml.cs">
 	    <DependentUpon>PipelinePage.xaml</DependentUpon>
@@ -200,10 +203,13 @@
 	  <MauiXaml Update="Features\Insights\InsightsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
-	  <MauiXaml Update="Features\Overview\SettingPage.xaml">
+	  <MauiXaml Update="Features\Overview\SettingsPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Features\Overview\SettingViews\AccountTab.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Features\Overview\SettingViews\InboxTab.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Features\Pipeline\PipelinePage.xaml">

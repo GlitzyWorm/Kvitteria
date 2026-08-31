@@ -122,10 +122,10 @@ public static class MauiProgram
 			services.AddTransient<OverviewViewModel>();
 			services.AddTransient<OverviewPage>();
 
-			// SettingPage carries no view model of its own: each tab it hosts owns one instead,
-			// injected into the page and assigned to that tab's BindingContext directly.
+
 			services.AddTransient<AccountTabViewModel>();
-			services.AddTransient<SettingPage>();
+            services.AddTransient<InboxTabViewModel>();
+			services.AddTransient<SettingsPage>();
 
 			return services;
 		}

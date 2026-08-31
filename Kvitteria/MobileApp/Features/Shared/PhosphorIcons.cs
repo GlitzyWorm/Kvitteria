@@ -1,6 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 namespace MobileApp.Features.Shared;
 
 /// <summary>
@@ -48,4 +49,7 @@ public static class PhosphorIcons
 
 	/// <summary>ph-flow-arrow — the pipeline tab.</summary>
 	public const string FlowArrow = "\ue6ec";
+
+	/// <summary>ph-envelope-simple - Inbox icon</summary>
+    public const string Inbox = "\ue218";
 }

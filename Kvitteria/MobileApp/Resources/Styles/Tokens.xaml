@@ -65,6 +65,7 @@
 
     <!-- Padding shorthands, for the places a Thickness is wanted rather than a Spacing. -->
     <Thickness x:Key="PaddingCard">11.2</Thickness>
+    <Thickness x:Key="PaddingCardSmall">8.4</Thickness>
     <Thickness x:Key="PaddingPanel">22.4</Thickness>
     <Thickness x:Key="PaddingButton">10.08,5.6</Thickness>
     <!-- space-2 vertical, space-3 * 1.2 horizontal -->

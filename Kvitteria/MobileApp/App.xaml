@@ -23,6 +23,10 @@
                  an inline form error, a typing hint. The alternative is a bool property beside
                  every string on every view model, which is the same rule written five times. -->
             <toolkit:IsStringNotNullOrEmptyConverter x:Key="IsPresent" />
+
+            <!-- IsFalse negates a bool binding — the "show the other tag" half of an active/inactive
+                 pair, where only one of two IsVisible bindings can invert the other's condition. -->
+            <toolkit:InvertedBoolConverter x:Key="IsFalse" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

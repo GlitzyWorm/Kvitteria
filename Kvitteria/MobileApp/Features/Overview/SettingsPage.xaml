@@ -1,12 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
 
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="MobileApp.Features.Overview.SettingPage"
+             x:Class="MobileApp.Features.Overview.SettingsPage"
              x:Name="Page"
              xmlns:loc="clr-namespace:MobileApp.Localization"
              xmlns:tabs="http://sharpnado.com"
-             xmlns:views="clr-namespace:MobileApp.Features.Overview.SettingsPages"
+             xmlns:settingViews="using:MobileApp.Features.Overview.SettingViews"
              Shell.TabBarIsVisible="False">
 
     <VerticalStackLayout Padding="{StaticResource PaddingPanel}" Spacing="16.8">
@@ -21,14 +24,14 @@
                           CornerRadius="{StaticResource RadiusMdValue}"
                           SelectedIndex="{Binding SelectedViewModelIndex, Mode=TwoWay, Source={x:Reference Page}}">
             <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize Account}"/>
-            <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize ServerKicker}"/>
+            <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize InboxKicker}"/>
         </tabs:TabHostView>
 
         <tabs:ViewSwitcher
             SelectedIndex="{Binding SelectedViewModelIndex, Mode=TwoWay, Source={x:Reference Page}}">
 
-            <views:AccountTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
-            <views:AccountTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
+            <settingViews:AccountTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
+            <settingViews:InboxTab BindingContext="{Binding CurrentViewModel, Source={x:Reference Page}}" />
 
         </tabs:ViewSwitcher>
 

@@ -20,7 +20,7 @@ public partial class AppShell : Shell
         _localization.PropertyChanged += OnLocalizationChanged;
         ApplyTabTitles();
 
-        Routing.RegisterRoute(AppRoutes.Settings, typeof(SettingPage));
+        Routing.RegisterRoute(AppRoutes.Settings, typeof(SettingsPage));
     }
 
     /// <summary>

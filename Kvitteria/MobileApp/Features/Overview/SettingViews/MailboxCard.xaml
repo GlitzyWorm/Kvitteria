@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:loc="clr-namespace:MobileApp.Localization"
+             xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+             xmlns:views="clr-namespace:MobileApp.Features.Overview.SettingViews"
+             x:Class="MobileApp.Features.Overview.SettingViews.MailboxCard"
+             x:DataType="views:MailboxCard">
+
+    <Border Style="{StaticResource Panel}">
+        <HorizontalStackLayout
+            Spacing="{StaticResource Space4}">
+
+            <Border Stroke="{StaticResource Accent600}"
+                    HorizontalOptions="Start"
+                    HeightRequest="40"
+                    WidthRequest="40">
+                <Label
+                    FontSize="{StaticResource FontBody}"
+                    Style="{StaticResource Icon}"
+                    Text="{Binding Icon}"
+                    TextColor="{StaticResource Accent600}"/>
+            </Border>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label
+                    LineBreakMode="TailTruncation"
+                    Style="{StaticResource BodyText}"
+                    FontFamily="{StaticResource FontBodyMedium}"
+                    Text="{Binding InboxName}" />
+                <Label
+                    LineBreakMode="CharacterWrap"
+                    Style="{StaticResource MutedText}"
+                    Text="{Binding ImapAddress}" />
+            </VerticalStackLayout>
+
+            <!-- Exactly one of these two is visible; which one is the "active" flag on the mailbox. -->
+            <Border Style="{StaticResource TagAccent}"
+                    HeightRequest="30"
+                    HorizontalOptions="End"
+                    IsVisible="{Binding IsActive}">
+                <Label
+                    Style="{StaticResource TagText}"
+                    VerticalOptions="Center"
+                    Text="{loc:Localize MailboxActive}"/>
+            </Border>
+
+            <Border Style="{StaticResource TagNeutral}"
+                    HeightRequest="30"
+                    HorizontalOptions="End"
+                    IsVisible="{Binding IsActive, Converter={StaticResource IsFalse}}">
+                <Label
+                    Style="{StaticResource TagTextNeutral}"
+                    VerticalOptions="Center"
+                    Text="{loc:Localize MailboxInactive}"/>
+            </Border>
+
+            <!-- Ignored for now — no editing flow exists yet. -->
+            <Button Style="{StaticResource ButtonGhostIcon}"
+                    Text="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
+                    HorizontalOptions="End"/>
+
+        </HorizontalStackLayout>
+    </Border>
+
+</ContentView>

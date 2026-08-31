@@ -348,4 +348,13 @@
   <data name="SettingsTitle" xml:space="preserve">
     <value>Indstillinger</value>
   </data>
+  <data name="InboxKicker" xml:space="preserve">
+    <value>Indbakke</value>
+  </data>
+  <data name="MailboxActive" xml:space="preserve">
+    <value>Aktiveret</value>
+  </data>
+  <data name="MailboxInactive" xml:space="preserve">
+    <value>Deaktiveret</value>
+  </data>
 </root>
