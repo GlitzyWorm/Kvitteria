@@ -25,6 +25,7 @@
                           SelectedIndex="{Binding SelectedViewModelIndex, Mode=TwoWay, Source={x:Reference Page}}">
             <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize Account}"/>
             <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize InboxKicker}"/>
+            <tabs:SegmentedTabItem Style="{StaticResource SegmentedTab}" Label="{loc:Localize PipelineKicker}"/>
         </tabs:TabHostView>
 
         <tabs:ViewSwitcher
@@ -34,6 +35,7 @@
                  unselected view was handed the other tab's view model. -->
             <settingViews:AccountTab BindingContext="{Binding AccountViewModel, Source={x:Reference Page}}" />
             <settingViews:InboxTab BindingContext="{Binding InboxViewModel, Source={x:Reference Page}}" />
+            <settingViews:PipelineTab BindingContext="{Binding PipelineViewModel, Source={x:Reference Page}}" />
 
         </tabs:ViewSwitcher>
 

@@ -70,6 +70,22 @@ static class SettingsEndpoints
 			             .Produces<PipelineSettingsDto>()
 			             .ProducesProblem(StatusCodes.Status404NotFound);
 
+			// GET /settings/pipeline/ollama-models — readable by anyone, so a client can build a picker.
+			settingsGroup.MapGet("/pipeline/ollama-models", async (OllamaClient ollamaClient, CancellationToken ct) => {
+				             try
+				             {
+					             List<string> models = await ollamaClient.GetAvailableModelsAsync(ct);
+					             return Results.Ok(new OllamaModelsDto(models));
+				             }
+				             catch (HttpRequestException ex)
+				             {
+					             return Results.Problem(statusCode:StatusCodes.Status502BadGateway, detail:$"Could not reach Ollama to list pulled models: {ex.Message}");
+				             }
+			             })
+			             .WithName("GetOllamaModels")
+			             .Produces<OllamaModelsDto>()
+			             .ProducesProblem(StatusCodes.Status502BadGateway);
+
 			// PUT /settings/pipeline
 			settingsGroup.MapPut("/pipeline", async (PutPipelineSettingsDto dto, KvitteriaDbContext dbContext, OllamaClient ollamaClient, CancellationToken ct) => {
 				             if (!PipelineSettingsValidation.TryValidate(dto, out IResult validationProblem))

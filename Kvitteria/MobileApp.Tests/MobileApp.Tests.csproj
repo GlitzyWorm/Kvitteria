@@ -43,6 +43,7 @@
     <Compile Include="..\MobileApp\Features\Shared\ProblemDetail.cs" Link="Shared\ProblemDetail.cs" />
     <Compile Include="..\MobileApp\Features\Shared\Initials.cs" Link="Shared\Initials.cs" />
     <Compile Include="..\MobileApp\Features\Shared\MailboxDraft.cs" Link="Shared\MailboxDraft.cs" />
+    <Compile Include="..\MobileApp\Features\Shared\PipelineSettingsDraft.cs" Link="Shared\PipelineSettingsDraft.cs" />
   </ItemGroup>
 
 </Project>

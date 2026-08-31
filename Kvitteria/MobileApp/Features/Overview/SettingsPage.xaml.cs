@@ -35,9 +35,15 @@ public partial class SettingsPage : ContentPage
 
 	public InboxTabViewModel InboxViewModel { get; }
 
+	public PipelineTabViewModel PipelineViewModel { get; }
+
 	private readonly ILocalizationService _localization;
 
-	public SettingsPage(ILocalizationService localization, AccountTabViewModel accountViewModel, InboxTabViewModel inboxViewModel)
+	public SettingsPage(
+		ILocalizationService localization,
+		AccountTabViewModel accountViewModel,
+		InboxTabViewModel inboxViewModel,
+		PipelineTabViewModel pipelineViewModel)
 	{
 		_localization = localization;
 		_localization.PropertyChanged += OnLocalizationChanged;
@@ -45,8 +51,9 @@ public partial class SettingsPage : ContentPage
 
 		AccountViewModel = accountViewModel;
 		InboxViewModel = inboxViewModel;
+		PipelineViewModel = pipelineViewModel;
 
-		_viewModels = [accountViewModel, inboxViewModel];
+		_viewModels = [accountViewModel, inboxViewModel, pipelineViewModel];
 
 		InitializeComponent();
 	}
