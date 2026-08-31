@@ -99,6 +99,7 @@ public static class MauiProgram
 			services.AddSingleton<GoTrueClient>();
 			services.AddSingleton<KvitteriaApiClient>();
 			services.AddSingleton<MailboxApiClient>();
+			services.AddSingleton<SettingsApiClient>();
 
 			return services;
 		}
@@ -130,6 +131,7 @@ public static class MauiProgram
 
 			services.AddTransient<AccountTabViewModel>();
 			services.AddTransient<InboxTabViewModel>();
+			services.AddTransient<PipelineTabViewModel>();
 			services.AddTransient<SettingsPage>();
 
 			// The sheet is transient like every other screen: resolved fresh each time it is shown, so

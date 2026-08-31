@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:loc="clr-namespace:MobileApp.Localization"
+             xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+             xmlns:vm="clr-namespace:MobileApp.Features.Overview.SettingViews"
+             x:Class="MobileApp.Features.Overview.SettingViews.PipelineTab"
+             x:DataType="vm:PipelineTabViewModel">
+
+    <VerticalStackLayout Spacing="{StaticResource Space6}">
+
+        <!-- A whole-tab failure: the settings could not be loaded, so there is nothing below to edit. -->
+        <Border Style="{StaticResource Callout}"
+                IsVisible="{Binding Error, Converter={StaticResource IsPresent}}">
+            <VerticalStackLayout Spacing="{StaticResource Space2}">
+                <Label Style="{StaticResource CalloutText}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding Error}" />
+                <Button Command="{Binding ReloadCommand}"
+                        ContentLayout="Left,8"
+                        HorizontalOptions="Start"
+                        IsEnabled="{Binding IsIdle}"
+                        Text="{loc:Localize Retry}">
+                    <Button.ImageSource>
+                        <FontImageSource Color="{StaticResource TextColor}"
+                                         FontFamily="{StaticResource FontIcons}"
+                                         Glyph="{x:Static icons:PhosphorIcons.ArrowClockwise}"
+                                         Size="{StaticResource FontSizeIconSm}" />
+                    </Button.ImageSource>
+                </Button>
+            </VerticalStackLayout>
+        </Border>
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="Center" />
+
+        <!-- ══ Mailhentning ══ -->
+        <VerticalStackLayout Spacing="{StaticResource Space4}">
+
+            <Label Style="{StaticResource BodyText}" Text="{loc:Localize PipelineMailCollectionGroup}" />
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelinePollInterval}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding PollIntervalSeconds}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelinePollIntervalHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding PollIntervalError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding PollIntervalError}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineMessagesPerPoll}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding MessagesPerPoll}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineMessagesPerPollHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding MessagesPerPollError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding MessagesPerPollError}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+
+        <BoxView Style="{StaticResource HorizontalRule}" />
+
+        <!-- ══ Udtrækning ══ -->
+        <VerticalStackLayout Spacing="{StaticResource Space4}">
+
+            <Label Style="{StaticResource BodyText}" Text="{loc:Localize PipelineExtractionGroup}" />
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineModel}" />
+                <Picker ItemsSource="{Binding AvailableModels}"
+                        IsEnabled="{Binding CanEditModel}"
+                        SelectedItem="{Binding Model}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineModelHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding ModelsUnavailable}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineModelsUnavailable}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <HorizontalStackLayout Spacing="{StaticResource Space2}">
+                    <Switch IsEnabled="{Binding CanManage}"
+                            IsToggled="{Binding ThinkingMode}" />
+                    <Label Style="{StaticResource BodyText}"
+                           Text="{loc:Localize PipelineThinkingMode}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineThinkingModeHint}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineNumCtx}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding NumCtx}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineNumCtxHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding NumCtxError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding NumCtxError}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineKeepAlive}" />
+                <Entry IsEnabled="{Binding CanManage}"
+                       IsSpellCheckEnabled="False"
+                       IsTextPredictionEnabled="False"
+                       Text="{Binding KeepAlive}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineKeepAliveHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding KeepAliveError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding KeepAliveError}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineMaxExtractionAttempts}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding MaxExtractionAttempts}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineMaxExtractionAttemptsHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding MaxExtractionAttemptsError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding MaxExtractionAttemptsError}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineRetryTemperature}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding RetryTemperature}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineRetryTemperatureHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding RetryTemperatureError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding RetryTemperatureError}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="{StaticResource Space1}">
+                <Label Style="{StaticResource FieldLabel}" Text="{loc:Localize PipelineReconciliationTolerance}" />
+                <Entry Keyboard="Numeric"
+                       IsEnabled="{Binding CanManage}"
+                       Text="{Binding ReconciliationToleranceKr}" />
+                <Label Style="{StaticResource MutedText}"
+                       LineBreakMode="WordWrap"
+                       Text="{loc:Localize PipelineReconciliationToleranceHint}" />
+                <Label Style="{StaticResource CalloutText}"
+                       IsVisible="{Binding ReconciliationToleranceError, Converter={StaticResource IsPresent}}"
+                       LineBreakMode="WordWrap"
+                       Text="{Binding ReconciliationToleranceError}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+
+        <!-- A save failure: shown once, beside the buttons that caused it. -->
+        <Label Style="{StaticResource CalloutText}"
+               IsVisible="{Binding SaveError, Converter={StaticResource IsPresent}}"
+               LineBreakMode="WordWrap"
+               Text="{Binding SaveError}" />
+
+        <!-- Save / Discard. Hidden entirely for a member without ManageSettings, not merely disabled,
+             so they never see controls that could never do anything. -->
+        <Grid ColumnDefinitions="*,Auto,Auto"
+              ColumnSpacing="{StaticResource Space3}"
+              IsVisible="{Binding CanManage}">
+
+            <Label Grid.Column="0"
+                   Style="{StaticResource MutedText}"
+                   LineBreakMode="WordWrap"
+                   Text="{Binding DirtyNote}"
+                   VerticalOptions="Center" />
+
+            <Button Grid.Column="1"
+                    Command="{Binding DiscardCommand}"
+                    HeightRequest="{StaticResource ControlHeightSm}"
+                    IsEnabled="{Binding CanDiscard}"
+                    MinimumHeightRequest="{StaticResource ControlHeightSm}"
+                    Text="{loc:Localize Discard}" />
+
+            <Button Grid.Column="2"
+                    Command="{Binding SaveCommand}"
+                    HeightRequest="{StaticResource ControlHeightSm}"
+                    IsEnabled="{Binding CanSave}"
+                    MinimumHeightRequest="{StaticResource ControlHeightSm}"
+                    Style="{StaticResource ButtonPrimary}"
+                    Text="{loc:Localize Save}" />
+
+        </Grid>
+
+        <!-- Why every field above is disabled, for a member without the permission. -->
+        <Border Style="{StaticResource Note}" IsVisible="{Binding IsReadOnly}">
+            <Label Style="{StaticResource MutedText}"
+                   LineBreakMode="WordWrap"
+                   Text="{loc:Localize PipelineSettingsReadOnly}" />
+        </Border>
+
+    </VerticalStackLayout>
+
+</ContentView>
