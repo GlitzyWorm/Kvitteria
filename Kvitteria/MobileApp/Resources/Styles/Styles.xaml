@@ -18,7 +18,8 @@
      because the accent appears as lines and glow, never as a flood, and that has to be opted into. -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:tabs="http://sharpnado.com">
 
     <!-- ════════════════════════════ Pages and shell ════════════════════════════ -->
 
@@ -268,6 +269,16 @@
         <Setter Property="Padding" Value="0" />
         <Setter Property="WidthRequest" Value="44" />
         <Setter Property="HeightRequest" Value="44" />
+    </Style>
+
+    <Style x:Key="ButtonGhostIcon" 
+           TargetType="Button"
+           BasedOn="{StaticResource ButtonGhost}">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="FontFamily" Value="{StaticResource FontIcons}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSizeIcon}"/>
     </Style>
 
     <Style TargetType="ImageButton">
@@ -765,6 +776,18 @@
                 </Border>
             </ControlTemplate>
         </Setter>
+    </Style>
+
+    <!-- .seg, for a Sharpnado TabHostView instead of a RadioButton row — the page-switching case
+         Seg/SegOption cannot cover, since a ContentView per tab needs a ViewSwitcher behind it.
+         Same rule as SegOption's checked state: the accent marks the active tab as a wash, not a
+         fill, matching NavItem's Selected state rather than inventing a second selection language. -->
+    <Style x:Key="SegmentedTab" TargetType="tabs:SegmentedTabItem">
+        <Setter Property="FontFamily" Value="{StaticResource FontBody}" />
+        <Setter Property="LabelSize" Value="{StaticResource FontSizeSmall}" />
+        <Setter Property="SelectedTabColor" Value="{StaticResource AccentTint14}" />
+        <Setter Property="SelectedLabelColor" Value="{StaticResource Accent}" />
+        <Setter Property="UnselectedLabelColor" Value="{StaticResource TextMuted70}" />
     </Style>
 
     <!-- ════════════════════════════ Callouts ════════════════════════════ -->

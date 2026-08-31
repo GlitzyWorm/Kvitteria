@@ -28,8 +28,9 @@ public sealed class LocalizeExtension : IMarkupExtension<BindingBase>
 
 	public BindingBase ProvideValue(IServiceProvider serviceProvider) => new Binding
 	{
-		// The indexer on ILocalizationService. Raising PropertyChanged("Item[]") re-evaluates every
-		// one of these at once, which is what makes the switch instant.
+		// The indexer on ILocalizationService. Raising PropertyChanged("Item") — no brackets, see
+		// LocalizationService.IndexerName — re-evaluates every one of these at once, which is what
+		// makes the switch instant.
 		Path = $"[{Key}]",
 		Mode = BindingMode.OneWay,
 		Source = LocalizationProvider.Current,

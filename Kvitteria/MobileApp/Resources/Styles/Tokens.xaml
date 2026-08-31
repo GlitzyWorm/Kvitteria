@@ -65,6 +65,7 @@
 
     <!-- Padding shorthands, for the places a Thickness is wanted rather than a Spacing. -->
     <Thickness x:Key="PaddingCard">11.2</Thickness>
+    <Thickness x:Key="PaddingCardSmall">8.4</Thickness>
     <Thickness x:Key="PaddingPanel">22.4</Thickness>
     <Thickness x:Key="PaddingButton">10.08,5.6</Thickness>
     <!-- space-2 vertical, space-3 * 1.2 horizontal -->
@@ -74,10 +75,18 @@
     <!-- The mockup's mobile hero padding; it drops to 20/18 from the desktop 30/32. -->
     <Thickness x:Key="PaddingHero">18,20</Thickness>
 
+    <!-- ══ Control heights ══
+         The implicit Button carries a 44 touch-target floor, which is taller than the reference ever
+         draws one: .btn is 14px type at line-height 1.2 over space-2 vertical padding, and .btn-icon
+         is square at 36. This is that height, for the compact buttons that sit inside a panel rather
+         than ending a form. It has to be applied as both HeightRequest and MinimumHeightRequest,
+         since the floor otherwise wins over the request. -->
+    <x:Double x:Key="ControlHeightSm">36</x:Double>
+
     <!-- ══ Radius ══ -->
-    <x:Double x:Key="RadiusSmValue">4</x:Double>
-    <x:Double x:Key="RadiusMdValue">8</x:Double>
-    <x:Double x:Key="RadiusLgValue">14</x:Double>
+    <x:Single x:Key="RadiusSmValue">4</x:Single>
+    <x:Single x:Key="RadiusMdValue">8</x:Single>
+    <x:Single x:Key="RadiusLgValue">14</x:Single>
     <CornerRadius x:Key="RadiusSm">4</CornerRadius>
     <CornerRadius x:Key="RadiusMd">8</CornerRadius>
     <CornerRadius x:Key="RadiusLg">14</CornerRadius>

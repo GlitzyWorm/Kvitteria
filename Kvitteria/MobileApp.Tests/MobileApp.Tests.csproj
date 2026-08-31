@@ -30,7 +30,7 @@
        reference any of them. Adding a net10.0 TFM to MobileApp to make it possible would mean
        guarding every MAUI file in the project.
 
-       The cost is one line here per helper. The benefit is that it keeps these four honest: a helper
+       The cost is one line here per helper. The benefit is that it keeps these seven honest: a helper
        that reaches for Preferences, SecureStorage or anything else out of Microsoft.Maui stops
        compiling in this project immediately — which is the same discipline that keeps CategoryTree
        and Reconciliation testable on the backend. Anything needing a MAUI type belongs in
@@ -40,6 +40,9 @@
     <Compile Include="..\MobileApp\Features\Auth\HealthProbe.cs" Link="Auth\HealthProbe.cs" />
     <Compile Include="..\MobileApp\Features\Auth\AuthErrorMapper.cs" Link="Auth\AuthErrorMapper.cs" />
     <Compile Include="..\MobileApp\Features\Auth\StoredSession.cs" Link="Auth\StoredSession.cs" />
+    <Compile Include="..\MobileApp\Features\Shared\ProblemDetail.cs" Link="Shared\ProblemDetail.cs" />
+    <Compile Include="..\MobileApp\Features\Shared\Initials.cs" Link="Shared\Initials.cs" />
+    <Compile Include="..\MobileApp\Features\Shared\MailboxDraft.cs" Link="Shared\MailboxDraft.cs" />
   </ItemGroup>
 
 </Project>

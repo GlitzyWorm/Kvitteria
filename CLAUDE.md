@@ -361,7 +361,15 @@ is why no `service_role` key and no SMTP configuration are needed anywhere in th
 
 ### Permissions
 
-Reads are never gated: the household sees everything. `Permission` covers the writes —
+Reads are never gated: the household sees everything — `GET /api/users` and `GET /api/users/{id}`
+included. Those two carried `ManageUsers` until the mobile app needed them: a member may hold
+`ManageMailboxes` and register their own mailbox, and the owner picker on that screen cannot populate
+itself without the member list, so the gate made a permission the household had granted unusable. The
+writes on the same group keep theirs, so who may be *edited* is unchanged. The cost is that
+`AppUserDto` shows every active member's email, role, status, `HasSignedIn` and `LastSeenAt` to every
+other member — the same bargain every other read here already makes inside one household.
+
+`Permission` covers the writes —
 `CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`,
 `ManageMailboxes`. `Admin` holds all
 of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
@@ -559,6 +567,47 @@ a general service locator. The five `Tab` titles are the other case the extensio
 `AppShell.xaml.cs` sets them and re-applies on the service's `PropertyChanged` — the Shell outlives
 every page and would otherwise keep the language the app started in.
 
+### Mailboxes (the Inbox settings tab)
+
+`Features/Overview/SettingViews` holds the first screen in this app that *writes*, and three
+conventions were established there rather than invented per-feature afterwards:
+
+- **`ApiResult<T>` + `ApiOutcome`** (`Services/ApiResult.cs`) — one result shape for every `/api`
+  call, carrying the problem+json `detail`. Errors stay values, as in `KvitteriaApiClient`; what
+  changes is that five operations sharing the same six failures get one enum instead of five that
+  drift. `ApiOutcome.Verification` is the 502 from `ImapConnection.VerifyAsync` and is deliberately
+  distinct: its detail names the host, the rejected credential, or the folders that *do* exist, none
+  of which a client could reconstruct. So 502/409/400 details are shown **verbatim**, in the server's
+  English, and only what the app can categorize itself (unreachable, forbidden, its own validation)
+  is localized. A localized "could not be verified" would throw away the one useful diagnostic.
+- **`IDialogService`** (`Features/Shared/DialogService.cs`) — kept apart from `INavigator`, which stays
+  about routes and confirmations. Both exist so a view model never reaches into `Shell.Current`.
+- **`IRefreshable`** (`Features/Shared/IRefreshable.cs`) — `SettingsPage` calls it from `OnAppearing`
+  and on a tab change. Same reasoning as the gate resolving on every appearance: Shell keeps a page
+  alive for the life of its route, so anything settled in a constructor is settled for the session.
+
+`MailboxDraft` (`Features/Shared/`) is a plain record rather than a reused `CreateMailboxDto`, because
+`MailboxDraftValidator` beside it is linked into `MobileApp.Tests` — which holds no project reference
+at all, Contracts included. `MailboxApiClient` maps draft → DTO at the boundary. The validator mirrors
+the server's `MailboxValidation` and deliberately omits the duplicate-folder check the mockup does
+client-side: the unique index owns that answer and reports it as a 409 naming host and username.
+
+Two rows, one view model. `MailboxRowViewModel` feeds both `MailboxCard` (mine: the accent envelope
+over folder and host) and `MemberMailboxCard` (theirs: a circular initials avatar over name and
+folder), rendered through **`BindableLayout`** rather than `CollectionView` — the tab sits inside a
+`VerticalStackLayout`, where a virtualized list has no height to measure against. Note the first
+version of `MailboxCard` carried four `BindableProperty`s and set `BindingContext = this`, which is
+exactly what a template cannot work with: the item never arrives.
+
+"Din postkasse" lists **every** mailbox I own, not the first. The mockup takes
+`find(m => m.ownerId === meId)`, but uniqueness is per (member, host, username, folder), so a second
+mailbox of mine would land in neither section — invisible and impossible to edit or remove.
+
+`LastError` is the one thing on the card that neither the mockup nor the screenshots show. The backend
+records it per mailbox precisely so a frontend can say which one is broken, and without it a mailbox
+whose password expired looks identical to a working one while the household quietly stops receiving
+receipts.
+
 ### `MobileApp.Tests`
 
 It **links four files as source** rather than referencing `MobileApp`, because it cannot reference
@@ -710,14 +759,33 @@ right-hand side, `CancellationToken ct` as the parameter name.
   wants anyway: reached from "skift server" the field should show the address currently in use), or
   compute it rather than storing it (`AccountSheetViewModel.IsDanish` reads the localization service
   directly, so the sheet cannot disagree with the language in force).
-- `CommunityToolkit.Maui`'s `ClosePopupAsync` extends **`Page`**, not the content view — closing is
-  addressed to the page the popup was shown over. `AccountSheet` therefore exposes its view model so
+- **Toolkit 13 supersedes this, but the shape of the trap is worth keeping.** `Popup<T>` now has
+  `CloseAsync(T result, CancellationToken)`, so a popup closes *itself* and needs no page reference —
+  which is how `MailboxSheet` hands its view model a close callback. Before v12 the only way was
+  `ClosePopupAsync`, which extends **`Page`**, not the content view — closing was addressed to the page
+  the popup was shown over. `AccountSheet` therefore exposes its view model so
   `OverviewPage` can hand it a close callback; the view model only knows it must be dismissed before
   it navigates, since a route change under an open popup leaves the popup over the new screen.
 - Adding a file under `Platforms/Android/Resources` can leave `MobileApp/obj` stale, and the build
   then fails at `aapt2` with `APT2000: ... .flata: No such file or directory` and `APT2066: failed
   parsing overlays` — which name the intermediate file rather than the change that invalidated it.
   Deleting `MobileApp/obj` fixes it, the same remedy as the cached TFM list above.
+- `Backend/Dockerfile` must copy **`Contracts/Contracts.csproj`** before `dotnet restore`, alongside
+  `Backend/Backend.csproj`. Restoring a project restores its references, so without it the restore
+  quietly covers `Backend` alone and the `dotnet publish --no-restore` two lines later dies with
+  **NETSDK1004** naming `Contracts/obj/project.assets.json` — a missing *file*, rather than the missing
+  `COPY` that caused it. `.dockerignore` excludes `**/obj`, so a locally restored working tree cannot
+  paper over it and this fails only inside Docker.
+- **`.Select(m => m.ToDto())` is client-evaluated**, because `ToDto` is a method call EF cannot
+  translate. Two consequences that pull in opposite directions from the obvious reading: reading a
+  navigation inside it does **not** join that navigation in, and an `Include` before it is **not**
+  discarded the way it would be ahead of a translated projection. `GET /mailboxes` had no `Include` and
+  returned an empty `MemberDisplayName` and `MemberEmail` on every row; `GET /mailboxes/{id}` beside it
+  always had one. Any endpoint projecting through `ToDto` needs the `Include` spelled out.
+- `PUT /mailboxes/{id}` decrypts the stored password **inside** the `connectionChanged` branch, not
+  before it. Unprotecting eagerly meant a lost Data Protection key ring turned "disable this mailbox"
+  into a 409 demanding the password be re-entered — the one thing whoever has a broken mailbox cannot
+  supply. Toggling `IsEnabled` or reassigning the owner must cost neither a round-trip nor a decryption.
 - A bare `dotnet test` now resolves to a solution containing **two** MAUI-adjacent projects, so name
   the project — `Backend.Tests/Backend.Tests.csproj` or `MobileApp.Tests/MobileApp.Tests.csproj`.
   `MobileApp.Tests` must never gain a `ProjectReference` to `MobileApp`: it could not have one, and

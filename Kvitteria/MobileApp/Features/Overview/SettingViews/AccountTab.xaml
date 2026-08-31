@@ -1,0 +1,93 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+     License, v. 2.0. If a copy of the MPL was not distributed with this
+     file, You can obtain one at https://mozilla.org/MPL/2.0/. -->
+
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:loc="clr-namespace:MobileApp.Localization"
+             xmlns:icons="clr-namespace:MobileApp.Features.Shared"
+             xmlns:vm="clr-namespace:MobileApp.Features.Overview.SettingViews"
+             x:Class="MobileApp.Features.Overview.SettingViews.AccountTab"
+             x:DataType="vm:AccountTabViewModel">
+    <VerticalStackLayout Spacing="16.8">
+        <VerticalStackLayout Spacing="2.8">
+
+            <Label
+                LineBreakMode="TailTruncation"
+                Style="{StaticResource BodyText}"
+                Text="{Binding SignedInAs}" />
+            <Label
+                LineBreakMode="CharacterWrap"
+                Style="{StaticResource SmallText}"
+                Text="{Binding ServerDisplay}"
+                TextColor="{StaticResource TextMuted55}" />
+
+        </VerticalStackLayout>
+
+
+        <BoxView Style="{StaticResource HorizontalRule}"/>
+
+        <VerticalStackLayout Spacing="8.4">
+            <HorizontalStackLayout Spacing="8">
+                <Label
+                    FontSize="{StaticResource FontSizeSmall}"
+                    Style="{StaticResource Icon}"
+                    Text="{x:Static icons:PhosphorIcons.Translate}"
+                    TextColor="{StaticResource TextMuted70}"/>
+                <Label Margin="0" Style="{StaticResource FieldLabel}" Text="{loc:Localize Language}"/>
+            </HorizontalStackLayout>
+
+            <Border HorizontalOptions="Fill" Style="{StaticResource Seg}">
+                <Grid ColumnDefinitions="*,Auto,*">
+                    <RadioButton
+                        Content="{loc:Localize LanguageDanish}"
+                        GroupName="AppLanguage"
+                        IsChecked="{Binding IsDanish}"
+                        Style="{StaticResource SegOption}"/>
+
+                    <BoxView Grid.Column="1" Style="{StaticResource SegDivider}"/>
+
+                    <RadioButton
+                        Grid.Column="2"
+                        Content="{loc:Localize LanguageEnglish}"
+                        GroupName="AppLanguage"
+                        IsChecked="{Binding IsEnglish}"
+                        Style="{StaticResource SegOption}"/>
+                </Grid>
+            </Border>
+        </VerticalStackLayout>
+
+        <BoxView Style="{StaticResource HorizontalRule}" />
+
+        <VerticalStackLayout Spacing="8.4">
+            <Button
+                Command="{Binding SignOutCommand}"
+                ContentLayout="Left,10"
+                Style="{StaticResource ButtonPrimary}"
+                Text="{loc:Localize SignOut}">
+                <Button.ImageSource>
+                    <FontImageSource
+                        Color="{StaticResource Accent}"
+                        FontFamily="{StaticResource FontIcons}"
+                        Glyph="{x:Static icons:PhosphorIcons.SignOut}"
+                        Size="{StaticResource FontSizeIconSm}" />
+                </Button.ImageSource>
+            </Button>
+
+            <Button
+                Command="{Binding ChangeServerCommand}"
+                ContentLayout="Left,10"
+                Text="{loc:Localize ChangeServer}">
+                <Button.ImageSource>
+                    <FontImageSource
+                        Color="{StaticResource TextColor}"
+                        FontFamily="{StaticResource FontIcons}"
+                        Glyph="{x:Static icons:PhosphorIcons.SlidersHorizontal}"
+                        Size="{StaticResource FontSizeIconSm}" />
+                </Button.ImageSource>
+            </Button>
+        </VerticalStackLayout>
+
+    </VerticalStackLayout>
+</ContentView>

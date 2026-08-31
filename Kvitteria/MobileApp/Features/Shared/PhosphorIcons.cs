@@ -1,6 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 namespace MobileApp.Features.Shared;
 
 /// <summary>
@@ -48,4 +49,13 @@ public static class PhosphorIcons
 
 	/// <summary>ph-flow-arrow — the pipeline tab.</summary>
 	public const string FlowArrow = "\ue6ec";
+
+	/// <summary>ph-envelope-simple — the mailbox rows and the Inbox tab.</summary>
+	public const string Inbox = "\ue218";
+
+	/// <summary>ph-plus — adding a mailbox.</summary>
+	public const string Plus = "\ue3d4";
+
+	/// <summary>ph-trash — removing a mailbox.</summary>
+	public const string Trash = "\ue4a6";
 }
