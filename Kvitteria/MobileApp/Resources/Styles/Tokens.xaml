@@ -75,9 +75,9 @@
     <Thickness x:Key="PaddingHero">18,20</Thickness>
 
     <!-- ══ Radius ══ -->
-    <x:Double x:Key="RadiusSmValue">4</x:Double>
-    <x:Double x:Key="RadiusMdValue">8</x:Double>
-    <x:Double x:Key="RadiusLgValue">14</x:Double>
+    <x:Single x:Key="RadiusSmValue">4</x:Single>
+    <x:Single x:Key="RadiusMdValue">8</x:Single>
+    <x:Single x:Key="RadiusLgValue">14</x:Single>
     <CornerRadius x:Key="RadiusSm">4</CornerRadius>
     <CornerRadius x:Key="RadiusMd">8</CornerRadius>
     <CornerRadius x:Key="RadiusLg">14</CornerRadius>

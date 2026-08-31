@@ -31,10 +31,12 @@ public sealed class LocalizationService : ILocalizationService
 	private const string PreferenceKey = "app.culture";
 
 	/// <summary>
-	/// The indexer's property name. WPF-style "Item[]" is what a binding to <c>[Key]</c> listens for,
-	/// and raising it re-reads every localized binding in one go.
+	/// The indexer's property name, raised with no brackets. MAUI's <c>BindingExpression</c> does not
+	/// honour WPF's "Item[]" wildcard — a name containing "[" must match the binding's exact key
+	/// (<c>Item[Account]</c>) to refresh. Only the bare name, with no brackets at all, matches every
+	/// indexer binding regardless of key, which is what re-reads every localized string in one go.
 	/// </summary>
-	private const string IndexerName = "Item[]";
+	private const string IndexerName = "Item";
 
 	/// <summary>
 	/// Danish is the <em>neutral</em> resource set rather than English. The app is Danish-first, so

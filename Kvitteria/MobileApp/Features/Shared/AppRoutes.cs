@@ -23,6 +23,9 @@ public static class AppRoutes
 	/// <summary>The tab bar. Everything behind the gate.</summary>
 	public const string Main = "//main";
 
+	/// <summary>The route name registered in <c>AppShell.xaml.cs</c>.</summary>
+	public const string Settings = "settings";
+
 	/// <summary>Opens the sign-in screen already switched to sign-up: <c>//auth?mode=up</c>.</summary>
 	public const string AuthSignUp = $"{Auth}?mode=up";
 

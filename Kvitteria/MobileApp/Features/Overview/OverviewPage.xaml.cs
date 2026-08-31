@@ -2,19 +2,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 using CommunityToolkit.Maui.Extensions;
+using MobileApp.Features.Shared;
 
 namespace MobileApp.Features.Overview;
 
 public partial class OverviewPage : ContentPage
 {
 	private readonly OverviewViewModel _viewModel;
-	private readonly Func<AccountSheet> _accountSheetFactory;
+	private readonly INavigator _navigator;
 
-	public OverviewPage(OverviewViewModel viewModel, Func<AccountSheet> accountSheetFactory)
+	public OverviewPage(OverviewViewModel viewModel, INavigator navigator)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_accountSheetFactory = accountSheetFactory;
+        _navigator = navigator;
 	}
 
 	/// <summary>
@@ -33,13 +34,7 @@ public partial class OverviewPage : ContentPage
 	/// shows would try to add a view that already has a parent.
 	/// </summary>
 	private async void OnAccountClicked(object? sender, EventArgs e)
-	{
-		AccountSheet sheet = _accountSheetFactory();
-
-		// The toolkit closes a popup through the page it was shown over, so the page is what knows
-		// how; the view model only knows that it must be dismissed before it navigates.
-		sheet.ViewModel.CloseAsync = () => this.ClosePopupAsync();
-
-		await this.ShowPopupAsync(sheet);
-	}
+    {
+        await _navigator.GoToAsync(AppRoutes.Settings);
+    }
 }

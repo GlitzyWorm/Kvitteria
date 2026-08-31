@@ -5,9 +5,11 @@ using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using MobileApp.Features.Auth;
 using MobileApp.Features.Overview;
+using MobileApp.Features.Overview.SettingViews;
 using MobileApp.Features.Shared;
 using MobileApp.Localization;
 using MobileApp.Services;
+using Sharpnado.Tabs;
 
 namespace MobileApp;
 
@@ -19,6 +21,7 @@ public static class MauiProgram
 		builder
 			.UseMauiApp<App>()
 			.UseMauiCommunityToolkit()
+            .UseSharpnadoTabs(loggerEnable: false)
 			.ConfigureFonts(fonts =>
 			{
 				// The only place a font file is named. XAML refers to these aliases through the
@@ -119,11 +122,10 @@ public static class MauiProgram
 			services.AddTransient<OverviewViewModel>();
 			services.AddTransient<OverviewPage>();
 
-			// A factory, not the sheet itself: it is shown more than once, and a view that already
-			// has a parent cannot be added to a second one.
-			services.AddTransient<AccountSheetViewModel>();
-			services.AddTransient<AccountSheet>();
-			services.AddTransient<Func<AccountSheet>>(provider => provider.GetRequiredService<AccountSheet>);
+			// SettingPage carries no view model of its own: each tab it hosts owns one instead,
+			// injected into the page and assigned to that tab's BindingContext directly.
+			services.AddTransient<AccountTabViewModel>();
+			services.AddTransient<SettingPage>();
 
 			return services;
 		}
