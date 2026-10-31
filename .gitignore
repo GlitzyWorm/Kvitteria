@@ -60,3 +60,9 @@ nunit-*.xml
 # Node tooling. Nothing here ships JavaScript yet, but commitlint runs in CI and the Angular app
 # will live at the top level.
 node_modules/
+
+# Local leftovers: Visual Studio project backups, a thumbnail cache, and the SQLite job store a
+# Proxmox MCP server drops into whichever directory it was launched from.
+*.Backup.tmp
+.thumbnail
+proxmox-jobs.sqlite3*
