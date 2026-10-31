@@ -24,6 +24,14 @@
              to a queue type being named Queue, and CA1716 objects to the Shared namespace. None of
              those are defects, and failing the build on them would bury the warnings that matter. -->
         <AnalysisLevel>latest</AnalysisLevel>
+
+        <!-- The OpenAPI document is the contract with the Android app, which can no longer compile against
+             these DTOs. It is generated into docs/openapi on request (`-p:GenerateOpenApi=true`) rather than
+             on every build, so an ordinary build neither runs the host nor rewrites a tracked file. -->
+        <OpenApiGenerateDocuments>false</OpenApiGenerateDocuments>
+        <OpenApiGenerateDocuments Condition="'$(GenerateOpenApi)' == 'true'">true</OpenApiGenerateDocuments>
+        <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\docs\openapi</OpenApiDocumentsDirectory>
+        <OpenApiGenerateDocumentsOptions>--file-name kvitteria</OpenApiGenerateDocumentsOptions>
     </PropertyGroup>
 
     <ItemGroup>
@@ -38,6 +46,10 @@
       <!-- The Data Protection key ring lives in Postgres, so KvitteriaDbContext can be its store. -->
       <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
       <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+      <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <!-- Explicit, and not private: the code uses EF Core directly, and referencing it only through
            Design meant the version never flowed to referencing projects. -->
       <PackageReference Include="Microsoft.EntityFrameworkCore" />

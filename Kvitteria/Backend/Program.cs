@@ -1,4 +1,5 @@
-﻿using Backend.Abstractions;
+﻿using System.Reflection;
+using Backend.Abstractions;
 using Backend.Features.Auth;
 using Backend.Features.Endpoints;
 using Backend.Features.Extraction;
@@ -10,6 +11,7 @@ using Backend.Features.Shared;
 using Backend.Features.Persistence.Factory;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 // Configuration is whatever CreateBuilder assembles: appsettings.json, then the environment's
@@ -18,7 +20,30 @@ using Scalar.AspNetCore;
 // silently win over compose.
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+// The OpenAPI generator (docs/openapi) runs this entry point as `GetDocument.Insider` to read the
+// document. It has no database and no deployment configuration, yet start-up validation still runs, so it
+// is given placeholders. They exist only for that tool: a real host never takes this branch, so a missing
+// value there still fails start-up as described in CLAUDE.md.
+bool generatingOpenApiDocument = Assembly.GetEntryAssembly()?.GetName().Name == "GetDocument.Insider";
+if (generatingOpenApiDocument)
+{
+	builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> {
+		["Database:ConnectionString"] = "Host=openapi-generation",
+		["Ollama:BaseUrl"] = "http://openapi-generation",
+		["Ollama:DefaultModel"] = "openapi-generation",
+		["Auth:Issuer"] = "http://openapi-generation",
+		["Auth:JwksUrl"] = "http://openapi-generation/.well-known/jwks.json",
+		["Auth:AllowInsecureJwksTransport"] = "true"
+	});
+}
+
+// Title and version are fixed so a release-please version bump does not change the committed snapshot
+// in docs/openapi; the backend's own version is served by GET /version.
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) => {
+	document.Info.Title = "Kvitteria";
+	document.Info.Version = "v1";
+	return Task.CompletedTask;
+}));
 
 builder.Services.AddHouseholdAuth(builder.Configuration, builder.Environment);
 
@@ -65,9 +90,18 @@ builder.Services.AddScoped<ReceiptIngestionService>();
 builder.Services.AddSingleton<PersistenceQueue>();
 builder.Services.AddHostedService<ReceiptFactoryWorker>();
 
+if (generatingOpenApiDocument)
+{
+	// The three workers would otherwise start and dial the placeholder database.
+	builder.Services.RemoveAll<IHostedService>();
+}
+
 WebApplication app = builder.Build();
 
-await app.MigrateDatabaseAsync();
+if (!generatingOpenApiDocument)
+{
+	await app.MigrateDatabaseAsync();
+}
 
 app.UseExceptionHandler();
 

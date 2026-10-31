@@ -40,6 +40,20 @@ jobs:
 
       - run: dotnet test Backend.Tests/Backend.Tests.csproj --no-build --configuration Release --verbosity normal
 
+      # docs/openapi/kvitteria.json is the contract the Android app is checked against, since it can no
+      # longer compile the server's DTOs. Regenerating it here and requiring no change means a DTO or
+      # route edit that forgot to update the snapshot fails this job, instead of the app drifting
+      # silently. Needs no database: Program.cs recognises the generator and skips migration. Status
+      # rather than `git diff` so a first, still-untracked snapshot also fails.
+      - name: OpenAPI snapshot is current
+        run: |
+          dotnet build Backend/Backend.csproj --no-restore --configuration Release -p:GenerateOpenApi=true
+          if [ -n "$(git status --porcelain -- ../docs/openapi)" ]; then
+            git diff -- ../docs/openapi
+            echo "docs/openapi/kvitteria.json is stale. Run: dotnet build Backend/Backend.csproj -p:GenerateOpenApi=true"
+            exit 1
+          fi
+
       # The mobile app's pure helpers — URL normalization, the readiness-report parse, the GoTrue
       # error mapping, token expiry. MobileApp.Tests links them as source rather than referencing
       # MobileApp, which it could not do: MobileApp targets net10.0-android and a plain net10.0

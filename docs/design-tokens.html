@@ -1,0 +1,530 @@
+<title>Kvitteria Design Tokens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Montserrat:wght@500&display=swap">
+<style>
+  :root{
+    --bg:#0B1914; --surface:#1A2521; --text:#E4E9E7; --section:#054328;
+    --divider:#29E4E9E7;
+    --accent-100:#D7F3E2; --accent-200:#C4E0CE; --accent-300:#8ECFA9; --accent-400:#7CBB96;
+    --accent-500:#68A783; --accent-600:#51906D; --accent-700:#337250; --accent-800:#054E2F; --accent-900:#022E1A;
+    --accent:#68A783;
+    --tint-10:#1A68A783; --tint-14:#2468A783; --tint-16:#2968A783; --tint-22:#3868A783; --tint-30:#4D68A783; --tint-34:#5768A783;
+    --n-100:#EEF3F1; --n-200:#DCE3E0; --n-300:#C8D0CD; --n-400:#AAB4B0; --n-500:#8A9591;
+    --n-600:#6A7470; --n-700:#4E5854; --n-800:#333D39; --n-900:#1E2925;
+    --muted-70:#B3E4E9E7; --muted-60:#99E4E9E7; --muted-55:#8CE4E9E7; --muted-50:#80E4E9E7;
+    --wash-8:#14E4E9E7; --wash-7:#12E4E9E7; --wash-6:#0FE4E9E7; --wash-4:#0AE4E9E7;
+    --font-h:'Montserrat', system-ui, sans-serif; --font-b:'Poppins', system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Consolas, monospace;
+    --sp-1:2.8px; --sp-2:5.6px; --sp-3:8.4px; --sp-4:11.2px; --sp-6:16.8px; --sp-8:22.4px;
+    --r-sm:4px; --r-md:8px; --r-lg:14px; --r-tag:6px;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--font-b); font-size:15px; line-height:1.55; font-weight:400;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:var(--font-h); font-weight:500; line-height:1.12; letter-spacing:-0.015em; margin:0; text-wrap:balance}
+  p{margin:0}
+  code,.mono{font-family:var(--font-mono)}
+  a{color:var(--accent)}
+  ::selection{background:var(--tint-30)}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  .shell{max-width:1040px; margin:0 auto; padding:0 28px 100px}
+
+  header.top{
+    display:flex; align-items:center; gap:12px; padding:14px 28px;
+    border-bottom:1px solid var(--divider); position:sticky; top:0; z-index:5;
+    background:color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter:blur(8px);
+  }
+  header.top .mark{
+    width:24px; height:24px; flex:none; border-radius:7px; border:1px solid var(--accent);
+    display:grid; place-items:center; box-shadow:0 0 14px var(--tint-22);
+  }
+  header.top .mark svg{width:12px; height:12px}
+  header.top .name{font-family:var(--font-h); font-size:14.5px; letter-spacing:-0.02em}
+  header.top nav{display:flex; gap:2px; margin-left:auto; overflow-x:auto; scrollbar-width:none}
+  header.top nav::-webkit-scrollbar{display:none}
+  header.top nav a{
+    font-size:12px; padding:6px 9px; border-radius:7px; color:var(--n-400); text-decoration:none;
+    white-space:nowrap;
+  }
+  header.top nav a:hover{color:var(--text); background:var(--wash-6)}
+
+  .hero{padding:44px 0 8px}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:9px; margin-bottom:12px;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
+  }
+  .eyebrow::after{content:''; width:22px; height:1px; background:var(--accent); opacity:.5}
+  .hero h1{font-size:34px; max-width:600px}
+  .hero p.lead{margin-top:10px; max-width:600px; font-size:14.5px; color:var(--n-300)}
+  .hero p.lead + p{margin-top:8px; max-width:600px; font-size:12.5px; color:var(--muted-55)}
+
+  section.block{padding:44px 0; border-top:1px solid var(--divider)}
+  section.block > .kicker{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-300); margin-bottom:6px}
+  section.block > h2{font-size:23px; margin-bottom:8px}
+  section.block > p.desc{max-width:600px; color:var(--n-400); font-size:13px; margin-bottom:26px}
+
+  .grid{display:grid; gap:10px}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+  .grid.auto{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  @media (max-width:680px){
+    .grid.cols-3{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* swatch */
+  .swatch{border-radius:var(--r-md); overflow:hidden; border:1px solid var(--divider); background:var(--surface)}
+  .swatch .fill{height:52px}
+  .swatch .meta{padding:8px 9px}
+  .swatch .key{font-family:var(--font-mono); font-size:11px; color:var(--text)}
+  .swatch .hex{font-family:var(--font-mono); font-size:10px; color:var(--n-500); margin-top:2px}
+  .swatch .use{font-size:10.5px; color:var(--muted-55); margin-top:5px; line-height:1.4}
+  .swatch.lg .fill{height:74px}
+
+  .demo{
+    padding:22px; border-radius:var(--r-lg); background:var(--surface);
+    border:1px solid var(--n-800);
+    display:flex; flex-direction:column; gap:16px;
+  }
+  .demo .row{display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .label{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--n-500)}
+  .note-inline{font-size:12px; color:var(--muted-55); max-width:520px; line-height:1.5}
+
+  /* type */
+  .type-row{display:flex; align-items:baseline; gap:14px; padding:9px 0; border-bottom:1px solid var(--divider)}
+  .type-row:last-child{border-bottom:none}
+  .type-row .tag-key{width:150px; flex:none; font-family:var(--font-mono); font-size:11px; color:var(--n-500)}
+  .type-row .sample{flex:1; min-width:0}
+  .type-row .spec{flex:none; font-family:var(--font-mono); font-size:10.5px; color:var(--n-500); text-align:right}
+  .h1s{font-family:var(--font-h); font-size:34px; margin:0}
+  .h2s{font-family:var(--font-h); font-size:27px; margin:0}
+  .h3s{font-family:var(--font-h); font-size:22px; margin:0}
+  .h4s{font-family:var(--font-h); font-size:18px; margin:0}
+  .h5s{font-family:var(--font-h); font-size:15px; margin:0}
+  .h6s{font-family:var(--font-h); font-size:12px; letter-spacing:.08em; text-transform:uppercase; margin:0}
+  .bodys{font-size:14.5px}
+  .smalls{font-size:12.5px}
+  .muteds{font-size:12.5px; color:var(--muted-55)}
+  .eyebrows{font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent)}
+  .kvnum{font-family:var(--font-h); font-size:14.5px; color:var(--text)}
+  .kvnum-lg{font-family:var(--font-h); font-size:30px; letter-spacing:-0.03em; color:var(--text)}
+
+  /* spacing */
+  .space-row{display:flex; align-items:center; gap:12px; margin-bottom:9px}
+  .space-row:last-child{margin-bottom:0}
+  .space-row .tag-key{width:64px; flex:none; font-family:var(--font-mono); font-size:11px; color:var(--n-500)}
+  .space-row .bar{height:13px; background:var(--accent-600); border-radius:2px}
+  .space-row .val{font-family:var(--font-mono); font-size:10.5px; color:var(--n-500); flex:none}
+  .pad-item{display:flex; flex-direction:column; align-items:center; gap:7px}
+  .pad-item .box{background:var(--accent-800); border:1px dashed var(--accent-600); border-radius:4px; display:grid; place-items:center; font-size:9px; color:var(--accent-200); font-family:var(--font-mono)}
+  .pad-item .tag-key{font-family:var(--font-mono); font-size:10px; color:var(--n-500)}
+
+  /* radius / elevation */
+  .radius-item{display:flex; flex-direction:column; align-items:center; gap:8px}
+  .radius-item .box{width:58px; height:58px; background:var(--accent-800); display:grid; place-items:center; font-family:var(--font-mono); font-size:10px; color:var(--accent-100)}
+  .elev-card{
+    display:flex; flex-direction:column; gap:6px; padding:16px; border-radius:var(--r-md);
+    background:var(--bg);
+  }
+  .elev-sm{border:1px solid var(--n-800)}
+  .elev-md{border:1px solid var(--n-700); box-shadow:0 6px 18px rgba(0,0,0,0.55)}
+  .elev-lg{border:1px solid var(--n-500); box-shadow:0 16px 40px rgba(0,0,0,0.65)}
+  .elev-card .k{font-family:var(--font-mono); font-size:11px; color:var(--accent)}
+  .elev-card .d{font-size:12px; color:var(--muted-55)}
+
+  /* hero card */
+  .hero-card{
+    position:relative; overflow:hidden; border-radius:var(--r-md); border:1px solid var(--tint-30);
+    background:var(--surface); box-shadow:0 6px 18px rgba(0,0,0,0.55); padding:20px 22px;
+  }
+  .hero-card::before{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(140% ellipse at 0% 0%, var(--tint-16), var(--tint-10) 40%, transparent 62%);
+    pointer-events:none;
+  }
+  .hero-card::after{
+    content:''; position:absolute; width:280px; height:280px; border-radius:50%;
+    top:-110px; right:-90px;
+    background:radial-gradient(circle, var(--tint-22), transparent 70%);
+    pointer-events:none;
+  }
+  .hero-card .inner{position:relative; z-index:1}
+  .hero-amount{font-family:var(--font-h); font-size:38px; letter-spacing:-0.04em; line-height:0.95; text-shadow:0 0 46px var(--tint-34)}
+
+  /* buttons */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;
+    font-family:var(--font-h); font-weight:500; font-size:13.5px; color:var(--text);
+    background:transparent; border:1px solid var(--divider);
+    padding:5.6px 10.08px; border-radius:var(--r-md); min-height:38px;
+  }
+  .btn:hover{background:var(--wash-7)}
+  .btn:active{background:var(--wash-8)}
+  .btn-primary{color:var(--accent); border-color:var(--accent)}
+  .btn-primary:hover{background:var(--tint-14)}
+  .btn-primary:active{background:var(--tint-22)}
+  .btn-ghost{color:var(--accent); border-color:transparent; padding-inline:6px}
+  .btn-ghost:hover{background:var(--tint-10)}
+  .btn-disabled{opacity:.45; pointer-events:none}
+  .btn-icon{width:38px; height:38px; padding:0}
+
+  /* tags */
+  .tag{display:inline-flex; align-items:center; font-size:11px; letter-spacing:.02em; padding:3px 10px; border-radius:var(--r-tag)}
+  .tag-accent{background:var(--accent-800); color:var(--accent-100)}
+  .tag-neutral{background:var(--n-800); color:var(--n-100)}
+  .tag-outline{border:1px solid var(--accent); color:var(--accent)}
+
+  /* surfaces */
+  .panel{background:var(--surface); border-radius:var(--r-lg); padding:var(--sp-8)}
+  .card{background:var(--bg); border-radius:var(--r-md); padding:var(--sp-4); display:flex; flex-direction:column; gap:6px}
+  .card-kicker{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--accent)}
+  .card-title{font-family:var(--font-h); font-size:16px}
+  .card-body{font-size:12.5px; opacity:.8; margin:0}
+  .card-meta{font-size:10.5px; color:var(--muted-50)}
+  .dialog{width:min(360px,100%); display:flex; flex-direction:column; gap:9px; padding:16px; border-radius:var(--r-lg); background:var(--bg); border:1px solid var(--n-500); box-shadow:0 16px 40px rgba(0,0,0,0.65)}
+  .dialog-title{font-family:var(--font-h); font-size:17px}
+  .dialog-body{font-size:12.5px; opacity:.85}
+  .dialog-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:4px}
+
+  /* nav */
+  .navlist{max-width:220px; display:flex; flex-direction:column; gap:2px}
+  .navitem{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; font-size:13px; color:var(--text); cursor:pointer}
+  .navitem:hover{background:var(--wash-6)}
+  .navitem.active{background:var(--tint-14); color:var(--accent)}
+  .dot{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.7; flex:none}
+
+  /* forms */
+  .field label{display:block; font-size:11px; margin-bottom:4px; color:var(--muted-70)}
+  .input{width:100%; min-height:38px; padding:6px 10px; font-family:var(--font-b); font-size:13.5px; color:var(--text); background:var(--bg); border:1px solid var(--divider); border-radius:var(--r-md)}
+  .input::placeholder{color:var(--n-600)}
+  .input:focus-visible{border-color:var(--accent); outline-offset:0}
+  .seg{display:inline-flex; width:100%; overflow:hidden; border:1px solid var(--divider); border-radius:var(--r-md)}
+  .seg-opt{flex:1; text-align:center; padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--muted-70)}
+  .seg-opt + .seg-opt{border-left:1px solid var(--divider)}
+  .seg-opt.checked{color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+
+  /* callout / note */
+  .callout{padding:11px 12px; background:var(--tint-10); border:1px solid var(--tint-30); border-radius:var(--r-md); font-size:12.5px; color:var(--accent-300)}
+  .note{padding:11px 12px; background:var(--wash-4); border-radius:var(--r-md); font-size:12.5px; color:var(--text)}
+
+  /* icon / brand */
+  .brandmark{width:24px; height:24px; border:1px solid var(--accent); border-radius:7px; display:grid; place-items:center; box-shadow:0 0 14px var(--tint-22)}
+  .brandmark .dotmark{width:8px; height:8px; border-radius:1.5px; background:var(--accent)}
+  .wordmark{font-family:var(--font-h); font-size:15px; letter-spacing:-0.02em}
+
+  table.reftable{width:100%; border-collapse:collapse; font-size:12.5px}
+  table.reftable th{text-align:left; font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted-60); padding:7px 8px; border-bottom:1px solid var(--divider)}
+  table.reftable td{padding:8px; border-bottom:1px solid var(--wash-8); vertical-align:top}
+  table.reftable td.key{font-family:var(--font-mono); color:var(--accent-300); white-space:nowrap}
+  .tablewrap{overflow-x:auto}
+
+  ul.rules{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px}
+  ul.rules li{font-size:12.5px; color:var(--n-300); padding-left:16px; position:relative}
+  ul.rules li::before{content:'—'; position:absolute; left:0; color:var(--n-600)}
+
+  footer.pagefoot{padding:36px 0 0; color:var(--n-600); font-size:11.5px; line-height:1.6}
+  footer.pagefoot code{color:var(--n-500)}
+</style>
+
+<header class="top">
+  <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
+  <span class="name">Kvitteria</span>
+  <nav>
+    <a href="#color">Color</a>
+    <a href="#type">Type</a>
+    <a href="#space">Space &amp; radius</a>
+    <a href="#elevation">Elevation</a>
+    <a href="#buttons">Buttons</a>
+    <a href="#tags">Tags</a>
+    <a href="#surfaces">Surfaces</a>
+    <a href="#nav">Navigation</a>
+    <a href="#forms">Forms</a>
+    <a href="#callouts">Callouts</a>
+    <a href="#icons">Icons</a>
+  </nav>
+</header>
+
+<div class="shell">
+
+  <div class="hero">
+    <span class="eyebrow">Style tokens</span>
+    <h1>Every value the app is allowed to paint with</h1>
+    <p class="lead">Pulled straight from <code>MobileApp/Resources/Styles/</code> — the resource key you'd write in XAML, the resolved hex or number, and when the design system actually reaches for it.</p>
+    <p>Dark-only by design: there is no light ramp, so this reference doesn't pretend to have one either.</p>
+  </div>
+
+  <!-- COLOR -->
+  <section class="block" id="color">
+    <div class="kicker">Colors.xaml</div>
+    <h2>Color</h2>
+    <p class="desc">One accent hue (oklch 158–170°) carried across a 100–900 ramp on a dark ground. No second accent — <code>Accent</code> is exactly <code>Accent500</code>. Contrast comes from tonal steps, not added saturation.</p>
+
+    <div class="grid cols-3" style="margin-bottom:24px">
+      <div class="swatch lg"><div class="fill" style="background:var(--bg)"></div><div class="meta"><div class="key">Bg</div><div class="hex">#0B1914</div><div class="use">Page ground. Every <code>Page</code> and the well behind form inputs.</div></div></div>
+      <div class="swatch lg"><div class="fill" style="background:var(--surface)"></div><div class="meta"><div class="key">Surface</div><div class="hex">#1A2521</div><div class="use">Panels, demo frames, hero card fill — one step up from the page.</div></div></div>
+      <div class="swatch lg"><div class="fill" style="background:var(--text)"></div><div class="meta"><div class="key">TextColor</div><div class="hex">#E4E9E7</div><div class="use">Default label and shell foreground color.</div></div></div>
+    </div>
+
+    <div class="label" style="margin-bottom:8px">Accent ramp — 100 → 900</div>
+    <div class="grid auto" style="margin-bottom:24px">
+      <div class="swatch"><div class="fill" style="background:var(--accent-100)"></div><div class="meta"><div class="key">Accent100</div><div class="use">TagText — text on an Accent800 fill.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-200)"></div><div class="meta"><div class="key">Accent200</div><div class="use">Reserved ramp step.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-300)"></div><div class="meta"><div class="key">Accent300</div><div class="use">CalloutText — accent copy over a tint wash.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-400)"></div><div class="meta"><div class="key">Accent400</div><div class="use">Reserved ramp step.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-500)"></div><div class="meta"><div class="key">Accent / 500</div><div class="use">The one accent voice: ButtonPrimary, links, active icon, AccentBrush.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-600)"></div><div class="meta"><div class="key">Accent600</div><div class="use">Reserved ramp step.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-700)"></div><div class="meta"><div class="key">Accent700</div><div class="use">Reserved ramp step.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-800)"></div><div class="meta"><div class="key">Accent800</div><div class="use">TagAccent — the tag fill itself.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--accent-900)"></div><div class="meta"><div class="key">Accent900</div><div class="use">Reserved ramp step.</div></div></div>
+    </div>
+
+    <div class="label" style="margin-bottom:8px">Neutral ramp — 100 → 900</div>
+    <div class="grid auto" style="margin-bottom:24px">
+      <div class="swatch"><div class="fill" style="background:var(--n-100)"></div><div class="meta"><div class="key">Neutral100</div><div class="use">TagTextNeutral.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-200)"></div><div class="meta"><div class="key">Neutral200</div><div class="use">Switch default thumb.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-300)"></div><div class="meta"><div class="key">Neutral300</div><div class="use">Reserved ramp step.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-400)"></div><div class="meta"><div class="key">Neutral400</div><div class="use">Default Icon color, Shell.UnselectedColor.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-500)"></div><div class="meta"><div class="key">Neutral500</div><div class="use">ElevationLg edge, Switch off-thumb.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-600)"></div><div class="meta"><div class="key">Neutral600</div><div class="use">Placeholder text on every input.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-700)"></div><div class="meta"><div class="key">Neutral700</div><div class="use">ElevationMd edge; disabled control color.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-800)"></div><div class="meta"><div class="key">Neutral800</div><div class="use">Implicit Border stroke (elev-sm), TagNeutral fill.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--n-900)"></div><div class="meta"><div class="key">Neutral900</div><div class="use">Reserved — darkest step, not yet consumed.</div></div></div>
+    </div>
+
+    <div class="grid cols-3" style="margin-bottom:24px">
+      <div class="swatch"><div class="fill" style="background:var(--section)"></div><div class="meta"><div class="key">Section</div><div class="hex">#054328</div><div class="use">Deck / stat-band ground <em>only</em> — never reach for it as a surface.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--divider); border:1px solid var(--n-800)"></div><div class="meta"><div class="key">Divider</div><div class="hex">Text @ 16%</div><div class="use">Hairline rules, Seg border, HorizontalRule.</div></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--tint-30); border:1px solid var(--n-800)"></div><div class="meta"><div class="key">AccentTint30</div><div class="use">HeroCard edge, Callout border.</div></div></div>
+    </div>
+
+    <div class="tablewrap">
+      <table class="reftable">
+        <thead><tr><th>Alpha family</th><th>Steps</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td class="key">AccentTint 10/14/16/22/30/34</td><td>Accent at 10–34% alpha</td><td>Hover/press washes and active fills — 10 ghost-button hover, 14 primary hover &amp; active nav, 22 primary press &amp; corner glow, 30 hero/callout edges.</td></tr>
+          <tr><td class="key">AccentFade</td><td>Accent at 0% alpha</td><td>The far stop of a gradient — never plain <code>Transparent</code>, which would fade through grey instead of losing only alpha.</td></tr>
+          <tr><td class="key">TextMuted 70/60/55/50</td><td>Text at 70→50% alpha</td><td>70 field labels, 60 reserved for table headers, 55 MutedText, 50 CardMeta.</td></tr>
+          <tr><td class="key">TextWash 8/7/6/4</td><td>Text at 8→4% alpha</td><td>Button press (8), button hover (7), nav-item hover (6), Note background (4).</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- TYPE -->
+  <section class="block" id="type">
+    <div class="kicker">Tokens.xaml + Styles.xaml</div>
+    <h2>Type</h2>
+    <p class="desc">Montserrat (<code>FontHeading</code>) capped at weight 500 — there's no bolder face registered, so hierarchy has to come from size and space. Poppins (<code>FontBody</code>) carries everything else.</p>
+
+    <div class="demo">
+      <div class="type-row"><div class="tag-key">H1 / H2</div><div class="sample"><span class="h1s">Husstandens forbrug</span></div><div class="spec">42 / 32</div></div>
+      <div class="type-row"><div class="tag-key">H3 / H4</div><div class="sample"><span class="h3s">Husstandens forbrug</span></div><div class="spec">25 / 20</div></div>
+      <div class="type-row"><div class="tag-key">H5</div><div class="sample"><span class="h5s">Husstandens forbrug</span></div><div class="spec">16</div></div>
+      <div class="type-row"><div class="tag-key">H6 / Eyebrow</div><div class="sample"><span class="h6s">Husstandens forbrug</span></div><div class="spec">13, tracked</div></div>
+      <div class="type-row"><div class="tag-key">BodyText</div><div class="sample"><span class="bodys">Denne kvittering blev automatisk kategoriseret ud fra tidligere indkøb.</span></div><div class="spec">15 / 1.55</div></div>
+      <div class="type-row"><div class="tag-key">SmallText</div><div class="sample"><span class="smalls">Meta rows, captions, secondary detail.</span></div><div class="spec">13</div></div>
+      <div class="type-row"><div class="tag-key">MutedText</div><div class="sample"><span class="muteds">De-emphasized helper copy.</span></div><div class="spec">13, muted-55</div></div>
+      <div class="type-row"><div class="tag-key">Eyebrow</div><div class="sample"><span class="eyebrows">Section kicker</span></div><div class="spec">11, tracked</div></div>
+      <div class="type-row"><div class="tag-key">KvNum / KvNumLarge</div><div class="sample"><span class="kvnum-lg">2.438,27 kr</span></div><div class="spec">34, Montserrat</div></div>
+    </div>
+    <p class="note-inline" style="margin-top:12px">KvNum styles carry amounts specifically — Montserrat's own figures are the closest thing MAUI has to tabular numerals, so a receipt total should never sit in <code>BodyText</code>.</p>
+  </section>
+
+  <!-- SPACE & RADIUS -->
+  <section class="block" id="space">
+    <div class="kicker">Tokens.xaml</div>
+    <h2>Space &amp; radius</h2>
+    <p class="desc">A 0.70× density scale, kept fractional on purpose — these are the reference's own numbers, not roundings to a 4/8pt grid.</p>
+
+    <div class="grid cols-2" style="margin-bottom:20px">
+      <div class="demo">
+        <div class="label" style="margin-bottom:2px">Spacing scale</div>
+        <div class="space-row"><span class="tag-key">Space1</span><span class="bar" style="width:2.8px"></span><span class="val">2.8</span></div>
+        <div class="space-row"><span class="tag-key">Space2</span><span class="bar" style="width:5.6px"></span><span class="val">5.6</span></div>
+        <div class="space-row"><span class="tag-key">Space3</span><span class="bar" style="width:8.4px"></span><span class="val">8.4</span></div>
+        <div class="space-row"><span class="tag-key">Space4</span><span class="bar" style="width:11.2px"></span><span class="val">11.2</span></div>
+        <div class="space-row"><span class="tag-key">Space6</span><span class="bar" style="width:16.8px"></span><span class="val">16.8</span></div>
+        <div class="space-row"><span class="tag-key">Space8</span><span class="bar" style="width:22.4px"></span><span class="val">22.4</span></div>
+      </div>
+      <div class="demo">
+        <div class="label" style="margin-bottom:6px">Radius</div>
+        <div class="row">
+          <div class="radius-item"><div class="box" style="border-radius:var(--r-sm)">sm</div><span class="tag-key">RadiusSm — 4</span></div>
+          <div class="radius-item"><div class="box" style="border-radius:var(--r-md)">md</div><span class="tag-key">RadiusMd — 8</span></div>
+          <div class="radius-item"><div class="box" style="border-radius:var(--r-lg)">lg</div><span class="tag-key">RadiusLg — 14</span></div>
+          <div class="radius-item"><div class="box" style="border-radius:var(--r-tag); width:44px; height:44px">tag</div><span class="tag-key">RadiusTag — 6</span></div>
+        </div>
+        <p class="note-inline">Md is the default control radius (buttons, inputs, nav items). Lg is reserved for panels, the hero card and dialogs — the top-elevation surfaces.</p>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table class="reftable">
+        <thead><tr><th>Thickness</th><th>Value (h, v)</th><th>Used by</th></tr></thead>
+        <tbody>
+          <tr><td class="key">PaddingCard</td><td>11.2 all sides</td><td>Card, DialogSurface</td></tr>
+          <tr><td class="key">PaddingPanel</td><td>22.4 all sides</td><td>Panel</td></tr>
+          <tr><td class="key">PaddingButton</td><td>10.08, 5.6</td><td>The default Button style</td></tr>
+          <tr><td class="key">PaddingTag</td><td>10, 3</td><td>TagBase</td></tr>
+          <tr><td class="key">PaddingInput</td><td>10, 6</td><td>Reference value for field chrome</td></tr>
+          <tr><td class="key">PaddingNavItem</td><td>10, 8</td><td>NavItem</td></tr>
+          <tr><td class="key">PaddingHero</td><td>18, 20</td><td>HeroCard — the mobile hero padding, not the desktop 30/32</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ELEVATION -->
+  <section class="block" id="elevation">
+    <div class="kicker">Tokens.xaml</div>
+    <h2>Elevation &amp; glow</h2>
+    <p class="desc">On this dark ground, elevation is a hairline edge plus ambient darkness — never a stacked drop shadow. Each level pairs a border color with a shadow; <code>sm</code> has no shadow at all, so it's deliberately undefined rather than a shadow-less no-op.</p>
+    <div class="grid cols-3" style="margin-bottom:20px">
+      <div class="elev-card elev-sm"><span class="k">elev-sm</span><span class="d">Hairline only (Neutral800). Resting cards, list rows.</span></div>
+      <div class="elev-card elev-md"><span class="k">ElevationMd</span><span class="d">Neutral700 edge + shadow(0,6,18,.55). Raised panels, the hero card.</span></div>
+      <div class="elev-card elev-lg"><span class="k">ElevationLg</span><span class="d">Neutral500 edge + shadow(0,16,40,.65). Dialogs — the top layer.</span></div>
+    </div>
+    <div class="hero-card">
+      <div class="inner">
+        <div class="label" style="color:var(--accent-200)">HeroWash + HeroCornerGlow + HeroTextGlow</div>
+        <div class="hero-amount" style="margin-top:8px">2.438,27 kr</div>
+        <p class="note-inline" style="margin-top:8px">Three layered tokens reserved for exactly one surface: the overview hero. A radial accent bloom off the top-left corner, a circular glow bleeding in from the top-right, and a colored text-shadow lighting the amount from behind.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUTTONS -->
+  <section class="block" id="buttons">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Buttons</h2>
+    <p class="desc">The implicit <code>Button</code> style is already the quiet secondary variant — a divider outline on nothing. The accent only shows up where it's opted into.</p>
+    <div class="demo">
+      <div class="row">
+        <button class="btn">Default (implicit)</button>
+        <button class="btn btn-primary">ButtonPrimary</button>
+        <button class="btn btn-ghost">ButtonGhost</button>
+        <button class="btn btn-disabled">Disabled — opacity 0.45</button>
+        <button class="btn btn-icon">⚙</button>
+      </div>
+      <p class="note-inline">Primary is an accent <em>outline</em>, never a solid fill — hover and press are accent washes (14%/22%), not a color swap. Ghost drops the border entirely for an inline action. Icon buttons hold the 44×44 touch minimum even where the reference draws 36px.</p>
+    </div>
+  </section>
+
+  <!-- TAGS -->
+  <section class="block" id="tags">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Tags</h2>
+    <p class="desc">A Border wrapping a Label — MAUI has no single control with a fill, radius and text together. Pair each background style with its matching text style.</p>
+    <div class="demo">
+      <div class="row">
+        <span class="tag tag-accent">TagAccent + TagText</span>
+        <span class="tag tag-neutral">TagNeutral + TagTextNeutral</span>
+        <span class="tag tag-outline">TagOutline + TagTextOutline</span>
+      </div>
+      <p class="note-inline">Accent tags mark taxonomy (category, status of "done"); neutral tags carry counts and passive metadata; outline tags flag something pending or unresolved.</p>
+    </div>
+  </section>
+
+  <!-- SURFACES -->
+  <section class="block" id="surfaces">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Surfaces</h2>
+    <p class="desc">Inverted from the usual light-theme instinct: a <code>Card</code> sits <em>on</em> a <code>Panel</code> and is filled with the page ground, not a lighter tint of it.</p>
+    <div class="grid cols-3" style="margin-bottom:20px">
+      <div class="panel" style="padding:16px">
+        <div class="label" style="margin-bottom:8px">Panel — surface fill, radius-lg</div>
+        <div class="card">
+          <div class="card-kicker">Denne måned</div>
+          <div class="card-title">Dagligvarer</div>
+          <p class="card-body">736,87 kr på tværs af 14 kvitteringer.</p>
+          <div class="card-meta">+5,8 % ift. sidste måned</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center">
+        <div class="dialog">
+          <div class="dialog-title">Slet kvittering?</div>
+          <div class="dialog-body">Denne handling kan ikke fortrydes.</div>
+          <div class="dialog-actions">
+            <button class="btn">Annullér</button>
+            <button class="btn btn-primary">Slet</button>
+          </div>
+        </div>
+      </div>
+      <div class="demo" style="padding:16px">
+        <div class="label">Where each is used</div>
+        <p class="note-inline"><strong>Panel</strong> — the demo frame, a settings section. <strong>Card</strong> — a stat tile inside a panel. <strong>DialogSurface</strong> — confirmation and destructive-action modals, always at ElevationLg.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NAV -->
+  <section class="block" id="nav">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Navigation</h2>
+    <p class="desc">Active state is an accent tint fill plus accent text — never a border or an icon swap.</p>
+    <div class="demo" style="max-width:260px">
+      <div class="navlist">
+        <div class="navitem active"><span class="dot"></span>Oversigt</div>
+        <div class="navitem"><span class="dot"></span>Kvitteringer</div>
+        <div class="navitem"><span class="dot"></span>Indsigt</div>
+        <div class="navitem"><span class="dot"></span>Indstillinger</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FORMS -->
+  <section class="block" id="forms">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Forms &amp; segmented control</h2>
+    <p class="desc">Native controls, themed states — no custom widgets. A field reads as a well cut into the panel it sits on: <code>Bg</code>, not <code>Surface</code>.</p>
+    <div class="demo" style="max-width:380px">
+      <div class="field">
+        <label>E-mail</label>
+        <input class="input" placeholder="dig@husstand.dk">
+      </div>
+      <div class="field">
+        <label>Kategori</label>
+        <div class="seg">
+          <div class="seg-opt checked">Web</div>
+          <div class="seg-opt">Mobil</div>
+        </div>
+      </div>
+      <p class="note-inline">The segmented control is a styled <code>RadioButton</code>, not two buttons — it keeps the exclusive-choice semantics and keyboard behavior for free. The checked option's ring is an inner Border stroke, which happens to land exactly where the reference's inset box-shadow does.</p>
+    </div>
+  </section>
+
+  <!-- CALLOUTS -->
+  <section class="block" id="callouts">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Callouts &amp; notes</h2>
+    <p class="desc">Two severities for a block of text the user must read before continuing.</p>
+    <div class="grid cols-2">
+      <div class="callout"><strong>Callout</strong> — accent edge over an accent wash. Form errors, "signed in as" panels — still a line and a glow, not a flood.</div>
+      <div class="note"><strong>Note</strong> — a flat text wash, no border. A footnote that's information, not a problem.</div>
+    </div>
+  </section>
+
+  <!-- ICONS -->
+  <section class="block" id="icons">
+    <div class="kicker">Styles.xaml — component</div>
+    <h2>Icons &amp; brand</h2>
+    <p class="desc">Every icon is a Phosphor glyph (<code>FontIcons</code>) taking the <code>TextColor</code> of whatever it sits in — one file, every density, no per-icon asset.</p>
+    <div class="demo">
+      <div class="row" style="align-items:center">
+        <div class="brandmark"><div class="dotmark"></div></div>
+        <span class="wordmark">Kvitteria</span>
+        <span class="note-inline" style="margin-left:8px">BrandMark + BrandMarkGlyph + Wordmark — the header mark on every screen, lit with AccentGlow.</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    Source of truth: <code>docs/design-system.html</code> (the web reference this ramp was transcribed from) and <code>MobileApp/Resources/Styles/{Colors,Tokens,Styles}.xaml</code> (what actually ships). oklch → sRGB conversion notes and per-token rationale live as comments in those files — read them before retuning a value here.
+  </footer>
+
+</div>
