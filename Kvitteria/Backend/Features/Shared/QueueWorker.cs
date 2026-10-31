@@ -8,8 +8,11 @@ public abstract class QueueWorker<TItem>(WorkQueue<TItem> queue, ILogger logger)
 
 	protected abstract Task ProcessAsync(TItem item, CancellationToken ct);
 
-	/// <summary>Record the failure on the item. Called for both faults and shutdown.</summary>
-	protected abstract void OnFailed(TItem item, string error);
+	/// <summary>
+	/// Record the failure durably. Called for faults only: shutdown is not a failure, the item stays as
+	/// it is and is resumed at the next start. Exceptions thrown here are logged and swallowed.
+	/// </summary>
+	protected abstract Task OnFailedAsync(TItem item, string error);
 
 	/// <summary>Short identifier for logs.</summary>
 	protected abstract string Describe(TItem item);
@@ -24,16 +27,34 @@ public abstract class QueueWorker<TItem>(WorkQueue<TItem> queue, ILogger logger)
 			}
 			catch (OperationCanceledException) when (ct.IsCancellationRequested)
 			{
-				OnFailed(item, $"{WorkerName} interrupted by shutdown");
 				logger.LogInformation(
-					"{Worker} stopped by shutdown while handling {Item}.", WorkerName, Describe(item));
+					"{Worker} stopped by shutdown while handling {Item}; it will be resumed at next startup.",
+					WorkerName, Describe(item));
 				return;
 			}
 			catch (Exception ex)
 			{
-				OnFailed(item, ex.Message);
 				logger.LogError(ex, "{Worker} failed for {Item}", WorkerName, Describe(item));
+				await RecordFailureAsync(item, PipelineError.Describe(ex));
 			}
+		}
+	}
+
+	/// <summary>
+	/// A database outage must not end the worker either. If this write is lost the row stays in progress
+	/// and is retried at next startup rather than being lost.
+	/// </summary>
+	private async Task RecordFailureAsync(TItem item, string error)
+	{
+		try
+		{
+			await OnFailedAsync(item, error);
+		}
+		catch (Exception ex)
+		{
+			logger.LogError(
+				ex, "{Worker} could not record the failure for {Item}; it will be resumed at next startup.",
+				WorkerName, Describe(item));
 		}
 	}
 }

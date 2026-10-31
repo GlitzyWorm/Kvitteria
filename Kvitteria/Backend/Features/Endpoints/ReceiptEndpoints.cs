@@ -25,6 +25,7 @@ static class ReceiptEndpoints
 			app.MapUserEndpoints();
 			app.MapSettingsEndpoints();
 			app.MapMailboxEndpoints();
+			app.MapPipelineEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()
@@ -37,6 +38,7 @@ static class ReceiptEndpoints
 				            DateTime? from,
 				            DateTime? to,
 				            ReceiptStatus? status,
+				            bool? reconciled,
 				            KvitteriaDbContext dbContext,
 				            CancellationToken ct,
 				            int pageSize = 10,
@@ -48,7 +50,8 @@ static class ReceiptEndpoints
 				                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
 				                                                             (from == null || r.PurchaseDate >= from) &&
 				                                                             (to == null || r.PurchaseDate <= to) &&
-				                                                             (status == null || r.Status == status))
+				                                                             (status == null || r.Status == status) &&
+				                                                             (reconciled == null || r.Reconciled == reconciled))
 				                                                 .AsNoTracking();
 
 				            int totalCount = await query.CountAsync(ct);
@@ -59,6 +62,7 @@ static class ReceiptEndpoints
 				                                                 .Skip((page-1)*pageSize)
 				                                                 .Take(pageSize)
 				                                                 .Include(r => r.Merchant)
+				                                                 .Include(r => r.AppUser)
 				                                                 .Include(r => r.ReceiptLines)
 				                                                 .ThenInclude(rl => rl.CanonicalItem)
 				                                                 .Include(r => r.ReceiptLines)
@@ -81,6 +85,7 @@ static class ReceiptEndpoints
 			receiptGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
 				            Receipt? receipt = await dbContext.Receipts
 				                                              .Include(r => r.Merchant)
+				                                              .Include(r => r.AppUser)
 				                                              .Include(r => r.ReceiptLines)
 				                                              .ThenInclude(rl => rl.CanonicalItem)
 				                                              .Include(r => r.ReceiptLines)

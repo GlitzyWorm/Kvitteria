@@ -197,8 +197,8 @@ static class MailboxEndpoints
 				            if (mailbox == null)
 					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Mailbox with id {id} not found");
 
-				            // Nothing references a mailbox, so this is a real delete. The member it belonged
-				            // to is untouched — receipts already collected keep their own history.
+				            // A real delete. Receipts and unresolved mail that came through it have their
+				            // MailboxId nulled (SetNull) and keep their member, so history survives.
 				            dbContext.Mailboxes.Remove(mailbox);
 				            await dbContext.SaveChangesAsync(ct);
 

@@ -11,5 +11,8 @@ public record ReceiptDto(
 	bool Reconciled,
 	ReceiptStatus Status,
 	List<ReceiptLineDto> ReceiptLines,
-	List<ReceiptMealCoverageDto> ReceiptMealCoverage
+	List<ReceiptMealCoverageDto> ReceiptMealCoverage,
+	string? Error,
+	Guid? MemberId,
+	string? MemberDisplayName
 );

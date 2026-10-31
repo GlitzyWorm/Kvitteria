@@ -38,6 +38,9 @@ public sealed class Mailbox
 	/// <summary>Last poll that reached the server and completed. Written by the fetcher, read-only over HTTP.</summary>
 	public DateTime? LastPolledAt { get; set; }
 
+	/// <summary>When mail last arrived through this mailbox. Written by the fetcher.</summary>
+	public DateTime? LastMessageAt { get; set; }
+
 	/// <summary>Why the last poll of this mailbox failed, or null when the last one succeeded.</summary>
 	public string? LastError { get; set; }
 

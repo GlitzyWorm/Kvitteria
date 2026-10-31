@@ -1,5 +1,6 @@
 ﻿using Backend.Features.Extraction;
 using Backend.Features.Persistence;
+using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Model;
 using Microsoft.EntityFrameworkCore;
 namespace Backend.Features.Mail;
@@ -7,6 +8,7 @@ namespace Backend.Features.Mail;
 public sealed class MailWorker(
 	MailFetcher fetcher,
 	ExtractionQueue queue,
+	ReceiptIntakeStore store,
 	IServiceScopeFactory scopeFactory,
 	ILogger<MailWorker> logger
 ) : BackgroundService
@@ -21,6 +23,16 @@ public sealed class MailWorker(
 
 	protected override async Task ExecuteAsync(CancellationToken ct)
 	{
+		try
+		{
+			await ResumeUnfinishedAsync(ct);
+		}
+		catch (OperationCanceledException) when (ct.IsCancellationRequested)
+		{
+			logger.LogInformation("Mail worker stopped by shutdown.");
+			return;
+		}
+
 		PipelineSettings settings = await LoadSettingsAsync(ct);
 		using var timer = new PeriodicTimer(PollInterval(settings));
 		int consecutiveFailures = 0;
@@ -75,6 +87,32 @@ public sealed class MailWorker(
 		catch (OperationCanceledException) when (ct.IsCancellationRequested)
 		{
 			logger.LogInformation("Mail worker stopped by shutdown.");
+		}
+	}
+
+	/// <summary>
+	/// Puts mail a previous process left unfinished back on the queue, oldest first, before the first
+	/// poll. Living here rather than in its own hosted service means the ordering against polling is
+	/// already guaranteed, and a full queue delaying the first poll is the right backpressure.
+	/// </summary>
+	private async Task ResumeUnfinishedAsync(CancellationToken ct)
+	{
+		try
+		{
+			List<ReceiptRecord> pending = await store.RecoverAsync(ct);
+
+			if (pending.Count == 0)
+				return;
+
+			logger.LogInformation("Resuming {Count} mail(s) left unfinished by the previous run.", pending.Count);
+
+			foreach (ReceiptRecord record in pending)
+				await queue.EnqueueAsync(record, ct);
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			// Polling must still start. The rows are untouched and are picked up at the next start.
+			logger.LogError(ex, "Could not resume unfinished mail; it stays recorded and is retried at next startup.");
 		}
 	}
 

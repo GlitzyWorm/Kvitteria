@@ -1,4 +1,5 @@
-﻿using Kvitteria.Contracts.Shared;
+﻿using Backend.Features.Persistence.Model.Users;
+using Kvitteria.Contracts.Shared;
 
 namespace Backend.Features.Persistence.Model.Receipts;
 
@@ -20,6 +21,17 @@ public sealed class Receipt
 
 	/// <summary>Why extraction was imperfect, when it was.</summary>
 	public string? Error { get; set; }
+
+	/// <summary>
+	/// The member whose mailbox the mail arrived in. Null for receipts stored before attribution existed.
+	/// Restrict on delete. Kept apart from <see cref="MailboxId"/> because a mailbox can be deleted
+	/// while the receipt must keep the person it belonged to.
+	/// </summary>
+	public Guid? AppUserId { get; set; }
+	public AppUser? AppUser { get; set; }
+
+	/// <summary>The mailbox it came through. SetNull on delete.</summary>
+	public Guid? MailboxId { get; set; }
 
 	public List<ReceiptMealCoverage> MealCoverage { get; set; } = [];
 

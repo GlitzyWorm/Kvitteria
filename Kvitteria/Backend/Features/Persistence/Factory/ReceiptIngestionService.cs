@@ -1,5 +1,6 @@
 ﻿using Backend.Features.Extraction;
 using Backend.Features.Mail;
+using Backend.Features.Persistence.Model;
 using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Shared;
 using Kvitteria.Contracts.Shared;
@@ -24,6 +25,13 @@ public sealed class ReceiptIngestionService(
 	{
 		await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
 
+		// Read the row rather than trusting the record: the mailbox may have been deleted since the mail
+		// was fetched, and the nulled MailboxId is what the foreign key will accept. A missing row means
+		// the mail was already resolved, which must not produce a second receipt.
+		ReceiptIntake intake = await dbContext.ReceiptIntakes.FirstOrDefaultAsync(i => i.Id == record.IntakeId, ct)
+		                       ?? throw new InvalidOperationException(
+			                       $"The recorded mail for '{record.Subject}' no longer exists; it was already resolved.");
+
 		Guid merchantId = await ResolveMerchantIdAsync(extracted.Merchant, ct);
 
 		var receipt = new Receipt {
@@ -34,6 +42,8 @@ public sealed class ReceiptIngestionService(
 			Reconciled = record.Reconciled,
 			Status = ReceiptStatus.Completed,
 			SourceMessageId = record.MessageId,
+			AppUserId = intake.AppUserId,
+			MailboxId = intake.MailboxId,
 			Error = record.Error,
 			ReceiptLines = extracted.LineItems.Select(l => new ReceiptLine {
 				RawName = l.RawName,
@@ -46,6 +56,9 @@ public sealed class ReceiptIngestionService(
 		await LinkCanonicalItemsAsync(receipt, ct);
 
 		dbContext.Receipts.Add(receipt);
+
+		// Deleted in the same transaction, so the mail text is held exactly as long as it is unresolved.
+		dbContext.ReceiptIntakes.Remove(intake);
 		await dbContext.SaveChangesAsync(ct);
 		await transaction.CommitAsync(ct);
 

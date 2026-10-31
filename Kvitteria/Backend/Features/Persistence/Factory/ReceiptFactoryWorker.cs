@@ -9,6 +9,7 @@ namespace Backend.Features.Persistence.Factory;
 public sealed class ReceiptFactoryWorker(
 	IServiceScopeFactory scopeFactory,
 	PersistenceQueue queue,
+	ReceiptIntakeStore store,
 	ILogger<ReceiptFactoryWorker> logger
 ) : QueueWorker<ReceiptRecord>(queue, logger)
 {
@@ -16,11 +17,13 @@ public sealed class ReceiptFactoryWorker(
 
 	protected override string Describe(ReceiptRecord item) => item.Subject;
 
-	protected override void OnFailed(ReceiptRecord item, string error)
+	protected override async Task OnFailedAsync(ReceiptRecord item, string error)
 	{
 		item.Status = ReceiptStatus.Failed;
 		item.Error = error;
 		item.CompletedAt = DateTimeOffset.UtcNow;
+
+		await store.MarkFailedAsync(item.IntakeId, error, item.Attempts, CancellationToken.None);
 	}
 
 	protected override async Task ProcessAsync(ReceiptRecord record, CancellationToken ct)
