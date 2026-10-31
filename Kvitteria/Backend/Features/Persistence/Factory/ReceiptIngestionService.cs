@@ -2,6 +2,7 @@
 using Backend.Features.Mail;
 using Backend.Features.Persistence.Model;
 using Backend.Features.Persistence.Model.Receipts;
+using Backend.Features.Receipts;
 using Backend.Features.Shared;
 using Kvitteria.Contracts.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -92,17 +93,21 @@ public sealed class ReceiptIngestionService(
 
 		List<string> normalizedNames = lines.Select(l => l.Normalized).Distinct().ToList();
 
-		Dictionary<string, Guid> canonicalIdByAlias = await dbContext.ItemAliases
+		Dictionary<string, AliasTarget> targetByAlias = await dbContext.ItemAliases
 			.AsNoTracking()
 			.Where(a => normalizedNames.Contains(a.RawName))
-			.ToDictionaryAsync(a => a.RawName, a => a.CanonicalItemId, ct);
+			.Select(a => new { a.RawName, Target = new AliasTarget(a.CanonicalItemId, a.CanonicalItem!.CategoryId, a.CanonicalItem.DefaultMealId) })
+			.ToDictionaryAsync(a => a.RawName, a => a.Target, ct);
 
 		var unmatched = new List<string>();
 
 		foreach ((ReceiptLine line, string normalized) in lines)
 		{
-			if (canonicalIdByAlias.TryGetValue(normalized, out Guid canonicalId))
-				line.CanonicalItemId = canonicalId;
+			if (targetByAlias.TryGetValue(normalized, out AliasTarget? target))
+			{
+				line.CanonicalItemId = target.CanonicalItemId;
+				AliasLearning.FillGaps(line, target.CategoryId, target.DefaultMealId);
+			}
 			else
 				unmatched.Add(line.RawName);
 		}
@@ -114,4 +119,6 @@ public sealed class ReceiptIngestionService(
 				unmatched.Count, lines.Count, unmatched);
 		}
 	}
+
+	private sealed record AliasTarget(Guid CanonicalItemId, Guid? CategoryId, Guid? DefaultMealId);
 }

@@ -143,6 +143,22 @@ curl -X PUT http://localhost:8080/api/receipt-lines/$LINE_ID/category \
   -d '{"categoryId":"'$CATEGORY_ID'","setAsDefault":true}'
 ```
 
+Sorting a line that has no canonical item yet takes one request. The queue lists what is waiting, and
+the save assigns the item, category and meal together; `rememberAlias` also resolves the same name on
+other waiting lines, and `setAsDefaults` writes the item's defaults. Creating an item or writing
+defaults needs `ManageTaxonomy` too.
+
+```bash
+# How many lines are waiting, and the first page of them
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/receipt-lines/unassigned/count
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/receipt-lines/unassigned?page=1&pageSize=20'
+
+# Sort one: a new item, remembered for next time, with its defaults
+curl -X POST http://localhost:8080/api/receipt-lines/$LINE_ID/sort \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"newItemName":"Mælk","categoryId":"'$CATEGORY_ID'","mealId":null,"rememberAlias":true,"setAsDefaults":true}'
+```
+
 Categories are a two-level tree, meals are seeded with a Danish taxonomy, and receipts can record how
 many days they cover for a given meal. Full surface: run with
 `ASPNETCORE_ENVIRONMENT=Development` and open `http://localhost:8080/scalar`.
