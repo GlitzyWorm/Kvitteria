@@ -132,9 +132,13 @@ static class PipelineEndpoints
 
 				             ReceiptRecord? record = await store.LoadAsync(id, ct);
 
+				             // Dismissed between the requeue and the load: nothing is left to retry or restore.
+				             if (record == null)
+					             return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Failed mail with id {id} not found");
+
 				             // Non-blocking on purpose: a blocking enqueue would hold this request open for as long as
 				             // extraction takes to free a slot.
-				             if (record == null || !queue.TryEnqueue(record))
+				             if (!queue.TryEnqueue(record))
 				             {
 					             await store.RestoreFailedAsync(id, previous.Error ?? "", previous.FailedAt, CancellationToken.None);
 
