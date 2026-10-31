@@ -10,17 +10,19 @@ shows.
 
 ## What Changes
 
-- Add a monthly summary: total spend, receipt count, change against the previous month, uncategorized
-  share, and the unassigned line count or a way to reach it.
-- Add a category breakdown for a chosen month and comparison month, by top-level category with
-  drill-down into children, including an uncategorized bucket.
+- Add a monthly summary: total paid, receipt count, change against the previous month, pant, and the
+  amount with no category.
+- Add a category breakdown for a chosen month and an optional comparison month, by top-level category
+  with drill-down into children, including an uncategorized bucket.
 - Add a multi-month spending trend.
-- Add item price history per canonical item: price per month, current price, lowest price and change.
+- Add item price history: which items have purchases, and for one item its price per month, current
+  price, lowest price and change.
 - Add meal-day statistics per month: spend on a meal, days covered and cost per day, for meals where
   `TracksDayCoverage` is true.
-- Add search to `GET /api/receipts`, matching merchant, line text and amount.
-- Remove nothing. The existing `ReceiptStatus` filter stays, but stored receipts are all `Completed`,
-  so the app takes failed receipts from `pipeline-failure-tracking` instead.
+- Add search to `GET /api/receipts`, matching merchant, member, printed line name, item name and amount.
+- Months follow Danish local time everywhere, using `DanishTime`.
+- The queue count is not repeated here. `GET /receipt-lines/unassigned/count` from `sorting-api` already
+  provides it.
 
 ## Capabilities
 
@@ -31,22 +33,21 @@ shows.
 - `insights/spending-trend`: spending across several months.
 - `insights/price-history`: how a canonical item's price moves over time.
 - `insights/meal-coverage-stats`: spend and cost per covered day for day-tracking meals.
-- `receipts/search`: finding receipts by merchant, line text or amount.
+- `receipts/search`: finding receipts by merchant, member, line, item or amount.
 
 ### Modified Capabilities
 
-None. No specs exist yet.
+None. Search is an additive parameter, and the existing receipt list behaviour is unchanged without it.
 
 ## Impact
 
-- **Backend:** new read-only endpoints, with the calculations as pure helpers covered by
-  `Backend.Tests` in the style of `Reconciliation` and `CategoryTree`.
-- **Database:** no new tables expected. Indexes for month-range queries may be needed.
+- **Backend:** new read-only `InsightsEndpoints`, with the calculations as pure helpers covered by
+  `Backend.Tests` in the style of `Reconciliation` and `CategoryTree`. `DanishTime` gains a month
+  range by year and month.
+- **Database:** no schema change. The existing `PurchaseDate` index serves the month ranges.
 - **Contracts:** new DTOs. `GET /api/receipts` gains an optional query parameter, which is additive.
 - **Authorization:** all reads, so ungated like the rest.
-- **Behaviour to settle in design:** whether month boundaries follow Danish local time rather than
-  UTC, since a late-night purchase must land in the right month; how pant counts towards totals;
-  what happens to spend in a category that has since moved; and the unit a price is compared in,
-  given weighed items with fractional quantities.
-- **Depends on:** nothing. Failed receipts are never in totals, because they have no `Receipt` row
-  under the proposed design for `pipeline-failure-tracking`.
+- **Accuracy:** totals are only as good as the extracted data. Lines linked before `sorting-api` keep
+  an empty category and count as uncategorized.
+- **Depends on:** `pipeline-failure-tracking` for `DanishTime` and the receipt's member, and
+  `sorting-api` for item defaults reaching lines. Both are applied.

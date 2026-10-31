@@ -29,4 +29,22 @@ public static class DanishTime
 
 		return (ToUtc(start), ToUtc(start.AddMonths(1)));
 	}
+
+	/// <summary>
+	/// The UTC instants bounding the given Danish calendar month: inclusive start, exclusive end.
+	/// </summary>
+	public static (DateTime StartUtc, DateTime EndUtc) MonthRangeUtc(int year, int month)
+	{
+		var start = new DateTime(year, month, 1);
+
+		return (ToUtc(start), ToUtc(start.AddMonths(1)));
+	}
+
+	/// <summary>The Danish calendar month an instant falls in.</summary>
+	public static (int Year, int Month) MonthOf(DateTime utc)
+	{
+		DateTime local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone);
+
+		return (local.Year, local.Month);
+	}
 }
