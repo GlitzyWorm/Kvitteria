@@ -121,6 +121,42 @@ stop the others. Things to check:
   come apart — restoring one without the other — the error asks you to re-enter it. Do that; it cannot
   be recovered.
 
+## A receipt mail was fetched but never became a receipt
+
+Mail that fails extraction is kept, with the reason, until someone deals with it. Look at the stages
+and the failures:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures
+```
+
+`status` counts mail per stage (`queued`, `extracting`, `persisting`, `failed`) plus `unreconciled`
+receipts, and gives per-mailbox `lastMessageAt` and `receiptsThisMonth`. Each failure names the
+underlying cause in `error` (an unreachable Ollama, an unpulled model, unusable output). The mail text
+is never returned.
+
+Once the cause is fixed, retry it, which needs `EditReceipts`:
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures/<id>/retry
+```
+
+A mail that was never a receipt can be dismissed, which deletes it and its text. Nothing changes on
+the mail server:
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures/<id>
+```
+
+Restarting the backend is safe: unfinished mail resumes by itself. Receipts that extracted but did not
+reconcile are not failures and cannot be retried; list them with
+`/api/receipts?reconciled=false` and correct them by hand.
+
+**Mail lost before this feature existed** left no record anywhere. Mark it unread in the mail client
+and the next poll processes it as new, because nothing stored matches its message ID. The same mail
+marked unread after its receipt exists is skipped, not duplicated.
+
 ## 401 on every API call
 
 Two likely causes, and the health checks cannot see either.

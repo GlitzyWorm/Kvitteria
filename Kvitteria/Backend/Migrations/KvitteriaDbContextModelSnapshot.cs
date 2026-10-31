@@ -60,6 +60,9 @@ namespace Backend.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("LastPolledAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -121,6 +124,76 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("PipelineSettings");
+                });
+
+            modelBuilder.Entity("Backend.Features.Persistence.Model.ReceiptIntake", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BodySource")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("FailedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("From")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("MailDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("MailboxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceMessageId")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("MailboxId");
+
+                    b.HasIndex("SourceMessageId")
+                        .IsUnique()
+                        .HasFilter("\"SourceMessageId\" IS NOT NULL");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ReceiptIntakes");
                 });
 
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
@@ -256,12 +329,18 @@ namespace Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AppUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
                     b.Property<decimal>("GrandTotal")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid?>("MailboxId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("MerchantId")
                         .HasColumnType("uuid");
@@ -286,6 +365,10 @@ namespace Backend.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("MailboxId");
 
                     b.HasIndex("MerchantId");
 
@@ -462,6 +545,24 @@ namespace Backend.Migrations
                     b.Navigation("AppUser");
                 });
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.ReceiptIntake", b =>
+                {
+                    b.HasOne("Backend.Features.Persistence.Model.Users.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Backend.Features.Persistence.Model.Mailbox", "Mailbox")
+                        .WithMany()
+                        .HasForeignKey("MailboxId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Mailbox");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.CanonicalItem", b =>
                 {
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Category", "Category")
@@ -502,11 +603,23 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
+                    b.HasOne("Backend.Features.Persistence.Model.Users.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Backend.Features.Persistence.Model.Mailbox", null)
+                        .WithMany()
+                        .HasForeignKey("MailboxId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Backend.Features.Persistence.Model.Receipts.Merchant", "Merchant")
                         .WithMany()
                         .HasForeignKey("MerchantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("AppUser");
 
                     b.Navigation("Merchant");
                 });

@@ -1,5 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using Backend.Features.Persistence;
+using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Model;
 using MailKit;
 using MailKit.Net.Imap;
@@ -22,6 +23,7 @@ public sealed record MailPollResult(int Fetched, int Attempted, int Failed)
 public sealed partial class MailFetcher(
 	IServiceScopeFactory scopeFactory,
 	MailboxSecrets secrets,
+	ReceiptIntakeStore store,
 	ILogger<MailFetcher> logger)
 {
 	private const int PreviewLength = 100;
@@ -164,18 +166,41 @@ public sealed partial class MailFetcher(
 		foreach (UniqueId id in uids)
 		{
 			MimeMessage message = await folder.GetMessageAsync(id, ct);
+
+			// Already stored or in progress: the same mail in two mailboxes, or one marked unread again.
+			// Flag it and move on rather than burn an extraction that would only hit the unique index.
+			if (message.MessageId is not null && await store.IsKnownAsync(message.MessageId, ct))
+			{
+				await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
+				logger.LogInformation(
+					"Skipping '{Subject}' in {Folder}: message {MessageId} is already known.",
+					message.Subject, folder.FullName, message.MessageId);
+				continue;
+			}
+
 			string bodyText = ExtractBody(message, out string bodySource);
 
-			var record = new ReceiptRecord(
+			// Recorded before anything else happens to it. If this throws the mail stays unread and is
+			// fetched again; once it succeeds the database holds the mail whatever happens next.
+			ReceiptRecord? record = await store.RecordAsync(
 				message.MessageId,
 				message.From.ToString(),
 				message.Subject ?? "",
 				message.Date,
 				bodyText,
 				bodySource,
-				mailbox.AppUserId
-			) { EnqueuedAt = DateTimeOffset.UtcNow };
+				mailbox,
+				ct);
 
+			if (record is null)
+			{
+				// Lost a race on the unique index to another mailbox's copy.
+				await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);
+				continue;
+			}
+
+			// Enqueue before flagging: if the flag then fails, the next poll finds the mail known and
+			// flags it, whereas the other order could leave a recorded mail nobody enqueues until restart.
 			await onFetched(record, ct);
 
 			await folder.AddFlagsAsync(id, MessageFlags.Seen, true, ct);

@@ -20,6 +20,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<HouseholdSettings> HouseholdSettings => Set<HouseholdSettings>();
 	public DbSet<PipelineSettings> PipelineSettings => Set<PipelineSettings>();
 	public DbSet<Mailbox> Mailboxes => Set<Mailbox>();
+	public DbSet<ReceiptIntake> ReceiptIntakes => Set<ReceiptIntake>();
 
 	/// <summary>
 	/// The Data Protection key ring, kept in this database so the keys and the ciphertext they protect
@@ -76,6 +77,18 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .WithMany()
 			      .HasForeignKey(r => r.MerchantId)
 			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasOne(r => r.AppUser)
+			      .WithMany()
+			      .HasForeignKey(r => r.AppUserId)
+			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasOne<Mailbox>()
+			      .WithMany()
+			      .HasForeignKey(r => r.MailboxId)
+			      .OnDelete(DeleteBehavior.SetNull);
+
+			entity.HasIndex(e => e.MailboxId);
 
 			entity.HasMany(r => r.ReceiptLines)
 			      .WithOne(rl => rl.Receipt)
@@ -243,6 +256,35 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 
 			// The same folder on the same account is one mailbox, however many times it is submitted.
 			entity.HasIndex(e => new { e.AppUserId, e.Host, e.Username, e.Folder }).IsUnique();
+		});
+
+		modelBuilder.Entity<ReceiptIntake>(entity => {
+			entity.HasKey(e => e.Id);
+
+			entity.Property(e => e.SourceMessageId).HasMaxLength(RawNameLength);
+			entity.Property(e => e.From).HasMaxLength(RawNameLength);
+			entity.Property(e => e.Subject).HasMaxLength(RawNameLength);
+			entity.Property(e => e.BodySource).HasMaxLength(16);
+			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+
+			// Backs up the fetcher's duplicate check. Filtered because a mail without a Message-ID
+			// cannot be matched, and several of those must be allowed.
+			entity.HasIndex(e => e.SourceMessageId)
+			      .IsUnique()
+			      .HasFilter("\"SourceMessageId\" IS NOT NULL");
+
+			// Recovery and the status counts both read by stage.
+			entity.HasIndex(e => e.Status);
+
+			entity.HasOne(e => e.Mailbox)
+			      .WithMany()
+			      .HasForeignKey(e => e.MailboxId)
+			      .OnDelete(DeleteBehavior.SetNull);
+
+			entity.HasOne(e => e.AppUser)
+			      .WithMany()
+			      .HasForeignKey(e => e.AppUserId)
+			      .OnDelete(DeleteBehavior.Restrict);
 		});
 	}
 }

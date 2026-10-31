@@ -1,11 +1,10 @@
 ﻿using System.Globalization;
+using Backend.Features.Shared;
 namespace Backend.Features.Persistence.Factory;
 
 /// <summary>Converts the model's Copenhagen-local purchase date into UTC.</summary>
 public static class PurchaseDate
 {
-	private static readonly TimeZoneInfo DanishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Copenhagen");
-
 	/// <summary>
 	/// Accepted formats: the one ReceiptExtractionPrompt asks for, plus the variants the model
 	/// drifts to.
@@ -33,13 +32,5 @@ public static class PurchaseDate
 	public static bool TryParseLocal(string extracted, out DateTime localDate) =>
 		DateTime.TryParseExact(extracted, Formats, CultureInfo.InvariantCulture, DateTimeStyles.None, out localDate);
 
-	public static DateTime ToUtc(DateTime localDate)
-	{
-		// A time inside the spring-forward gap (02:30 on the last Sunday in March) never existed, and
-		// ConvertTimeToUtc throws on it. Nudge it past the transition.
-		if (DanishTimeZone.IsInvalidTime(localDate))
-			localDate = localDate.AddHours(1);
-
-		return TimeZoneInfo.ConvertTimeToUtc(localDate, DanishTimeZone);
-	}
+	public static DateTime ToUtc(DateTime localDate) => DanishTime.ToUtc(localDate);
 }

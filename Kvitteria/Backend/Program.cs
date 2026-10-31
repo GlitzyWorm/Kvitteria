@@ -48,6 +48,7 @@ builder.Services.AddDataProtection()
        .SetApplicationName("Kvitteria")
        .PersistKeysToDbContext<KvitteriaDbContext>();
 builder.Services.AddSingleton<MailboxSecrets>();
+builder.Services.AddSingleton<ReceiptIntakeStore>();
 builder.Services.AddSingleton<MailFetcher>();
 builder.Services.AddHostedService<MailWorker>();
 

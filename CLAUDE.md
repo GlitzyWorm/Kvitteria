@@ -242,11 +242,36 @@ and the verifying endpoints, including the `FolderNotFoundException` branch that
 ## Pipeline architecture
 
 Three `BackgroundService`s chained by two bounded queues. `ExtractionQueue` and `PersistenceQueue`
-are both three-line subclasses of `WorkQueue<T>` (capacity 100, single reader, single writer); they
+are both three-line subclasses of `WorkQueue<T>` (capacity 100, single reader, several writers: the poller, startup recovery and the retry endpoint all feed
+`ExtractionQueue`, and `TryEnqueue` lets an HTTP handler refuse rather than wait); they
 are separate named types rather than one `WorkQueue<ReceiptRecord>` because both carry the same `T`
 and could not otherwise be resolved unambiguously from the container. A single mutable
 `ReceiptRecord` instance flows the whole way through and accumulates state (`Status`, `Extracted`,
 `Attempts`, `Reconciled`, `Error`).
+
+**The queues are delivery, not storage.** `ReceiptIntake` is the source of truth: one row per mail from
+fetch until it becomes a receipt, holding the mail text, with `Status` reusing `ReceiptStatus`
+(`Queued`, `Extracting`, `Extracted`, `Failed`; `Completed` is never stored because a completed row is
+deleted). `ReceiptIntakeStore` (singleton, own scope per call) owns every transition as a conditional
+update on the expected status, so a duplicate enqueue, a retry racing recovery or a late write from a
+worker that lost its row changes nothing. Three rules follow from it:
+
+- **The row is written before the message is flagged `Seen`.** Previously `Seen` was set once the mail
+  entered an in-memory queue, so a restart dropped everything still waiting, and extraction takes
+  minutes per attempt. If recording throws, the mail stays unread and is fetched again.
+- **Shutdown is not a failure.** `QueueWorker` records nothing on cancellation; the row stays in
+  progress and `MailWorker` resets `Extracting`/`Extracted` to `Queued` and re-enqueues everything
+  before its first poll. This assumes a single backend process.
+- **Failure is recorded through `OnFailedAsync`**, with `CancellationToken.None` and its own
+  `try`/`catch`, so a database outage cannot end a worker. `PipelineError.Describe` joins the
+  `InnerException` chain, because the extraction loop's own message ("failed after N attempts") hides
+  the cause.
+
+Unreconciled receipts are **not** failures and not retryable: they are already stored, may already be
+categorized, and their mail text is gone. They are found with `GET /api/receipts?reconciled=false` and
+corrected by hand. `Receipt` carries `AppUserId` and `MailboxId` copied from the intake row (the
+mailbox is `SetNull` on delete, the member `Restrict`), read at ingestion from the row rather than the
+in-memory record so a mailbox deleted mid-flight cannot violate the foreign key.
 
 The two queue consumers derive from `QueueWorker<T>`, which owns the drain loop and the per-item
 `try`/`catch`, so the "one bad receipt must never kill a worker" rule is structural rather than
@@ -256,8 +281,10 @@ remembered. `MailWorker` is a poller, not a consumer, and stands alone.
    backing off exponentially with jitter after consecutive failures. `MailFetcher` reads the enabled
    `Mailbox` rows fresh each poll (a scoped `KvitteriaDbContext`, since it is a singleton), streams up
    to `ImapMaxMessagesPerPoll` unseen messages per cycle, converts HTML bodies to plain text, and
-   invokes a callback that enqueues to `ExtractionQueue`. A message is flagged `Seen` **only after**
-   that callback returns, so anything that throws first leaves it unread for the next poll. One
+   records each message as a `ReceiptIntake` row, then invokes a callback that enqueues to
+   `ExtractionQueue`. A message is flagged `Seen` **only after** both, so anything that throws first
+   leaves it unread for the next poll. A message ID already in `Receipts` or `ReceiptIntakes` is
+   flagged `Seen` without being enqueued. One
    `ImapClient` per mailbox, since each is a different member's account.
 
    Each mailbox is **isolated**: its own `try`/`catch`, and the outcome recorded on the row
@@ -370,7 +397,8 @@ writes on the same group keep theirs, so who may be *edited* is unchanged. The c
 other member — the same bargain every other read here already makes inside one household.
 
 `Permission` covers the writes —
-`CategorizeLines`, `ManageTaxonomy`, `EditReceipts`, `ManageUsers`, `ManageSettings`,
+`CategorizeLines`, `ManageTaxonomy`, `EditReceipts` (also retry and dismiss on
+`/api/pipeline/failures/{id}`), `ManageUsers`, `ManageSettings`,
 `ManageMailboxes`. `Admin` holds all
 of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
 `HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`

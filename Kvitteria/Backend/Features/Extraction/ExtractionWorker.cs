@@ -11,6 +11,7 @@ namespace Backend.Features.Extraction;
 public sealed class ExtractionWorker(
 	ExtractionQueue queue,
 	PersistenceQueue persistenceQueue,
+	ReceiptIntakeStore store,
 	IServiceScopeFactory scopeFactory,
 	ILogger<ExtractionWorker> logger
 ) : QueueWorker<ReceiptRecord>(queue, logger)
@@ -19,15 +20,25 @@ public sealed class ExtractionWorker(
 
 	protected override string Describe(ReceiptRecord item) => item.Subject;
 
-	protected override void OnFailed(ReceiptRecord item, string error)
+	protected override async Task OnFailedAsync(ReceiptRecord item, string error)
 	{
 		item.Status = ReceiptStatus.Failed;
 		item.Error = error;
 		item.CompletedAt = DateTimeOffset.UtcNow;
+
+		// CancellationToken.None: the write must not be lost to the very shutdown that might follow.
+		await store.MarkFailedAsync(item.IntakeId, error, item.Attempts, CancellationToken.None);
 	}
 
 	protected override async Task ProcessAsync(ReceiptRecord mail, CancellationToken ct)
 	{
+		// The claim makes a duplicate enqueue harmless: only one worker turns Queued into Extracting.
+		if (!await store.ClaimAsync(mail.IntakeId, ct))
+		{
+			logger.LogInformation("Skipping '{Subject}': it is no longer queued.", mail.Subject);
+			return;
+		}
+
 		mail.Status = ReceiptStatus.Extracting;
 
 		// OllamaClient is a transient typed HttpClient; per-item resolution lets the pooled handler
@@ -37,13 +48,29 @@ public sealed class ExtractionWorker(
 		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
 		PipelineSettings settings = await dbContext.PipelineSettings.AsNoTracking().FirstAsync(ct);
 
-		ExtractionOutcome outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, mail.Subject, ct);
+		ExtractionOutcome outcome;
+
+		try
+		{
+			outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, mail.Subject, ct);
+		}
+		catch (ExtractionExhaustedException ex)
+		{
+			mail.Attempts = ex.Attempts;
+			throw;
+		}
 
 		mail.Extracted = outcome.Receipt;
 		mail.Reconciled = outcome.Reconciled;
 		mail.Attempts = outcome.Attempts;
 		mail.Error = outcome.Warning;
 		mail.Status = ReceiptStatus.Extracted;
+
+		if (!await store.MarkExtractedAsync(mail.IntakeId, outcome.Attempts, ct))
+		{
+			logger.LogWarning("Dropping the extraction of '{Subject}': its record changed while it was extracting.", mail.Subject);
+			return;
+		}
 
 		await persistenceQueue.EnqueueAsync(mail, ct);
 
@@ -62,6 +89,13 @@ public sealed class ExtractionWorker(
 		bool Reconciled,
 		int Attempts,
 		string? Warning);
+
+	/// <summary>Carries the attempt count to <see cref="OnFailedAsync"/>, which stores it on the failure.</summary>
+	private sealed class ExtractionExhaustedException(int attempts, Exception? lastFailure)
+		: InvalidOperationException($"Failed to extract any valid data after {attempts} attempt(s).", lastFailure)
+	{
+		public int Attempts { get; } = attempts;
+	}
 
 	private async Task<ExtractionOutcome> ExtractWithRetriesAsync(
 		OllamaClient client, PipelineSettings settings, string bodyText, string subject, CancellationToken ct)
@@ -133,8 +167,7 @@ public sealed class ExtractionWorker(
 
 		if (best is null)
 		{
-			throw new InvalidOperationException(
-				$"Failed to extract any valid data after {attempt} attempt(s).", lastFailure);
+			throw new ExtractionExhaustedException(attempt, lastFailure);
 		}
 
 		string? warning = reconciled
