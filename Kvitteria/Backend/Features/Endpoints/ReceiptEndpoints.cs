@@ -26,25 +26,30 @@ static class ReceiptEndpoints
 			app.MapSettingsEndpoints();
 			app.MapMailboxEndpoints();
 			app.MapPipelineEndpoints();
+			app.MapInsightsEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()
 		{
 			RouteGroupBuilder receiptGroup = app.MapGroup("/receipts");
 
-			// GET /receipts/?merchantId=&from=&to=&status=&page=&pageSize=
+			// GET /receipts/?merchantId=&from=&to=&status=&reconciled=&search=&page=&pageSize=
 			receiptGroup.MapGet("/", async (
 				            Guid? merchantId,
 				            DateTime? from,
 				            DateTime? to,
 				            ReceiptStatus? status,
 				            bool? reconciled,
+				            string? search,
 				            KvitteriaDbContext dbContext,
 				            CancellationToken ct,
 				            int pageSize = 10,
 				            int page = 1) => {
 				            if (!Paging.TryValidate(page, pageSize, out IResult pagingProblem))
 					            return pagingProblem;
+
+				            if (!ReceiptSearch.TryParse(search, out ReceiptSearchTerm? term, out IResult searchProblem))
+					            return searchProblem;
 
 				            IQueryable<Receipt> query = dbContext.Receipts
 				                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
@@ -53,6 +58,21 @@ static class ReceiptEndpoints
 				                                                             (status == null || r.Status == status) &&
 				                                                             (reconciled == null || r.Reconciled == reconciled))
 				                                                 .AsNoTracking();
+
+				            if (term != null)
+				            {
+					            string pattern = term.Pattern;
+					            decimal? amountFrom = term.AmountFrom;
+					            decimal? amountTo = term.AmountTo;
+
+					            // Any() on the lines keeps a receipt with several matching lines to one row, and leaves
+					            // its other lines for the Includes below.
+					            query = query.Where(r => EF.Functions.ILike(r.Merchant!.Name, pattern, ReceiptSearch.EscapeChar) ||
+					                                     (r.AppUser != null && EF.Functions.ILike(r.AppUser.DisplayName, pattern, ReceiptSearch.EscapeChar)) ||
+					                                     r.ReceiptLines.Any(l => EF.Functions.ILike(l.RawName, pattern, ReceiptSearch.EscapeChar) ||
+					                                                             (l.CanonicalItem != null && EF.Functions.ILike(l.CanonicalItem.DisplayName, pattern, ReceiptSearch.EscapeChar))) ||
+					                                     (amountFrom != null && r.GrandTotal >= amountFrom && r.GrandTotal < amountTo));
+				            }
 
 				            int totalCount = await query.CountAsync(ct);
 

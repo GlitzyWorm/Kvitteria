@@ -159,6 +159,38 @@ curl -X POST http://localhost:8080/api/receipt-lines/$LINE_ID/sort \
   -d '{"newItemName":"Mælk","categoryId":"'$CATEGORY_ID'","mealId":null,"rememberAlias":true,"setAsDefaults":true}'
 ```
 
+Month figures come from `/api/insights`, which are plain reads. Months are Danish calendar months written
+`yyyy-MM`, and leaving `month` out means the current one. A request with a bad month or more than 24 months
+answers 400.
+
+```bash
+# What was spent in a month, against the month before. total includes pant; linesTotal does not.
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/insights/summary?month=2026-08'
+
+# Where it went, by top-level category, compared with another month; add parentId to drill into one
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/insights/categories?month=2026-08&compareTo=2026-07'
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/insights/categories?month=2026-08&parentId=$CATEGORY_ID"
+
+# Six months by default, up to 24
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/insights/trend?endMonth=2026-08&months=6'
+
+# Items you have bought, and what one cost per unit month by month
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/insights/prices?page=1&pageSize=20'
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/api/insights/prices/$ITEM_ID?months=12"
+
+# Spend, days covered and cost per day for meals that track days
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/insights/meal-coverage?months=6'
+```
+
+The receipt list can be searched. `search` matches, ignoring case, part of the merchant, the member, a
+printed line or a line's item name, and a number also matches by total: `284,50` (or `284.50`) is that exact
+amount and `284` is anything from 284.00 to 284.99. It combines with the other filters.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/receipts?search=f%C3%B8tex&from=2026-07-01T00:00:00Z'
+curl -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/receipts?search=284,50'
+```
+
 Categories are a two-level tree, meals are seeded with a Danish taxonomy, and receipts can record how
 many days they cover for a given meal. Full surface: run with
 `ASPNETCORE_ENVIRONMENT=Development` and open `http://localhost:8080/scalar`.

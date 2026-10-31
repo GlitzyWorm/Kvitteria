@@ -131,7 +131,8 @@ reconciliation tolerance, Danish purchase-date parsing including the DST gap, `N
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
-mailbox write validation, and the mailbox secret round-trip. Run it from `Kvitteria`, naming the
+mailbox write validation, the mailbox secret round-trip, the Danish month helpers and `MonthKey`, the
+spending, category, price and meal-day rollups, and receipt-search parsing. Run it from `Kvitteria`, naming the
 project — a bare `dotnet test` resolves to the solution and now builds MobileApp on the way past:
 
 ```bash
@@ -468,6 +469,57 @@ as both `UseSeeding` and `UseAsyncSeeding` in the `AddDbContext` callback in `Pr
 (not in `OnConfiguring`, which re-ran on every `DbContext` construction). EF fires these from
 `Migrate()`, which includes the `dotnet ef database update` path above. Both inserts share one
 transaction, so a partial seed cannot leave meals present and categories permanently blocked.
+
+## Insights and receipt search
+
+`InsightsEndpoints` (`Features/Endpoints`, under `/api/insights`) are all reads, so ungated like every other
+read: `summary`, `categories`, `trend`, `prices`, `prices/{itemId}` and `meal-coverage`. `GET /api/receipts`
+gained `search`. No schema change; the existing `PurchaseDate` index serves the month ranges.
+
+**Rollups run in memory.** Each handler loads narrow projections for the date range (`ReceiptFigure`,
+`LineFigure`, `PricedLine`, `MealLineFigure`, `CoverageFigure`) and hands them to a pure helper in
+`Features/Insights`: `SpendingRollup`, `CategoryRollup`, `PriceHistory`, `MealCoverageStats`. A `GROUP BY`
+would be faster, but bucketing by Danish month needs Copenhagen time inside the query, and every rule would
+then sit out of reach of `Backend.Tests`. A household produces tens of receipts a month and the widest run is
+24 months, so the rows fit comfortably. If that ever changes, feed the helpers pre-aggregated rows; the API
+doesn't move.
+
+**Months are Danish calendar months.** `MonthKey` is the `yyyy-MM` value on the wire (strict: no trimming, no
+`2026-1`), `MonthKey.TryValidateRun` bounds `months` to 1-24 the way `Paging.TryValidate` bounds paging, and
+`DanishTime.MonthRangeUtc(year, month)` / `MonthOf` turn it into UTC instants, so a purchase at 00:30 on the
+first lands in the new month although it is still the last day of the old one in UTC. `Percent.Change` is the
+one definition of a change: one decimal, null when the starting value is zero.
+
+**The total includes pant and the categories don't.** `Total` is the sum of `GrandTotal`, which by
+`Reconciliation` is lines plus pant, because that is what left the account. Category rows sum `LineTotal`.
+`SpendingSummaryDto` therefore also carries `PantTotal` and `LinesTotal`, and category shares should divide by
+`LinesTotal` to add up to 100 %. Negative discount lines stay in every sum, so a row can be negative. An
+unreconciled receipt is included like any other: leaving it out would understate spending.
+
+**Categories group through today's tree** (`CategoryRollup`), not a snapshot, so a moved category takes its
+history with it. A line on a child counts towards its top-level ancestor; a drill-down lists the children and
+shows lines placed directly on the parent as a row for the parent, so the rows always sum to the amount that
+was tapped. Uncategorized is a separate field and null on a drill-down.
+
+**Price is total over quantity**, not an average of printed unit prices: extraction reads line totals most
+reliably, and weighting by quantity makes weighed goods and multi-buys come out right. Lines with a zero or
+negative quantity or total are excluded so a discount cannot look like a price drop. `GET /prices` applies the
+same rule in SQL, so an item is listed only if it has a price to show. `Quantity` counts packs, so a generic
+item that mixes pack sizes mixes them here too.
+
+**Meal statistics divide all spend on the meal by the days covered.** Spend on receipts with no coverage stays
+in the numerator, so the spend figure matches the lines that carry the meal; the cost per day is high for a
+household that fills coverage in only sometimes.
+
+**Search** (`ReceiptSearch.TryParse`) trims the term, rejects over 100 characters, escapes `\`, `%` and `_`,
+and recognises a number as an amount range: `284,50` is exactly 284.50, `284` is `[284, 285)`. The filter uses
+`EF.Functions.ILike` with `ReceiptSearch.EscapeChar` passed **explicitly**. The two-argument overload makes EF
+emit `ESCAPE ''`, which switches escaping off, so `50%` would match nothing and the escapes would be treated as
+literal backslashes; it was only found by searching for `50%` against a running database. A whole-number term
+also matches names, so `1000` finds `REMA 1000`, on purpose. `ILIKE` on `Ø`/`Å`/`Æ` follows the database's
+`LC_CTYPE`; the stock `postgres:17` image handles them (`føtex` finds `FØTEX`), so nothing special is done. When
+testing by hand from a Windows shell, percent-encode the UTF-8 bytes (`f%C3%B8tex`): a non-ASCII argument can reach
+`curl` in the console code page and look like a search that finds nothing.
 
 ## Mobile design system
 

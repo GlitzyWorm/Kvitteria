@@ -35,6 +35,8 @@ public sealed class CategoryTree
 
 	public bool Contains(Guid id) => _byId.ContainsKey(id);
 
+	public CategoryNode? Node(Guid id) => _byId.GetValueOrDefault(id);
+
 	/// <summary>Depth counted from the root, where a root is 1. Null when the category does not exist.</summary>
 	public int? Depth(Guid id)
 	{
