@@ -5,7 +5,9 @@ using Backend.Features.Persistence.Model.Receipts;
 using Backend.Features.Receipts;
 using Backend.Features.Shared;
 using Kvitteria.Contracts.DTO;
+using Kvitteria.Contracts.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Endpoints;
 
 static class ReceiptLineEndpoints
@@ -15,6 +17,166 @@ static class ReceiptLineEndpoints
 		internal void MapReceiptLineEndpoints()
 		{
 			RouteGroupBuilder receiptLineGroup = app.MapGroup("/receipt-lines");
+
+			// GET /receipt-lines/unassigned?page=&pageSize=
+			receiptLineGroup.MapGet("/unassigned", async (KvitteriaDbContext dbContext, CancellationToken ct, int pageSize = 20, int page = 1) => {
+				                if (!Paging.TryValidate(page, pageSize, out IResult pagingProblem))
+					                return pagingProblem;
+
+				                IQueryable<ReceiptLine> query = dbContext.ReceiptLines
+				                                                         .Where(rl => rl.CanonicalItemId == null)
+				                                                         .AsNoTracking();
+
+				                int totalCount = await query.CountAsync(ct);
+
+				                // Lines have no printed position, so Id only makes the paging stable.
+				                List<UnassignedLineDto> items = await query
+				                                                      .OrderByDescending(rl => rl.Receipt!.PurchaseDate)
+				                                                      .ThenBy(rl => rl.ReceiptId)
+				                                                      .ThenBy(rl => rl.Id)
+				                                                      .Skip((page - 1) * pageSize)
+				                                                      .Take(pageSize)
+				                                                      .Select(rl => new UnassignedLineDto(
+					                                                      rl.Id,
+					                                                      rl.RawName,
+					                                                      rl.Quantity,
+					                                                      rl.UnitPrice,
+					                                                      rl.LineTotal,
+					                                                      rl.ReceiptId,
+					                                                      rl.Receipt!.Merchant!.Name,
+					                                                      rl.Receipt.PurchaseDate,
+					                                                      rl.Receipt.AppUserId,
+					                                                      rl.Receipt.AppUser != null ? rl.Receipt.AppUser.DisplayName : null))
+				                                                      .ToListAsync(ct);
+
+				                return Results.Ok(new PagedResult<UnassignedLineDto>(items, page, pageSize, totalCount));
+			                })
+			                .WithName("GetUnassignedReceiptLines")
+			                .Produces<PagedResult<UnassignedLineDto>>()
+			                .ProducesProblem(StatusCodes.Status400BadRequest);
+
+			// GET /receipt-lines/unassigned/count
+			receiptLineGroup.MapGet("/unassigned/count", async (KvitteriaDbContext dbContext, CancellationToken ct) => {
+				                int count = await dbContext.ReceiptLines.CountAsync(rl => rl.CanonicalItemId == null, ct);
+				                return Results.Ok(new UnassignedLineCountDto(count));
+			                })
+			                .WithName("GetUnassignedReceiptLineCount")
+			                .Produces<UnassignedLineCountDto>();
+
+			// POST /receipt-lines/{id}/sort
+			receiptLineGroup.MapPost("/{id:guid}/sort", async (Guid id, SortReceiptLineDto dto, KvitteriaDbContext dbContext, CurrentUserService currentUserService, HttpContext http, CancellationToken ct) => {
+				                if (!LineSorting.TryValidate(dto, out IResult validationProblem))
+					                return validationProblem;
+
+				                // Depends on the body, so it cannot be a route policy. Checked before any database work.
+				                if ((dto.NewItemName != null || dto.SetAsDefaults) && !await currentUserService.HasAsync(http.User, Permission.ManageTaxonomy, ct))
+					                return Results.Problem(statusCode:StatusCodes.Status403Forbidden, detail:"Creating a canonical item or writing its defaults requires the ManageTaxonomy permission.");
+
+				                await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
+
+				                ReceiptLine? receiptLine = await dbContext.ReceiptLines.FirstOrDefaultAsync(rl => rl.Id == id, ct);
+
+				                if (receiptLine == null)
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
+
+				                if (receiptLine.CanonicalItemId != null)
+					                return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:"The receipt line already has a canonical item; it was sorted since it was loaded.");
+
+				                Category? category = null;
+
+				                if (dto.CategoryId != null)
+				                {
+					                category = await dbContext.Categories.FirstOrDefaultAsync(c => c.Id == dto.CategoryId, ct);
+
+					                if (category == null)
+						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Category with id {dto.CategoryId} not found");
+				                }
+
+				                Meal? meal = null;
+
+				                if (dto.MealId != null)
+				                {
+					                meal = await dbContext.Meals.FirstOrDefaultAsync(m => m.Id == dto.MealId, ct);
+
+					                if (meal == null)
+						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Meal with id {dto.MealId} not found");
+				                }
+
+				                CanonicalItem? canonicalItem;
+				                string? newItemName = dto.NewItemName?.Trim();
+
+				                if (newItemName != null)
+				                {
+					                canonicalItem = new CanonicalItem { DisplayName = newItemName };
+					                dbContext.CanonicalItems.Add(canonicalItem);
+				                }
+				                else
+				                {
+					                canonicalItem = await dbContext.CanonicalItems.FirstOrDefaultAsync(ci => ci.Id == dto.CanonicalItemId, ct);
+
+					                if (canonicalItem == null)
+						                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Canonical item with id {dto.CanonicalItemId} not found");
+				                }
+
+				                Guid? previousMealId = receiptLine.MealId;
+
+				                receiptLine.CanonicalItem = canonicalItem;
+				                receiptLine.CategoryId = category?.Id;
+				                receiptLine.Category = category;
+				                receiptLine.MealId = meal?.Id;
+				                receiptLine.Meal = meal;
+
+				                if (dto.SetAsDefaults)
+				                {
+					                canonicalItem.CategoryId = category?.Id;
+					                canonicalItem.DefaultMealId = meal?.Id;
+				                }
+
+				                // Executes immediately; the uncommitted transaction rolls it back with everything else.
+				                if (previousMealId != null && previousMealId != receiptLine.MealId)
+					                await MealCoverage.ClearOrphanedAsync(dbContext, receiptLine.ReceiptId, previousMealId.Value, id, ct);
+
+				                // The item must exist before an alias can point at it, and a clash on its name belongs here.
+				                if (!await dbContext.TrySaveChangesAsync(ct))
+					                return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"A canonical item named '{canonicalItem.DisplayName}' already exists.");
+
+				                int otherLinesAssigned = 0;
+
+				                if (dto.RememberAlias)
+				                {
+					                string normalizedRawName = receiptLine.RawName.NormalizeString();
+
+					                await ItemAliases.UpsertAsync(dbContext, normalizedRawName, canonicalItem.Id, ct);
+
+					                // Matched in memory so the match uses the same normalization that wrote the alias.
+					                List<ReceiptLine> waiting = await dbContext.ReceiptLines
+					                                                           .Where(rl => rl.CanonicalItemId == null && rl.Id != id)
+					                                                           .ToListAsync(ct);
+
+					                foreach (ReceiptLine match in AliasLearning.Matching(waiting, normalizedRawName))
+					                {
+						                match.CanonicalItemId = canonicalItem.Id;
+						                AliasLearning.FillGaps(match, category?.Id, meal?.Id);
+						                otherLinesAssigned++;
+					                }
+
+					                if (!await dbContext.TrySaveChangesAsync(ct))
+						                return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"An alias for '{receiptLine.RawName}' was created by someone else at the same moment.");
+				                }
+
+				                int remainingCount = await dbContext.ReceiptLines.CountAsync(rl => rl.CanonicalItemId == null, ct);
+
+				                await transaction.CommitAsync(ct);
+
+				                return Results.Ok(new SortReceiptLineResultDto(receiptLine.ToDto(), otherLinesAssigned, remainingCount));
+			                })
+			                .WithName("SortReceiptLine")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.CategorizeLines))
+			                .Produces<SortReceiptLineResultDto>()
+			                .ProducesProblem(StatusCodes.Status400BadRequest)
+			                .ProducesProblem(StatusCodes.Status403Forbidden)
+			                .ProducesProblem(StatusCodes.Status404NotFound)
+			                .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// GET /receipt-lines/{id}
 			receiptLineGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
@@ -87,18 +249,7 @@ static class ReceiptLineEndpoints
 
 				                if (canonicalItem != null && putCanonicalItemDto.CreateOrUpdateAlias)
 				                {
-					                string normalizedRawName = receiptLine.RawName.NormalizeString();
-
-					                ItemAlias? existingAlias = await dbContext.ItemAliases
-					                                          .FirstOrDefaultAsync(ia => ia.RawName == normalizedRawName, ct);
-
-					                if (existingAlias != null)
-						                existingAlias.CanonicalItemId = canonicalItem.Id;
-					                else
-						                dbContext.ItemAliases.Add(new ItemAlias {
-							                RawName = normalizedRawName,
-							                CanonicalItemId = canonicalItem.Id
-						                });
+					                await ItemAliases.UpsertAsync(dbContext, receiptLine.RawName.NormalizeString(), canonicalItem.Id, ct);
 				                }
 
 				                if (!await dbContext.TrySaveChangesAsync(ct))

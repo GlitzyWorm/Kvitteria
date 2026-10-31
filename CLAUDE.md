@@ -308,8 +308,9 @@ remembered. `MailWorker` is a poller, not a consumer, and stands alone.
    Enqueues to `PersistenceQueue`.
 3. **`ReceiptFactoryWorker`** — delegates to the scoped `ReceiptIngestionService`, which maps
    `ExtractedReceipt` → `Receipt`/`ReceiptLine`, resolves (or inserts) the `Merchant` by name, and
-   auto-links lines to `CanonicalItem`s by looking up normalized raw names in `ItemAlias` — all in
-   one transaction, so a failure cannot leave an orphaned merchant. Purchase dates go through
+   auto-links lines to `CanonicalItem`s by looking up normalized raw names in `ItemAlias`, copying
+   the item's default category and meal onto each linked line through `AliasLearning.FillGaps` — all
+   in one transaction, so a failure cannot leave an orphaned merchant. Purchase dates go through
    `PurchaseDate.Resolve`, which parses the documented formats with `TryParseExact`, falls back to
    the mail's own timestamp on unparseable model output, and nudges past the DST spring-forward gap
    rather than throwing.
@@ -432,7 +433,19 @@ contract depend on declaration order and let an out-of-range value through. Note
 (`string.NormalizeString()` in `Features/Shared/Utils.cs` — trim + lowercase) to a `CanonicalItem`;
 this is how manual categorization of one receipt teaches future ones. `CanonicalItem` holds the
 defaults (`CategoryId`, `DefaultMealId`) that the `SetAsDefault` flags on the line endpoints write
-back to.
+back to, and that ingestion reads back onto a line it links through an alias.
+
+**An automatic write only fills empty fields.** `AliasLearning.FillGaps` (`Features/Receipts`) is the
+one place that rule lives, shared by ingestion and by `POST /receipt-lines/{id}/sort`: a category or
+meal a person already chose is never replaced by an item's default. That sort endpoint is the
+atomic save behind the Sort screen — one transaction for the line, an optional new `CanonicalItem`,
+its defaults and the alias. It rejects a line that already has an item (409), and when it remembers
+an alias it assigns every other unassigned line with the same normalized name. Those waiting lines
+(`GET /receipt-lines/unassigned`, plus `/count`) are matched **in memory** with
+`AliasLearning.Matching` rather than in SQL, because `lower(btrim(...))` would depend on the
+database locale for `Æ`, `Ø` and `Å` and could disagree with the C# `NormalizeString` that wrote the
+alias. The candidate set is the queue itself, which is small. Lines linked before ingestion applied
+defaults keep their empty category and meal.
 
 `Category` is a two-level tree (`ParentCategoryId`, self-referencing) with unique-name indexes
 filtered on root vs child. `ReceiptMealCoverage` (composite key `ReceiptId`+`MealId`) records how
