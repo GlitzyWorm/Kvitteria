@@ -105,6 +105,14 @@ responses causes one refresh, and each failed request SHALL be retried at most o
 - **WHEN** a refresh can't reach the server
 - **THEN** the stored session is kept and the request reports a network error
 
+#### Scenario: Refresh is rate limited
+- **WHEN** a refresh answers 429
+- **THEN** the stored session is kept and the request reports a network error
+
+#### Scenario: Refresh meets a server failure
+- **WHEN** a refresh answers with a 5xx status, including a gateway error from a proxy
+- **THEN** the stored session is kept and the request reports a network error
+
 ### Requirement: Identity requests carry no bearer handling
 Requests to the identity provider SHALL NOT pass through the token refresh path.
 
