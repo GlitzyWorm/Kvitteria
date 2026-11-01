@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
   <PropertyGroup>
     <!-- One place for every package version, so the app and the test project cannot drift onto
              different EF Core builds. They previously did: Design carries PrivateAssets=all, so the
@@ -11,38 +11,18 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup Label="Application">
-    <!-- Must stay within the band the installed MAUI workload provides. The toolkit depends on
-             Microsoft.Maui.Controls, which is pinned below to $(MauiVersion); a toolkit release that
-             asks for a newer Controls does not fail restore, because the central pin wins — it drags
-             the *unpinned* rest of the MAUI graph (Core, Essentials, Graphics) up instead, and the
-             app then dies at startup with "VTable setup of type Microsoft.Maui.Controls.Page failed".
-             15.0.1 needs Controls 10.0.90 and the workload here is 10.0.20; 13.0.0 needs 10.0.10.
-             Raise this only together with the workload, and check `dotnet workload list`. -->
-    <PackageVersion Include="CommunityToolkit.Maui" Version="13.0.0" />
-    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
-    <PackageVersion Include="Sharpnado.Tabs.Maui" Version="4.0.1" />
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
-  </ItemGroup>
-  <ItemGroup Label="Mobile">
-    <!-- The only two the MAUI template declares explicitly; everything else the app needs is an
-             implicit reference from the workload, which sets its own versions and is exempt from
-             NU1008. MauiVersion comes from the installed workload, so this tracks it rather than
-             pinning a number that would drift out of step with the SDK band in global.json. -->
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
-    <!-- AddHttpClient. Not one of the workload's implicit references, unlike the rest of
-             Microsoft.Extensions.*, so it has to be declared and pinned like any other package. -->
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup Label="Testing">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

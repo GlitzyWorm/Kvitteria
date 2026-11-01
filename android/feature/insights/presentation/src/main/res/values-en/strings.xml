@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="insights_title">Insights</string>
+    <string name="view_categories">Categories</string>
+    <string name="view_trend">Trend</string>
+    <string name="view_prices">Prices</string>
+    <string name="view_dinner">Dinner</string>
+    <string name="month_shown">Month</string>
+    <string name="compared_with">Compared with</string>
+    <string name="no_compare">No comparison</string>
+    <string name="sort_size">Size</string>
+    <string name="sort_change">Change</string>
+    <string name="uncategorized">Uncategorized</string>
+    <string name="inside_category">Inside %1$s</string>
+    <string name="drill_hint">Tap a top-level category to see its children</string>
+    <string name="all_categories">All categories</string>
+    <string name="movers">Biggest rise: %1$s %2$s · biggest fall: %3$s %4$s</string>
+    <string name="movers_pick_month">Pick a month to compare against.</string>
+    <string name="movers_none">No category has moved much.</string>
+    <string name="parent_locked">It has subcategories, so it can’t move under another.</string>
+    <string name="column_month">Month</string>
+    <string name="column_total">Total</string>
+    <string name="column_change">Change</string>
+    <string name="column_receipts">Receipts</string>
+    <string name="item">Item</string>
+    <string name="price_now">Now</string>
+    <string name="price_lowest">Lowest</string>
+    <string name="price_note">Total over quantity per month, across all merchants. Six months.</string>
+    <string name="per_day">Per day</string>
+    <string name="days_covered">Days covered</string>
+    <string name="days_short">Days</string>
+    <string name="no_data_title">No data yet</string>
+    <string name="no_data_body">Figures appear here once the first receipts have been read.</string>
+    <string name="no_prices_title">No prices yet</string>
+    <string name="no_prices_body">Prices show for items with at least one purchase.</string>
+    <string name="no_tracking_title">No meal tracks days</string>
+    <string name="no_tracking_body">When a meal tracks days, its cost per day shows here.</string>
+</resources>

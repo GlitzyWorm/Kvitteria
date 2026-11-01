@@ -260,16 +260,16 @@ docker compose exec -T postgres pg_dump -U postgres kvitteria > kvitteria.sql
 That single dump covers all of it. Restoring anything less than the whole thing means every mailbox
 password has to be entered again.
 
-## Mobile app
+## Android app
 
-There is a .NET MAUI app in `Kvitteria/MobileApp/`, targeting **Android** and **macOS** (Mac
-Catalyst). It is scaffolding at this point — it builds and runs, and does nothing useful yet. Nothing
-about installing or using the stack depends on it.
+The client is a native Android app in `android/`, built with Jetpack Compose. It covers the month's
+overview, sorting lines, receipts, insights and the pipeline, along with the household's members,
+permissions, mailboxes and settings. It is Danish first, with English as a choice. Nothing about
+installing or using the stack depends on it.
 
 It is a plain HTTP client of the backend, pointed at the same Caddy entrypoint a browser would use.
-Emulator and simulator only for now: a physical device needs the stack served over TLS, which it
-currently is not. Building it is covered in [docs/development.md](docs/development.md).
-
+Emulator only for now: a release build refuses plain HTTP, so a physical device needs the stack served
+over TLS, which it currently is not. Building it is covered in [docs/development.md](docs/development.md).
 ## Contributing
 
 `docker compose` in a checkout picks up `compose.override.yaml` automatically, which builds the
@@ -281,20 +281,17 @@ and the changelog and version bumps are derived from them.
 
 ## License
 
-Three licenses, by directory:
+Two licenses, by directory:
 
 | Path | License |
 |---|---|
 | Everything not listed below, including the backend | [AGPL-3.0-or-later](LICENSE) |
-| `Kvitteria/Contracts/` | [MIT](Kvitteria/Contracts/LICENSE) |
-| `Kvitteria/MobileApp/` | [MPL-2.0](Kvitteria/MobileApp/LICENSE) |
+| `android/` | [MPL-2.0](android/LICENSE) |
 
 GitHub reads the root `LICENSE` and labels the whole repository AGPL-3.0, so this table is the only
 place the split is visible.
 
 The backend is AGPL because it is the part someone could run as a hosted service, and §13 is the
 clause that makes them publish their changes. The app is MPL-2.0 because app store terms conflict
-with GPLv3 §6 and §10 — VLC was pulled from the iOS App Store over exactly that. The shared contracts
-are MIT so that neither license reaches the other through the code both sides compile.
-
+with GPLv3 §6 and §10 — VLC was pulled from the iOS App Store over exactly that. The two share no code.
 Releases up to and including `backend-v1.0.0` were AGPL-3.0-or-later in full.

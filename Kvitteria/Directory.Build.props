@@ -1,11 +1,9 @@
-﻿<Project>
+<Project>
 
     <!-- No version here. Components are versioned independently, so each project owns its own
          VersionPrefix and release-please rewrites it in place — see Backend.csproj. -->
 
     <PropertyGroup Label="Shared">
-        <!-- Hoisted out of the individual projects so a MAUI project added under Kvitteria/ inherits
-             them rather than restating them. -->
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
 

@@ -1,0 +1,19 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+plugins {
+    id("kvitteria.android.feature")
+}
+
+android {
+    namespace = "dev.jelshoj.kvitteria.feature.settings.presentation"
+}
+
+dependencies {
+    implementation(project(":feature:settings:domain"))
+    implementation(libs.aboutlibraries.core)
+    implementation(libs.androidx.activity.compose)
+}

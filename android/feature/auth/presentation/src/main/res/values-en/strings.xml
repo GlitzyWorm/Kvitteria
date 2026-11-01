@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="gate_unreachable_kicker">Connection</string>
+    <string name="gate_unreachable_title">Cannot reach the server</string>
+    <string name="gate_unreachable_blurb">The server did not answer. It may be switched off, or the address may be wrong.</string>
+    <string name="server_kicker">Server</string>
+    <string name="server_title">Choose your server</string>
+    <string name="server_blurb">Kvitteria runs on your own server. Enter the address of your household’s installation.</string>
+    <string name="server_label">Server address</string>
+    <string name="server_placeholder">https://kvitteria.example.com</string>
+    <string name="server_foot">This is the same address you open Kvitteria on in a browser. https is assumed unless you say otherwise.</string>
+    <string name="server_continue">Connect</string>
+    <string name="change_server">Change server</string>
+    <string name="server_error_empty">Enter a server address.</string>
+    <string name="server_error_unparseable">That does not look like an address. Try kvitteria.example.com.</string>
+    <string name="server_error_unsupported_scheme">Only http and https are supported.</string>
+    <string name="server_error_not_kvitteria">Something answered at that address, but it was not a Kvitteria server.</string>
+    <string name="server_error_unreachable">Nothing answered at that address. Check that the server is running.</string>
+    <string name="server_route_hint">Enter the address only — /api and /auth/v1 belong to the server and are not part of it.</string>
+    <string name="claim_kicker">New server</string>
+    <string name="claim_title">No members yet</string>
+    <string name="claim_blurb">No members yet. The first account to sign in claims the household as admin.</string>
+    <string name="claim_detail">As the admin you can give the rest of the household access, add mailboxes, and tune the pipeline.</string>
+    <string name="claim_continue">Create the admin account</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_up">Sign up</string>
+    <string name="sign_out_other">Sign out and try another account</string>
+    <string name="email">Email</string>
+    <string name="email_placeholder">you@household.com</string>
+    <string name="password_hint">At least 8 characters</string>
+    <string name="password_rule">At least 8 characters. No confirmation email is sent — the account works right away.</string>
+    <string name="welcome_back">Welcome back</string>
+    <string name="create_account">Create your account</string>
+    <string name="sign_in_blurb">Sign in with the email your household gave access to.</string>
+    <string name="sign_up_blurb">Sign up with an email an admin has pre-authorized. If the household is brand new, the first account becomes its admin.</string>
+    <string name="sign_in_foot">No access yet? Ask an admin to invite your email.</string>
+    <string name="no_access">No access</string>
+    <string name="signed_in_as">Signed in as</string>
+    <string name="rejected">This account is not a household member</string>
+    <string name="rejected_help">You are signed in, but the email is not on the household list. Ask an admin to invite this exact address — the same login then works immediately.</string>
+    <string name="auth_error_email_required">Enter a valid email address.</string>
+    <string name="auth_error_password_too_short">The password must be at least 8 characters.</string>
+    <string name="auth_error_invalid_credentials">Wrong email or password.</string>
+    <string name="auth_error_user_already_exists">That email already has an account. Sign in instead.</string>
+    <string name="auth_error_weak_password">That password is too weak. Choose a longer one.</string>
+    <string name="auth_error_email_invalid">The server rejected that email address.</string>
+    <string name="auth_error_email_not_confirmed">The account has not been confirmed yet.</string>
+    <string name="auth_error_rate_limited">Too many attempts. Wait a moment and try again.</string>
+    <string name="auth_error_signup_disabled">This server does not allow new accounts.</string>
+    <string name="auth_error_session_expired">Your session has expired. Sign in again.</string>
+    <string name="auth_error_confirmation_required">The server requires a confirmation email but sends none. Ask the admin to turn confirmation off.</string>
+    <string name="auth_error_server">The server has a problem. Try again shortly.</string>
+    <string name="auth_error_network">Could not reach the server.</string>
+    <string name="auth_error_generic">Something went wrong — try again.</string>
+    <string name="password">Password</string>
+</resources>

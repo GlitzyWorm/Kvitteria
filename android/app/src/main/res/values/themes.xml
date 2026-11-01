@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- These mirror core:design-system, because the window is painted before any Compose exists. -->
+    <color name="kv_bg">#0B1914</color>
+    <color name="kv_accent">#68A783</color>
+
+    <style name="Theme.Kvitteria.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/kv_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Kvitteria</item>
+    </style>
+
+    <!-- Not a DayNight parent: the app is dark whatever the system setting says. -->
+    <style name="Theme.Kvitteria" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/kv_bg</item>
+        <item name="colorPrimary">@color/kv_accent</item>
+        <item name="colorAccent">@color/kv_accent</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="29">false</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
+</resources>

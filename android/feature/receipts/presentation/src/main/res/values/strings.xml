@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="receipts_title">Kvitteringer</string>
+    <string name="search">Søg</string>
+    <string name="search_placeholder">Butik, vare eller beløb</string>
+    <string name="filter_all">Alle</string>
+    <string name="unreconciled">Afstemmer ikke</string>
+    <string name="reconciled">Afstemt</string>
+    <string name="no_results">Ingen kvitteringer matcher.</string>
+    <string name="no_receipts_title">Ingen kvitteringer endnu</string>
+    <string name="no_receipts_body">Kvitteringer dukker op her, når den første mail er læst.</string>
+    <string name="pant_amount">Pant %1$s</string>
+    <string name="difference">Afviger %1$s</string>
+    <string name="no_item">Ingen vare</string>
+    <string name="edit_line">Ret linje</string>
+    <string name="coverage">Dagsdækning</string>
+    <string name="coverage_blurb">Hvor mange dage dækker dette indkøb? Kun måltider der følger dage.</string>
+    <string name="coverage_blocked">%1$s er ikke på nogen linje, så der kan ikke sættes dage.</string>
+    <string name="per_day">Pr. dag</string>
+    <string name="fewer_days">Færre dage for %1$s</string>
+    <string name="more_days">Flere dage for %1$s</string>
+    <string name="raw_name">Trykt navn</string>
+    <string name="quantity">Antal</string>
+    <string name="unit_price">Stykpris</string>
+    <string name="line_total">Linjetotal</string>
+    <string name="invalid_number">Skriv et tal, fx 12,50.</string>
+</resources>

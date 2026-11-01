@@ -1,28 +1,22 @@
 name: mobile
 
-# Paths rather than every push: a MAUI build needs a workload install and a platform SDK, which is
-# minutes of runner time that a backend-only change should not pay. Contracts is in the list because
-# the app compiles against it, so a DTO change can break this build without touching MobileApp/.
+# Paths rather than every push: a Gradle build is minutes of runner time that a backend-only change
+# should not pay. The OpenAPI snapshot is in the list because the app's contract test reads it, so an
+# API change can fail this build without touching android/.
 #
 # Note that `test.yml` deliberately has no paths filter. If it is ever made a required check, a
 # path-skipped run stays pending forever and nothing can merge.
 on:
   pull_request:
     paths:
-      - "Kvitteria/MobileApp/**"
-      - "Kvitteria/Contracts/**"
-      - "Kvitteria/Directory.Build.props"
-      - "Kvitteria/Directory.Packages.props"
-      - "Kvitteria/global.json"
+      - "android/**"
+      - "docs/openapi/**"
       - ".github/workflows/mobile.yml"
   push:
     branches: [main]
     paths:
-      - "Kvitteria/MobileApp/**"
-      - "Kvitteria/Contracts/**"
-      - "Kvitteria/Directory.Build.props"
-      - "Kvitteria/Directory.Packages.props"
-      - "Kvitteria/global.json"
+      - "android/**"
+      - "docs/openapi/**"
       - ".github/workflows/mobile.yml"
 
 # A newer push to the same ref makes the older run pointless.
@@ -34,68 +28,29 @@ permissions:
   contents: read
 
 jobs:
-  # One job per platform rather than one multi-targeting build: MobileApp.csproj adds
-  # net10.0-maccatalyst only on macOS, so a single runner can never cover both.
-  android:
+  gradle:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          # Honours Kvitteria/global.json, so CI and a developer machine agree on the SDK.
-          global-json-file: Kvitteria/global.json
-
-      # The .NET Android SDK arrives with the workload, but it still needs a JDK, and the Android
-      # platform SDK it compiles against comes from the runner image via ANDROID_HOME.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
-      # Not cacheable in any useful way — the workload installs into the SDK root, which
-      # actions/setup-dotnet replaces on every run.
-      - run: dotnet workload install maui-android
+      # The runner image carries the Android SDK; this reads the platform and build tools from it.
+      - uses: gradle/actions/setup-gradle@v4
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-mobile-${{ runner.os }}-${{ hashFiles('Kvitteria/Directory.Packages.props') }}
-          restore-keys: nuget-mobile-${{ runner.os }}-
+      # Header check first: it is the cheapest failure, and MPL-2.0 coverage is per file.
+      - run: ./gradlew spotlessCheck
 
-      - run: dotnet restore Kvitteria/MobileApp/MobileApp.csproj
+      - run: ./gradlew testDebugUnitTest test
 
-      # ApplicationVersion is Android's versionCode: an integer that must only ever increase. Passing
-      # it here also proves the override works before a release depends on it.
-      - run: >
-          dotnet build Kvitteria/MobileApp/MobileApp.csproj
-          --no-restore --configuration Release
-          --framework net10.0-android
-          -p:ApplicationVersion=${{ github.run_number }}
+      - run: ./gradlew lintDebug
 
-  maccatalyst:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: Kvitteria/global.json
-
-      - run: dotnet workload install maui-maccatalyst
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-mobile-${{ runner.os }}-${{ hashFiles('Kvitteria/Directory.Packages.props') }}
-          restore-keys: nuget-mobile-${{ runner.os }}-
-
-      - run: dotnet restore Kvitteria/MobileApp/MobileApp.csproj
-
-      # This is the only place Mac Catalyst is built at all — it cannot be built on Windows, which is
-      # where the app is developed.
-      - run: >
-          dotnet build Kvitteria/MobileApp/MobileApp.csproj
-          --no-restore --configuration Release
-          --framework net10.0-maccatalyst
-          -p:ApplicationVersion=${{ github.run_number }}
+      # Runs R8, so a serialization keep-rule problem that only appears when minified fails here.
+      # versionCode only ever increases, which a semver string cannot supply; the run number can.
+      - run: ./gradlew assembleRelease -PversionCode=${{ github.run_number }}

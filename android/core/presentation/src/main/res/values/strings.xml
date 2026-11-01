@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="retry">Prøv igen</string>
+    <string name="role_admin">Administrator</string>
+    <string name="role_member">Medlem</string>
+    <string name="close">Luk</string>
+    <string name="cancel">Annullér</string>
+    <string name="manage">Håndtér</string>
+    <string name="remove">Fjern</string>
+    <string name="save">Gem</string>
+    <string name="unknown_member">Ukendt medlem</string>
+    <string name="discard">Fortryd</string>
+    <string name="error_no_connection">Kunne ikke nå serveren. Prøv igen.</string>
+    <string name="error_forbidden">Du har ikke rettighed til det.</string>
+    <string name="error_unauthorized">Din session er udløbet. Log ind igen.</string>
+    <string name="error_not_found">Det findes ikke længere.</string>
+    <string name="error_too_many_requests">For mange forsøg. Vent et øjeblik.</string>
+    <string name="error_server">Serveren har et problem. Prøv igen om lidt.</string>
+    <string name="error_unknown">Noget gik galt. Prøv igen.</string>
+    <string name="none">Ingen</string>
+    <string name="category">Kategori</string>
+    <string name="meal">Måltid</string>
+    <string name="new_category_option">+ Ny kategori…</string>
+    <string name="back">Tilbage</string>
+    <string name="new_category">Ny kategori</string>
+    <string name="edit_category">Rediger kategori</string>
+    <string name="category_name">Navn</string>
+    <string name="category_name_placeholder">Fx Frost &amp; Færdigretter</string>
+    <string name="category_parent">Hovedkategori</string>
+    <string name="category_top_level">Ingen (hovedkategori)</string>
+    <string name="time_just_now">lige nu</string>
+    <string name="time_minutes_ago">for %1$d min. siden</string>
+    <string name="time_hours_ago">for %1$d t. siden</string>
+    <string name="time_days_ago">for %1$d d. siden</string>
+</resources>

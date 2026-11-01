@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="sort_title">Sortér</string>
+    <string name="raw_line">Rå linje</string>
+    <string name="suggestions">Forslag</string>
+    <string name="no_suggestions">Ingen kendt vare ligner denne linje. Søg eller opret en ny.</string>
+    <string name="create_item">Opret ny vare</string>
+    <string name="search_items">Søg i varer</string>
+    <string name="new_item_name">Navn på varen</string>
+    <string name="remember_alias">Husk til fremtidige kvitteringer</string>
+    <string name="set_defaults">Sæt som standard for varen</string>
+    <string name="set_defaults_hint">Skriver kategori og måltid tilbage på varen selv.</string>
+    <string name="no_taxonomy_permission">Kræver rettigheden Ændre kategorier og varer.</string>
+    <string name="no_categorize_permission">Du kan se køen, men ikke sortere den. Det kræver rettigheden Kategorisér linjer.</string>
+    <string name="skip">Spring over</string>
+    <string name="up_next">Næste i køen</string>
+    <string name="saved_item">%1$s gemt</string>
+    <string name="queue_done_title">Køen er tom</string>
+    <string name="queue_done_body">Alle linjer har en vare. Næste kvittering bliver automatisk kategoriseret for alt du lige lærte den.</string>
+    <string name="go_receipts">Se kvitteringer</string>
+    <string name="all_skipped_title">Du har sprunget resten over</string>
+    <string name="all_skipped_body">De sprungne linjer venter stadig.</string>
+    <string name="show_skipped">Vis dem igen</string>
+</resources>
