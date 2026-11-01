@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="gate_unreachable_kicker">Forbindelse</string>
+    <string name="gate_unreachable_title">Kan ikke nå serveren</string>
+    <string name="gate_unreachable_blurb">Serveren svarede ikke. Den kan være slukket, eller adressen kan være forkert.</string>
+    <string name="server_kicker">Server</string>
+    <string name="server_title">Vælg din server</string>
+    <string name="server_blurb">Kvitteria kører på din egen server. Indtast adressen på husstandens installation.</string>
+    <string name="server_label">Serveradresse</string>
+    <string name="server_placeholder">https://kvitteria.eksempel.dk</string>
+    <string name="server_foot">Adressen er den samme, du åbner Kvitteria på i en browser. https antages, hvis du ikke skriver andet.</string>
+    <string name="server_continue">Forbind</string>
+    <string name="change_server">Skift server</string>
+    <string name="server_error_empty">Indtast en serveradresse.</string>
+    <string name="server_error_unparseable">Det ligner ikke en adresse. Prøv fx kvitteria.eksempel.dk.</string>
+    <string name="server_error_unsupported_scheme">Kun http og https understøttes.</string>
+    <string name="server_error_not_kvitteria">Noget svarede på den adresse, men det var ikke en Kvitteria-server.</string>
+    <string name="server_error_unreachable">Ingen svarede på den adresse. Tjek at serveren kører.</string>
+    <string name="server_route_hint">Skriv kun adressen — /api og /auth/v1 hører til serveren og skal ikke med.</string>
+    <string name="claim_kicker">Ny server</string>
+    <string name="claim_title">Ingen medlemmer endnu</string>
+    <string name="claim_blurb">Ingen medlemmer endnu. Den første konto der logger ind, overtager husstanden som administrator.</string>
+    <string name="claim_detail">Som administrator kan du give resten af husstanden adgang, tilføje postkasser og styre pipelinen.</string>
+    <string name="claim_continue">Opret administratorkonto</string>
+    <string name="sign_in">Log ind</string>
+    <string name="sign_up">Opret konto</string>
+    <string name="sign_out_other">Log ud og prøv en anden konto</string>
+    <string name="email">E-mail</string>
+    <string name="email_placeholder">dig@husstand.dk</string>
+    <string name="password_hint">Mindst 8 tegn</string>
+    <string name="password_rule">Mindst 8 tegn. Der sendes ingen bekræftelsesmail — kontoen er klar med det samme.</string>
+    <string name="welcome_back">Velkommen tilbage</string>
+    <string name="create_account">Opret din konto</string>
+    <string name="sign_in_blurb">Log ind med den e-mail din husstand har givet adgang.</string>
+    <string name="sign_up_blurb">Opret en konto på den e-mail en administrator har givet adgang. Er husstanden helt ny, bliver den første konto administrator.</string>
+    <string name="sign_in_foot">Har du ikke fået adgang endnu? Bed en administrator om at invitere din e-mail.</string>
+    <string name="no_access">Ingen adgang</string>
+    <string name="signed_in_as">Logget ind som</string>
+    <string name="rejected">Kontoen er ikke medlem af husstanden</string>
+    <string name="rejected_help">Du er logget ind, men e-mailen står ikke på husstandens liste. Bed en administrator om at invitere netop denne adresse — så virker samme login med det samme.</string>
+    <string name="auth_error_email_required">Indtast en gyldig e-mailadresse.</string>
+    <string name="auth_error_password_too_short">Adgangskoden skal være mindst 8 tegn.</string>
+    <string name="auth_error_invalid_credentials">Forkert e-mail eller adgangskode.</string>
+    <string name="auth_error_user_already_exists">Den e-mail har allerede en konto. Log ind i stedet.</string>
+    <string name="auth_error_weak_password">Adgangskoden er for svag. Vælg en længere.</string>
+    <string name="auth_error_email_invalid">Serveren afviste den e-mailadresse.</string>
+    <string name="auth_error_email_not_confirmed">Kontoen er ikke bekræftet endnu.</string>
+    <string name="auth_error_rate_limited">For mange forsøg. Vent et øjeblik og prøv igen.</string>
+    <string name="auth_error_signup_disabled">Serveren tillader ikke nye konti.</string>
+    <string name="auth_error_session_expired">Din session er udløbet. Log ind igen.</string>
+    <string name="auth_error_confirmation_required">Serveren kræver en bekræftelsesmail, men den sender ingen. Bed administratoren slå bekræftelse fra.</string>
+    <string name="auth_error_server">Serveren har et problem. Prøv igen om lidt.</string>
+    <string name="auth_error_network">Kunne ikke nå serveren.</string>
+    <string name="auth_error_generic">Noget gik galt — prøv igen.</string>
+    <string name="password">Adgangskode</string>
+</resources>

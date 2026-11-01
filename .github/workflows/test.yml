@@ -28,13 +28,9 @@ jobs:
           # Honours Kvitteria/global.json, so CI and a developer machine agree on the SDK.
           global-json-file: Kvitteria/global.json
 
-      # Scoped to the test project rather than the solution: Kvitteria.slnx now contains MobileApp,
-      # whose Mac Catalyst target cannot build on Linux at all and whose Android target would pull a
-      # MAUI workload install into every backend pull request. The project reference chain still
-      # covers everything this job cares about — Backend.Tests → Backend → Contracts.
       - run: dotnet restore Backend.Tests/Backend.Tests.csproj
 
-      # Backend.csproj and Contracts.csproj both set TreatWarningsAsErrors, so a new analyzer wave
+      # Backend.csproj sets TreatWarningsAsErrors, so a new analyzer wave
       # fails here rather than accumulating unnoticed in build output.
       - run: dotnet build Backend.Tests/Backend.Tests.csproj --no-restore --configuration Release
 
@@ -54,14 +50,3 @@ jobs:
             exit 1
           fi
 
-      # The mobile app's pure helpers — URL normalization, the readiness-report parse, the GoTrue
-      # error mapping, token expiry. MobileApp.Tests links them as source rather than referencing
-      # MobileApp, which it could not do: MobileApp targets net10.0-android and a plain net10.0
-      # project cannot reference it. That is what makes running them here cheap — no MAUI workload,
-      # so a backend pull request pays nothing for them — and it is why they belong in this
-      # workflow rather than in the path-filtered, non-blocking mobile.yml.
-      - run: dotnet restore MobileApp.Tests/MobileApp.Tests.csproj
-
-      - run: dotnet build MobileApp.Tests/MobileApp.Tests.csproj --no-restore --configuration Release
-
-      - run: dotnet test MobileApp.Tests/MobileApp.Tests.csproj --no-build --configuration Release --verbosity normal

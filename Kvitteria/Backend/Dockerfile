@@ -1,4 +1,4 @@
-﻿# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
@@ -21,13 +21,7 @@ WORKDIR /src
 # LangVersion, and its absence fails *silently*: the build succeeds against SDK defaults and every
 # image reports version 0.0.0 forever.
 COPY ["Directory.Packages.props", "Directory.Build.props", "global.json", "./"]
-#
-# Contracts comes along because Backend references it. Restoring a project restores its references
-# too, so without this the restore below silently covers Backend alone and the publish — which runs
-# --no-restore — dies on Contracts/obj/project.assets.json with NETSDK1004, naming a file rather than
-# the missing COPY. `.dockerignore` excludes **/obj, so a locally restored tree cannot paper over it.
 COPY ["Backend/Backend.csproj", "Backend/"]
-COPY ["Contracts/Contracts.csproj", "Contracts/"]
 RUN dotnet restore "Backend/Backend.csproj"
 
 COPY . .

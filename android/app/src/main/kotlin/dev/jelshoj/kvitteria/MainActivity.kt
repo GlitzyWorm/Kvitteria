@@ -6,22 +6,30 @@
 
 package dev.jelshoj.kvitteria
 
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import dev.jelshoj.kvitteria.core.designsystem.KvitteriaTheme
+import dev.jelshoj.kvitteria.navigation.KvitteriaRoot
 
-class MainActivity : ComponentActivity() {
+/** An `AppCompatActivity`, because `setApplicationLocales` only reaches one of those. */
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
+        // Dark bars on purpose, rather than the default that follows the system's light mode.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         setContent {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                BasicText("Kvitteria")
-            }
+            KvitteriaTheme { KvitteriaRoot() }
         }
     }
 }

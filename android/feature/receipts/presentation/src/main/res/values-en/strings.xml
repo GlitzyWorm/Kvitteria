@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="receipts_title">Receipts</string>
+    <string name="search">Search</string>
+    <string name="search_placeholder">Merchant, item or amount</string>
+    <string name="filter_all">All</string>
+    <string name="unreconciled">Unreconciled</string>
+    <string name="reconciled">Reconciled</string>
+    <string name="no_results">No receipts match.</string>
+    <string name="no_receipts_title">No receipts yet</string>
+    <string name="no_receipts_body">Receipts appear here once the first mail has been read.</string>
+    <string name="pant_amount">Deposit %1$s</string>
+    <string name="difference">Differs by %1$s</string>
+    <string name="no_item">No item</string>
+    <string name="edit_line">Edit line</string>
+    <string name="coverage">Day coverage</string>
+    <string name="coverage_blurb">How many days does this shop cover? Only meals that track days.</string>
+    <string name="coverage_blocked">%1$s isn’t on any line, so no days can be set.</string>
+    <string name="per_day">Per day</string>
+    <string name="fewer_days">Fewer days for %1$s</string>
+    <string name="more_days">More days for %1$s</string>
+    <string name="raw_name">Printed name</string>
+    <string name="quantity">Quantity</string>
+    <string name="unit_price">Unit price</string>
+    <string name="line_total">Line total</string>
+    <string name="invalid_number">Enter a number, such as 12.50.</string>
+</resources>

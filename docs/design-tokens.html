@@ -254,13 +254,13 @@
   <div class="hero">
     <span class="eyebrow">Style tokens</span>
     <h1>Every value the app is allowed to paint with</h1>
-    <p class="lead">Pulled straight from <code>MobileApp/Resources/Styles/</code> — the resource key you'd write in XAML, the resolved hex or number, and when the design system actually reaches for it.</p>
+    <p class="lead">Mirrored in <code>android/core/design-system</code> — the token's name, the resolved hex or number, and when the design system actually reaches for it.</p>
     <p>Dark-only by design: there is no light ramp, so this reference doesn't pretend to have one either.</p>
   </div>
 
   <!-- COLOR -->
   <section class="block" id="color">
-    <div class="kicker">Colors.xaml</div>
+    <div class="kicker">KvColors</div>
     <h2>Color</h2>
     <p class="desc">One accent hue (oklch 158–170°) carried across a 100–900 ramp on a dark ground. No second accent — <code>Accent</code> is exactly <code>Accent500</code>. Contrast comes from tonal steps, not added saturation.</p>
 
@@ -317,7 +317,7 @@
 
   <!-- TYPE -->
   <section class="block" id="type">
-    <div class="kicker">Tokens.xaml + Styles.xaml</div>
+    <div class="kicker">KvType</div>
     <h2>Type</h2>
     <p class="desc">Montserrat (<code>FontHeading</code>) capped at weight 500 — there's no bolder face registered, so hierarchy has to come from size and space. Poppins (<code>FontBody</code>) carries everything else.</p>
 
@@ -332,12 +332,12 @@
       <div class="type-row"><div class="tag-key">Eyebrow</div><div class="sample"><span class="eyebrows">Section kicker</span></div><div class="spec">11, tracked</div></div>
       <div class="type-row"><div class="tag-key">KvNum / KvNumLarge</div><div class="sample"><span class="kvnum-lg">2.438,27 kr</span></div><div class="spec">34, Montserrat</div></div>
     </div>
-    <p class="note-inline" style="margin-top:12px">KvNum styles carry amounts specifically — Montserrat's own figures are the closest thing MAUI has to tabular numerals, so a receipt total should never sit in <code>BodyText</code>.</p>
+    <p class="note-inline" style="margin-top:12px"><code>KvAmount</code> draws amounts specifically — Montserrat has a <code>tnum</code> feature and Poppins doesn't, so a receipt total should never sit in body text.</p>
   </section>
 
   <!-- SPACE & RADIUS -->
   <section class="block" id="space">
-    <div class="kicker">Tokens.xaml</div>
+    <div class="kicker">Tokens.kt</div>
     <h2>Space &amp; radius</h2>
     <p class="desc">A 0.70× density scale, kept fractional on purpose — these are the reference's own numbers, not roundings to a 4/8pt grid.</p>
 
@@ -381,7 +381,7 @@
 
   <!-- ELEVATION -->
   <section class="block" id="elevation">
-    <div class="kicker">Tokens.xaml</div>
+    <div class="kicker">Tokens.kt</div>
     <h2>Elevation &amp; glow</h2>
     <p class="desc">On this dark ground, elevation is a hairline edge plus ambient darkness — never a stacked drop shadow. Each level pairs a border color with a shadow; <code>sm</code> has no shadow at all, so it's deliberately undefined rather than a shadow-less no-op.</p>
     <div class="grid cols-3" style="margin-bottom:20px">
@@ -400,7 +400,7 @@
 
   <!-- BUTTONS -->
   <section class="block" id="buttons">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Buttons</h2>
     <p class="desc">The implicit <code>Button</code> style is already the quiet secondary variant — a divider outline on nothing. The accent only shows up where it's opted into.</p>
     <div class="demo">
@@ -417,9 +417,9 @@
 
   <!-- TAGS -->
   <section class="block" id="tags">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Tags</h2>
-    <p class="desc">A Border wrapping a Label — MAUI has no single control with a fill, radius and text together. Pair each background style with its matching text style.</p>
+    <p class="desc"><code>KvTag</code> pairs each background with its matching text colour.</p>
     <div class="demo">
       <div class="row">
         <span class="tag tag-accent">TagAccent + TagText</span>
@@ -432,7 +432,7 @@
 
   <!-- SURFACES -->
   <section class="block" id="surfaces">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Surfaces</h2>
     <p class="desc">Inverted from the usual light-theme instinct: a <code>Card</code> sits <em>on</em> a <code>Panel</code> and is filled with the page ground, not a lighter tint of it.</p>
     <div class="grid cols-3" style="margin-bottom:20px">
@@ -464,7 +464,7 @@
 
   <!-- NAV -->
   <section class="block" id="nav">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Navigation</h2>
     <p class="desc">Active state is an accent tint fill plus accent text — never a border or an icon swap.</p>
     <div class="demo" style="max-width:260px">
@@ -479,7 +479,7 @@
 
   <!-- FORMS -->
   <section class="block" id="forms">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Forms &amp; segmented control</h2>
     <p class="desc">Native controls, themed states — no custom widgets. A field reads as a well cut into the panel it sits on: <code>Bg</code>, not <code>Surface</code>.</p>
     <div class="demo" style="max-width:380px">
@@ -500,7 +500,7 @@
 
   <!-- CALLOUTS -->
   <section class="block" id="callouts">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Callouts &amp; notes</h2>
     <p class="desc">Two severities for a block of text the user must read before continuing.</p>
     <div class="grid cols-2">
@@ -511,7 +511,7 @@
 
   <!-- ICONS -->
   <section class="block" id="icons">
-    <div class="kicker">Styles.xaml — component</div>
+    <div class="kicker">core:design-system — component</div>
     <h2>Icons &amp; brand</h2>
     <p class="desc">Every icon is a Phosphor glyph (<code>FontIcons</code>) taking the <code>TextColor</code> of whatever it sits in — one file, every density, no per-icon asset.</p>
     <div class="demo">
@@ -524,7 +524,7 @@
   </section>
 
   <footer class="pagefoot">
-    Source of truth: <code>docs/design-system.html</code> (the web reference this ramp was transcribed from) and <code>MobileApp/Resources/Styles/{Colors,Tokens,Styles}.xaml</code> (what actually ships). oklch → sRGB conversion notes and per-token rationale live as comments in those files — read them before retuning a value here.
+    Source of truth: <code>docs/design-system.html</code> (the web reference this ramp was transcribed from) and <code>android/core/design-system</code> (what actually ships). Each hex here is already converted from the oklch in the reference, so a retuned value starts there.
   </footer>
 
 </div>

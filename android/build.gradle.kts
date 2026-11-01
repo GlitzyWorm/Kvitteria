@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.spotless)
+    alias(libs.plugins.aboutlibraries) apply false
 }
 
 // MPL-2.0's copyleft is per file and attaches through this Exhibit A notice, so a source file without

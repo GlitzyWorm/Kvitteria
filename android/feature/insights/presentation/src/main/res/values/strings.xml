@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="insights_title">Indsigt</string>
+    <string name="view_categories">Kategorier</string>
+    <string name="view_trend">Udvikling</string>
+    <string name="view_prices">Priser</string>
+    <string name="view_dinner">Aftensmad</string>
+    <string name="month_shown">Måned</string>
+    <string name="compared_with">Sammenlignet med</string>
+    <string name="no_compare">Ingen sammenligning</string>
+    <string name="sort_size">Størrelse</string>
+    <string name="sort_change">Ændring</string>
+    <string name="uncategorized">Ukategoriseret</string>
+    <string name="inside_category">Inde i %1$s</string>
+    <string name="drill_hint">Tryk på en hovedkategori for at se dens underkategorier</string>
+    <string name="all_categories">Alle kategorier</string>
+    <string name="movers">Største stigning: %1$s %2$s · største fald: %3$s %4$s</string>
+    <string name="movers_pick_month">Vælg en måned at sammenligne med.</string>
+    <string name="movers_none">Ingen kategori har flyttet sig nævneværdigt.</string>
+    <string name="parent_locked">Har underkategorier, så den kan ikke lægges under en anden.</string>
+    <string name="column_month">Måned</string>
+    <string name="column_total">Beløb</string>
+    <string name="column_change">Ændring</string>
+    <string name="column_receipts">Kvitteringer</string>
+    <string name="item">Vare</string>
+    <string name="price_now">Nu</string>
+    <string name="price_lowest">Lavest</string>
+    <string name="price_note">Beløb delt med antal pr. måned på tværs af butikker. Seks måneder.</string>
+    <string name="per_day">Pr. dag</string>
+    <string name="days_covered">Dage dækket</string>
+    <string name="days_short">Dage</string>
+    <string name="no_data_title">Ingen data endnu</string>
+    <string name="no_data_body">Her dukker tal op, når de første kvitteringer er læst.</string>
+    <string name="no_prices_title">Ingen priser endnu</string>
+    <string name="no_prices_body">Priser vises for varer med mindst ét køb.</string>
+    <string name="no_tracking_title">Intet måltid følger dage</string>
+    <string name="no_tracking_body">Når et måltid følger dage, vises prisen pr. dag her.</string>
+</resources>

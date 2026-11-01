@@ -206,3 +206,23 @@ docker compose down -v
 
 This deletes the database: receipts, members, identities, and the keys protecting your stored mailbox
 passwords. Take a `pg_dump` first if any of that matters.
+
+## The Android app
+
+**"Nothing answered at that address."** The app couldn't reach `/version`. From an emulator the host is
+`10.0.2.2`, not `localhost`. A release build also lands here for any `http` address, because it refuses
+cleartext traffic, so point it at the stack over TLS or use a debug build.
+
+**"Something answered at that address, but it was not a Kvitteria server."** `/version` answered with
+something else, which usually means the port belongs to another service. Use the Caddy port, which is
+8080 by default.
+
+**The app shows the sign-in screen after a restart.** The stored session couldn't be decrypted or the
+identity provider rejected its refresh token, and both are treated as signed out. Losing connection is
+not: the gate offers a retry and keeps the session.
+
+**A signed-in account sees "Ingen adgang".** The account exists at the identity provider, and no household
+member has that address. An admin invites that exact address under Settings, and the same login then works.
+
+**A build fails in `spotlessCheck`.** A Kotlin file is missing its MPL header. `./gradlew spotlessApply`
+adds it.

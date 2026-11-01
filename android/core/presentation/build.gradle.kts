@@ -17,4 +17,5 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:design-system"))
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.appcompat)
 }

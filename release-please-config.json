@@ -37,7 +37,7 @@
       ]
     },
 
-    "Kvitteria/MobileApp": {
+    "android": {
       "release-type": "simple",
       "component": "mobile",
       "package-name": "kvitteria-mobile",
@@ -45,7 +45,7 @@
       "extra-files": [
         {
           "type": "generic",
-          "path": "MobileApp.csproj"
+          "path": "app/build.gradle.kts"
         }
       ]
     }

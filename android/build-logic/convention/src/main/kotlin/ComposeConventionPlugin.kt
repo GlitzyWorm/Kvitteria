@@ -19,6 +19,7 @@ class ComposeConventionPlugin : Plugin<Project> {
             add("implementation", lib("compose-ui"))
             add("implementation", lib("compose-ui-graphics"))
             add("implementation", lib("compose-foundation"))
+            add("implementation", lib("compose-material3"))
             add("implementation", lib("compose-ui-tooling-preview"))
             add("debugImplementation", lib("compose-ui-tooling"))
         }

@@ -14,4 +14,6 @@ android {
 
 dependencies {
     implementation(project(":feature:settings:domain"))
+    implementation(libs.aboutlibraries.core)
+    implementation(libs.androidx.activity.compose)
 }

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="pipeline_title">Pipeline</string>
+    <string name="never_polled">No mailbox has been polled yet.</string>
+    <string name="last_poll">Last poll %1$s · every %2$d s</string>
+    <string name="stage_queued">Queued</string>
+    <string name="stage_extracting">Extracting</string>
+    <string name="stage_persisting">Persisting</string>
+    <string name="stage_failed">Failed</string>
+    <string name="problems">Problems</string>
+    <string name="no_problems">No failures. Everything went through.</string>
+    <string name="mailboxes">Mailboxes</string>
+    <string name="no_mailboxes">No mailboxes yet.</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="dismiss_title">Dismiss this mail?</string>
+    <string name="dismiss_message">The mail is removed and can’t be brought back.</string>
+    <string name="attempts">%1$d attempts</string>
+    <string name="unreconciled">Unreconciled</string>
+    <string name="mailbox_connected">Connected</string>
+    <string name="mailbox_failing">Failing</string>
+    <string name="mailbox_paused">Paused</string>
+    <string name="last_mail">Last mail %1$s</string>
+    <string name="this_month">%1$d this month</string>
+</resources>

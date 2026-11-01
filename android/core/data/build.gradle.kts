@@ -18,4 +18,9 @@ dependencies {
     api(project(":core:domain"))
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+
+    // The contract test covers every wire model, including the ones feature data modules own.
+    testImplementation(project(":feature:sort:data"))
+    testImplementation(project(":feature:pipeline:data"))
+    testImplementation(project(":feature:settings:data"))
 }

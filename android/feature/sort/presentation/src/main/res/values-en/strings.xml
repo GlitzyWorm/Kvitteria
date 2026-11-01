@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="sort_title">Sort</string>
+    <string name="raw_line">Raw line</string>
+    <string name="suggestions">Suggestions</string>
+    <string name="no_suggestions">No known item resembles this line. Search, or create a new one.</string>
+    <string name="create_item">Create new item</string>
+    <string name="search_items">Search items</string>
+    <string name="new_item_name">Item name</string>
+    <string name="remember_alias">Remember for future receipts</string>
+    <string name="set_defaults">Set as the item’s defaults</string>
+    <string name="set_defaults_hint">Writes category and meal back onto the canonical item.</string>
+    <string name="no_taxonomy_permission">Needs the Manage taxonomy permission.</string>
+    <string name="no_categorize_permission">You can see the queue, but not sort it. That needs the Categorize lines permission.</string>
+    <string name="skip">Skip</string>
+    <string name="up_next">Up next</string>
+    <string name="saved_item">%1$s saved</string>
+    <string name="queue_done_title">Queue is empty</string>
+    <string name="queue_done_body">Every line has an item. The next receipt arrives pre-categorized for everything you just taught it.</string>
+    <string name="go_receipts">View receipts</string>
+    <string name="all_skipped_title">You skipped the rest</string>
+    <string name="all_skipped_body">The skipped lines are still waiting.</string>
+    <string name="show_skipped">Show them again</string>
+</resources>

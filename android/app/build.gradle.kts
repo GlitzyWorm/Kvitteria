@@ -7,6 +7,8 @@
 plugins {
     id("kvitteria.android.application")
     id("kvitteria.koin")
+    id("kvitteria.serialization")
+    alias(libs.plugins.aboutlibraries)
 }
 
 android {
@@ -17,6 +19,20 @@ android {
         // versionCode only ever increases; CI passes the run number.
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = "0.0.0" // x-release-please-version
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    androidResources {
+        // Danish is the unqualified default, so a device in any other language shows it.
+        localeFilters += listOf("da", "en")
+        generateLocaleConfig = true
     }
 }
 
@@ -43,4 +59,11 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.core.splashscreen)
 }

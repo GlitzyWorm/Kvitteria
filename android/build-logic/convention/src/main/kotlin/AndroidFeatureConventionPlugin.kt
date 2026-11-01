@@ -22,6 +22,7 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
             add("implementation", lib("androidx-lifecycle-runtime-compose"))
             add("implementation", lib("androidx-lifecycle-viewmodel-compose"))
             add("implementation", lib("kotlinx-coroutines-android"))
+            add("implementation", lib("androidx-navigation3-runtime"))
         }
     }
 }

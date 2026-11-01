@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="retry">Try again</string>
+    <string name="role_admin">Admin</string>
+    <string name="role_member">Member</string>
+    <string name="close">Close</string>
+    <string name="cancel">Cancel</string>
+    <string name="manage">Manage</string>
+    <string name="remove">Remove</string>
+    <string name="save">Save</string>
+    <string name="unknown_member">Unknown member</string>
+    <string name="discard">Discard</string>
+    <string name="error_no_connection">Could not reach the server. Try again.</string>
+    <string name="error_forbidden">You don’t have permission to do that.</string>
+    <string name="error_unauthorized">Your session has expired. Sign in again.</string>
+    <string name="error_not_found">That no longer exists.</string>
+    <string name="error_too_many_requests">Too many attempts. Wait a moment.</string>
+    <string name="error_server">The server has a problem. Try again shortly.</string>
+    <string name="error_unknown">Something went wrong. Try again.</string>
+    <string name="none">None</string>
+    <string name="category">Category</string>
+    <string name="meal">Meal</string>
+    <string name="new_category_option">+ New category…</string>
+    <string name="back">Back</string>
+    <string name="new_category">New category</string>
+    <string name="edit_category">Edit category</string>
+    <string name="category_name">Name</string>
+    <string name="category_name_placeholder">e.g. Frozen &amp; Ready meals</string>
+    <string name="category_parent">Parent category</string>
+    <string name="category_top_level">None (top level)</string>
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes_ago">%1$d min ago</string>
+    <string name="time_hours_ago">%1$d h ago</string>
+    <string name="time_days_ago">%1$d d ago</string>
+</resources>

@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -8,81 +8,50 @@ Kvitteria ingests Danish grocery-receipt emails, extracts them into structured l
 local LLM, persists them to Postgres, and exposes a minimal-API surface for categorizing lines
 (canonical items, categories, meals).
 
-Three projects in `Kvitteria/Kvitteria.slnx`, all **.NET 10**:
+Two projects in `Kvitteria/Kvitteria.slnx`, both **.NET 10**, and the Android app beside them:
 
 ```
-Backend        ASP.NET Core, the whole server           net10.0
-Backend.Tests  xUnit over the pure logic                net10.0
-Contracts      the wire types both sides share          net10.0
-MobileApp      .NET MAUI, ships Android and Mac Catalyst  net10.0-android (+ -windows on Windows, -maccatalyst on macOS)
-MobileApp.Tests  xUnit over the app's MAUI-free helpers  net10.0
+Kvitteria/Backend        ASP.NET Core, the whole server    net10.0
+Kvitteria/Backend.Tests  xUnit over the pure logic         net10.0
+android/                 Compose, the only client          Gradle, min SDK 26
 ```
 
-The reference graph is **`MobileApp → Contracts ← Backend`**, and the missing edge is deliberate:
-`MobileApp` must never reference `Backend`. The app talks to the server over HTTP, so the two are
-separate programs and `Contracts` is the only thing they share. An Angular app goes at the repo root
-beside `caddy/`.
+The app and the server share **no code**. The app talks to the server over HTTP, and
+`docs/openapi/kvitteria.json` is the contract between them, kept honest by a check on each side (see
+[The contract](#the-contract)). An Angular app goes at the repo root beside `caddy/`.
 
 `Kvitteria/` is the .NET root and holds `Directory.Build.props`, `Directory.Packages.props` and
-`global.json`; it is also the Docker build context. `TargetFramework` is **not** in
-`Directory.Build.props` — it was hoisted there when the backend was the only project, but a
-single-targeting `TargetFramework` silently wins over `TargetFrameworks`, so a MAUI project
-inheriting it builds plain `net10.0` and fails without naming the cause. Each project declares its
-own; everything else genuinely shared stays hoisted.
-
+`global.json`; it is also the Docker build context. `android/` sits at the repo root for that reason.
 User-facing documentation lives in `README.md` and `docs/` (`configuration.md`, `troubleshooting.md`,
 `development.md`). This file is the internal counterpart — keep the rationale here and the
 instructions there rather than duplicating either.
 
 ## Licensing
 
-Three licenses, one per subtree, and the arrangement constrains the code:
+Two licenses, one per subtree, and the arrangement constrains the code:
 
 - **`LICENSE`, AGPL-3.0-or-later** — the backend and everything not listed below. §13 is the point:
   the backend is the part someone could run as a service, and that clause makes them publish changes.
-- **`Kvitteria/Contracts/LICENSE`, MIT** — compiled into *both* other projects, so it has to be
-  weaker than either. Anything stronger here pulls one license into the other.
-- **`Kvitteria/MobileApp/LICENSE`, MPL-2.0** — app store terms conflict with GPLv3 §6 (installation
-  information, which iOS code signing makes impossible) and §10 (no further restrictions, which
-  Apple's EULA imposes). MPL is App Store compatible in practice — Firefox for iOS ships under it.
+- **`android/LICENSE`, MPL-2.0** — app store terms conflict with GPLv3 §6 (installation information) and
+  §10 (no further restrictions). MPL is App Store compatible in practice: Firefox ships under it.
 
-Three rules follow, and breaking any of them silently collapses the split:
+Two rules follow, and breaking either silently collapses the split:
 
-1. **`MobileApp` must never reference `Backend`.** They are separate programs over HTTP; a project
-   reference would compile AGPL code into an MPL app.
-2. **`Contracts` stays permissive.** If it ever needs to be relicensed, MIT or Apache-2.0 only.
-3. **Every source file under `MobileApp/` carries the MPL Exhibit A header.** MPL's copyleft is per
-   file and attaches through that notice, so a file without it is not clearly covered.
-   `MobileApp/.editorconfig` sets `file_header_template` and promotes IDE0073 to an **error**, so a
-   new `.cs` file fails the build. XAML is not covered by that analyzer — those headers are manual.
-   `MobileApp.Tests` carries its own `LICENSE` and an identical `.editorconfig` for the same reason:
-   it compiles MPL source files in by link, so one licence covers the whole assembly.
+1. **`android/` must never contain or depend on backend code.** They are separate programs over HTTP.
+   The wire types are written again on the app's side for exactly this reason.
+2. **Every Kotlin source file under `android/` carries the MPL Exhibit A header.** MPL's copyleft is per
+   file and attaches through that notice, so a file without it is not clearly covered. Spotless enforces
+   it: `./gradlew spotlessCheck` fails naming the file. Resource XML headers are manual.
 
-The two bundled typefaces are the one third-party licence in the app: Montserrat and Poppins ship as
-`MauiFont`s under the SIL Open Font License 1.1, which is permissive and file-scoped to the font
-itself, so it neither reaches the surrounding code nor troubles the MPL split. It does require its
-notice to travel with the binary — `licenses/OFL-Montserrat.txt` and `licenses/OFL-Poppins.txt`,
-shipped as `MauiAsset`s and rendered by `LicensesPage` alongside MPL and MIT. They sit in
-`MobileApp/licenses/` rather than beside the fonts because the `MauiFont` glob is
-`Resources\Fonts\*` and would try to embed a `.txt` as a typeface. One notice per family, since each
-carries its own copyright line.
-
-Phosphor joined them as `Resources/Fonts/Phosphor-Regular.ttf`, registered as the `KvitteriaIcons`
-alias. The product mockup draws every icon from it (`ph ph-receipt` and friends), and an icon is a
-glyph rather than an image here: one file covers every density and each glyph takes the `TextColor`
-of whatever it sits in. Code points are named in `Features/Shared/PhosphorIcons.cs` — XAML never
-spells a private-use character out — and are transcribed from Phosphor's own `src/regular/style.css`.
-It is MIT rather than OFL, but the obligation has the same shape, so `licenses/MIT-Phosphor.txt`
-ships as a `MauiAsset` and `LicensesPage` renders it too.
+The bundled typefaces are the third-party licences that need a notice to travel with the binary, because
+someone installing the app receives a binary rather than this repository. Montserrat and Poppins are under
+the SIL OFL 1.1, Phosphor under MIT. All three notices and the app's own MPL sit in
+`feature/settings/presentation/src/main/assets/licenses`, and the licences screen renders them alongside
+the AboutLibraries list, which picks up every dependency without a manual edit. No dependency may be GPL or
+AGPL.
 
 Relicensing is currently free: `git log` shows one human author. That stops being true the moment an
 outside contribution lands without a CLA, or an AGPL/GPL third-party package enters the app.
-
-Both license texts ship as `MauiAsset`s (`licenses/MPL-2.0.txt`, `licenses/MIT.txt`) and are rendered
-by `LicensesPage`. MIT requires its notice to accompany the software, and someone installing the app
-receives a binary rather than this repository. They are referenced in place rather than copied into
-`Resources/Raw`, so there is one copy of each to keep current.
-
 ## Commands
 
 Everything runs in Docker, from the repo root where `compose.yaml` lives. There is no second
@@ -132,29 +101,19 @@ culture-independence, the `CategoryTree` depth/height/descendant rules, the meal
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
 mailbox write validation, the mailbox secret round-trip, the Danish month helpers and `MonthKey`, the
-spending, category, price and meal-day rollups, and receipt-search parsing. Run it from `Kvitteria`, naming the
-project — a bare `dotnet test` resolves to the solution and now builds MobileApp on the way past:
+spending, category, price and meal-day rollups, and receipt-search parsing. Run it from `Kvitteria`:
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
 ```
 
-`Kvitteria/MobileApp.Tests` covers the mobile app's pure logic on the same principle — see
-[Mobile app: server connection and auth](#mobile-app-server-connection-and-auth) for why it links
-those files rather than referencing the project:
+The Android app has its own commands, from `android/`:
 
 ```bash
-dotnet test MobileApp.Tests/MobileApp.Tests.csproj
+./gradlew spotlessCheck testDebugUnitTest test
+./gradlew assembleDebug
 ```
-
-The mobile app builds on its own. Android works on any host; Mac Catalyst needs macOS and is built
-only in CI:
-
-```bash
-dotnet build MobileApp/MobileApp.csproj -f net10.0-android
-```
-
-There are no integration or endpoint tests. For anything touching HTTP or the database, verification
+There are no integration or endpoint tests of the backend. For anything touching HTTP or the database, verification
 is still manual: bring the stack up and watch `docker compose logs -f backend` (Development log level
 is `Debug`). `/health/ready` names each dependency separately, which is the fastest triage.
 
@@ -364,8 +323,7 @@ key needs `"key_ops": ["sign", "verify"]` or startup reports `no signing key det
 present, and is deliberately never given to the backend. `scripts/jwk_from_pem.py` generates a
 conforming key set from an openssl PEM using the standard library alone.
 
-**Local-only, for now.** iOS App Transport Security blocks plaintext HTTP, so physical devices cannot
-reach a local stack — simulator and emulator only until this is served over TLS. Nothing blocks a move
+**Local-only, for now.** Release builds refuse cleartext, so a physical device needs this served over\nTLS. Debug builds on an emulator reach a local stack at `http://10.0.2.2:8080`. Nothing blocks a move
 to hosted identity: `AppUser.AuthUserId` is deliberately **not** a foreign key to `auth.users`, so
 identity can relocate without a migration. `docs/configuration.md` lists what changes; the trap there
 is that a hosted Supabase project has its Data API **on** by default, which would bypass every policy
@@ -521,202 +479,197 @@ also matches names, so `1000` finds `REMA 1000`, on purpose. `ILIKE` on `Ø`/`Å
 testing by hand from a Windows shell, percent-encode the UTF-8 bytes (`f%C3%B8tex`): a non-ASCII argument can reach
 `curl` in the console code page and look like a search that finds nothing.
 
-## Mobile design system
+## Android app
 
-`docs/design-system.html` is the reference: a standalone page holding the tokens and the component
-layer, extracted from the product mockup. It is the source of truth — every value in
-`MobileApp/Resources/Styles/` was transcribed from it, and a change there is what should drive a
-change here rather than the other way round.
-
-The palette is a green at oklch hue 158–170 on a dark ground, with type set in Montserrat (headings,
-capped at weight 500) over Poppins (body). Note the reference contradicts itself on that pairing in
-its prose while its `font-heading`/`font-body` tokens are unambiguous; the tokens won.
-
-Three dictionaries, merged in this order from `App.xaml` because each can only see keys merged before
-it:
+`android/` is a Gradle project with convention plugins in `build-logic/` and versions in
+`gradle/libs.versions.toml`. It starts on AGP 9 with built-in Kotlin, compile SDK 37, target SDK 36 and
+min SDK 26, which gives `java.time` without desugaring.
 
 ```
-Colors.xaml   the palette             every value carries its original oklch in a comment
-Tokens.xaml   type, space, radius,    the 0.70× density scale, verbatim including the fractions
-              elevation
-Styles.xaml   the component layer     implicit styles + the named variants
+app/                 assembles everything: root navigation, tabs, Koin, the activity
+core/domain          shared models, Result, repository interfaces
+core/data            Ktor, session, shared repositories, money and date serializers
+core/presentation    UiText, formatting, pickers, Loader, screen states
+core/design-system   tokens, theme, components, fonts
+feature/{auth,sort,pipeline,settings}/{domain,data,presentation}
+feature/{overview,receipts,insights}/presentation
 ```
 
-Four things follow from the system that are easy to undo by accident:
+Each screen is MVI: `State`, `Action`, a `Channel` of events, `Root` holding the ViewModel and `Screen`
+holding only state, in one file. The three features that own no data have no `domain` or `data` module
+rather than empty ones. `Loader<T>` (`core:presentation`) carries the rule every data screen shares: a
+refresh supersedes the one before it, and a failed refresh keeps the content and reports through
+`failures`. `LoadableContent` draws the matching loading, empty, error and content states inside
+pull-to-refresh.
 
-1. **It is dark-only.** There is no light ramp designed, so nothing uses `AppThemeBinding` and
-   `App.xaml.cs` pins `UserAppTheme = AppTheme.Dark`. Without that pin the platform's own chrome —
-   pickers, dialogs, the keyboard, the Android status bar — comes up light over a dark page. The
-   native colours in `Platforms/Android/Resources/values/colors.xml` mirror the same three tokens,
-   because Android paints the window before any MAUI page exists.
-2. **The accent is a line and a glow, never a flood.** So the *implicit* `Button` style is the quiet
-   secondary — a divider-coloured outline — and `ButtonPrimary` is opted into. Reversing that makes
-   every incidental button shout.
-3. **Nothing hardcodes a value.** Colours, sizes, radii, spacing and font names are all
-   `StaticResource`; a font file is named in exactly one place, `MauiProgram.ConfigureFonts`, and XAML
-   only ever sees the `FontHeading`/`FontBody` aliases.
-4. **Elevation is an edge plus ambient darkness**, so each level is two halves: a `Shadow` from
-   `Tokens.xaml` *and* a step up the neutral ramp on the `Border`'s `Stroke`. `ElevationSm` has no
-   shadow at all and is deliberately not defined; it is the implicit `Border` style.
+### Navigation
 
-Two things the reference does that MAUI cannot, and where the approximation is: the faded-at-both-
-ends rules (`.hr`, table row separators) are flat lines here, and `font-variant-numeric: tabular-nums`
-has no equivalent, so aligned amounts depend on the `KvNum` styles using the heading face.
+Navigation 3, for two reasons: multiple back stacks and conditional navigation are both published
+recipes for it. `KvitteriaRoot` holds `GateRoute`, `ServerRoute`, `ClaimRoute`, `AuthRoute` or
+`MainRoute`, and moving between those **replaces the whole stack**, so back can't reach a signed-in screen
+after sign-out. `SettingsRoute` and `LicensesRoute` sit above `MainRoute`, which is why they have no tab
+bar. `MainShell` holds one back stack per tab in `TabNavigation`, each with its own decorators so a tab
+that isn't showing keeps its ViewModels. Dialogs and sheets are screen state rather than navigation
+entries, and routes carry IDs only.
 
-XAML comments cannot contain `--`, which rules out quoting the reference's CSS custom-property names
-directly; they are spelled without the prefix throughout. The same applies to
-`Platforms/Android/Resources/values/colors.xml`, where it fails as an `aapt2` error naming only the
-file.
+The root is what notices a session ending, so no screen handles that. It also sends a stack restored
+after process death back to the gate, because nobody has been resolved then: `session.member` is null.
 
-## Mobile app: server connection and auth
+### Server connection and auth
 
-The app knows nothing at startup: which server, and who you are on it. `Features/Auth` answers both,
-and everything behind the tab bar depends on it having done so.
+The app knows nothing at startup: which server, and who you are on it. `GateViewModel` resolves it in
+an order that is load-bearing:
 
-`AppShell.xaml` holds four `ShellContent` routes **outside** the `TabBar` — `gate`, `server`,
-`claim`, `auth` — plus the tab bar itself as `main`. They are states of the application rather than
-sections of it, so they carry no tab chrome and everything navigates to them absolutely
-(`GoToAsync("//auth")`); a relative push would leave the tab bar on the back stack behind someone who
-is not signed in. The names are spelled once, in `Features/Shared/AppRoutes.cs`. `gate` is first,
-which is what makes it the start route.
-
-`GateViewModel` resolves the whole question **on every appearance**, not once in a constructor:
-signing out navigates back to it and Shell keeps the page instance, so a one-shot would leave the
-second visit on a splash that never finishes. The order is load-bearing:
-
-1. **No stored server** → `//server`.
+1. **No stored server** → server entry.
 2. **`GET /version`** — proves the origin is a Kvitteria backend rather than merely something that
-   answers, and fails fast. Without it a typo is only discovered at sign-in, as a confusing auth
-   error. Failure shows the retry state *on the gate*, naming the address; a failed probe is not
-   somewhere you navigate to, it is this screen not having finished.
-3. **No session** → `GET /health/ready`, whose `household` check decides `//claim` versus `//auth`.
+   answers. Failure stays on the gate with a retry naming the address, and doesn't sign out.
+3. **No session** → `GET /health/ready`, whose `household` check decides claim versus sign-in.
 4. **An expiring session** → refresh before spending it on a request that would 401.
-5. **`GET /api/users/me`** → 200 caches the `CurrentUserDto` and goes to `//main`; **403** is
-   `//auth?state=rejected`; **401** clears the session and starts over at step 3.
+5. **`GET /api/users/me`** → 200 opens the tabs, **403** is the rejected state, **401** clears the session
+   and starts over at step 3.
 
 Four things about that are easy to undo by accident:
 
 1. **Step 5 is what claims a household.** There is no claim endpoint. `UserProvisioning.Decide`
-   bootstraps the first authenticated caller into the admin as a side effect of the first `/api`
-   request, under a `pg_advisory_xact_lock`. `ClaimPage` therefore calls nothing — it exists so the
-   person about to sign up learns beforehand what signing up will make them. The mockup carries the
-   same sentence as a footnote on its gate, which is easy to sign past without reading.
-2. **`/health/ready` must be parsed whatever the status code is.** The health middleware answers 503
-   for an unhealthy report, and an unpulled Ollama model makes the whole report unhealthy while the
-   `household` check beside it stays perfectly authoritative. Reading only 2xx bodies would strand a
-   fresh install on the wrong screen for a reason that has nothing to do with it.
-3. **A non-member gets 403, not 401.** GoTrue accepted the account and the household did not, which
-   is a different thing from a failed sign-in and says so: `AuthPage` switches to its rejected state
-   in place, keeping the session so it can name the address that was refused. One page, two states,
-   exactly as the mockup does it with `atGate`/`atRejected`.
-4. **Refreshes are serialised.** GoTrue rotates the refresh token on every use and honours the
-   previous one for only ten seconds, so two concurrent refreshes do not merely duplicate work — the
-   loser can spend a token the winner has already replaced and log the household out.
-   `SessionService` holds a `SemaphoreSlim(1,1)` and re-checks the access token after acquiring it,
-   so a burst of 401s produces one refresh. `AuthenticatedHttpMessageHandler` retries exactly once.
-   A refresh that fails for a *network* reason keeps the stored session: the token may well outlive
-   the outage, and signing the household out because a train went into a tunnel would be wrong.
+   bootstraps the first authenticated caller into the admin as a side effect of that request, under a
+   `pg_advisory_xact_lock`. `ClaimScreen` therefore calls nothing: it exists so the person about to sign
+   up learns beforehand what signing up will make them.
+2. **`/health/ready` must be parsed whatever the status code is.** The health middleware answers 503 for
+   an unhealthy report, and an unpulled Ollama model makes the whole report unhealthy while the
+   `household` check beside it stays perfectly authoritative.
+3. **A non-member gets 403, not 401.** GoTrue accepted the account and the household did not, which is a
+   different thing from a failed sign-in. The session is kept so the rejected state can name the address.
+4. **Refreshes are serialized.** GoTrue rotates the refresh token on every use and honours the previous
+   one for only ten seconds, so two concurrent refreshes can log the household out.
+   `GoTrueSessionManager` holds a `Mutex` and re-checks the token after acquiring it, so a burst of 401s
+   produces one refresh. A refresh that fails for a *network* reason keeps the stored session.
 
-Two `HttpClient`s, differing by one handler: `HttpClients.Anonymous` for GoTrue and the probes, and
-`HttpClients.Api` for `/api`. GoTrue **must** use the anonymous one — refreshing through the handler
-that refreshes on 401 would recurse. Neither carries a `BaseAddress`, because the server is not known
-until someone types it; `IServerSettings.Resolve` composes an absolute URI from the live value
-instead, so changing server takes effect with no client to rebuild. The address lives in
-`Preferences` (it is not a secret) and the session in `SecureStorage` as one JSON blob — per-key
-writes are not atomic across keys, and a torn session with a fresh access token and a spent refresh
-token is unrecoverable.
+There are two `HttpClient`s, wrapped in `AnonymousHttpClient` and `ApiHttpClient` so that confusing them
+is a compile error rather than an endless refresh loop. GoTrue **must** use the anonymous one. Neither has
+a base URL: a small plugin fills in the server per request, so a changed server needs no rebuilt client,
+and an absolute URL is left alone, which is how a candidate address is probed before it's stored.
 
-`ServerUrl.TryNormalize` defaults a missing scheme to **https**, since the insecure case is the one
-worth typing out, and discards everything after the authority: a pasted `/api` or `/auth/v1` would
-otherwise end up doubled in every request. `AndroidManifest.xml` points `networkSecurityConfig` at
-`@xml/network_security_config` and `MobileApp.csproj` supplies that resource from one of two files by
-configuration — Debug permits cleartext so the emulator can reach `http://10.0.2.2:8080`, Release
-forbids it. Both files exist so the reference always resolves; excluding one in Release would fail at
-`aapt2` with a message about the manifest instead.
+Ktor's bearer plugin caches what `loadTokens` returned, which would skip the expiry check and keep
+serving a previous session's token. So `HttpClientFactory.api` installs a plugin in front of it that asks
+the session on every request and calls `clearToken()` as soon as the token differs.
 
-`Contracts` gains nothing from any of this. The GoTrue session shape belongs to the identity
-provider, not to this application, and lives in `Features/Auth/GoTrueSession.cs`.
+The address and the session both live in DataStore. The session is one AES-GCM value with the key in
+Android Keystore (`KeystoreSessionCipher`), because per-key writes aren't atomic and a torn session with a
+fresh access token and a spent refresh token is unrecoverable. A value that can't be decrypted reads as no
+session. Backups are off, through `allowBackup` and `dataExtractionRules`, because a Keystore key doesn't
+survive a restore.
+
+`src/debug/res/xml/network_security_config.xml` overrides the main one to allow cleartext, so an emulator
+can reach `http://10.0.2.2:8080`. Release builds refuse it, and report the address as unreachable.
+
+### Errors
+
+Alongside the skill's `DataError`, API calls return `Result<T, ApiError>`, where `ApiError` also carries
+the problem+json `detail`. `ApiError.toUiText()` shows `detail` verbatim on 400, 409, 502 and 503,
+because it names things a client can't reconstruct, like the folders that do exist. Network and permission
+failures stay localized. A 403 on a write also refreshes the member (`refreshIfForbidden`), because what
+the screen shows is out of date.
+
+### Wire types
+
+DTOs are hand-written `@Serializable` classes beside each data source, mapped to domain models.
+
+- **Money** is `BigDecimal` through `MoneySerializer`, which reads the JSON number's own text so a value
+  never passes through `Double`. .NET 10 describes `decimal` as number-or-string, and it takes both.
+- **Instants** tolerate a missing offset by reading it as UTC.
+- **`ReceiptStatus`** is a number. Other enums are names, with an `Unknown` fallback.
+
+### The contract
+
+The app can't compile the server's DTOs, so `docs/openapi/kvitteria.json` stands in. `dotnet build
+Backend/Backend.csproj -p:GenerateOpenApi=true` regenerates it, and `test.yml` fails when it's stale.
+`Program.cs` skips migrating when started by that tool, so generating needs no database.
+
+`ContractTest` in `core:data` compares every wire model's serial descriptor with its schema. It checks
+names and nullability only, because of how .NET 10 describes `decimal`. A new DTO has to be added to its
+list, including ones owned by feature data modules, which `core:data` reaches as test dependencies.
+
+### Design system
+
+`docs/design-system.html` defines the components and `docs/design-tokens.html` the values, whose hex is
+already resolved from oklch. Type sizes come from its spec column: the samples on that page render
+smaller. `core:design-system` holds them as `KvColors`, `KvType`, `KvSpace` and `KvRadius`, and maps them
+onto a Material dark scheme so that system-styled pieces come out dark. Screens use the `Kv*` components,
+which are thin over `foundation` rather than Material restyled.
+
+The palette is a green at oklch hue 158–170 on a dark ground, with Montserrat at weight 500 over Poppins.
+The reference contradicts itself on that pairing in its prose while its tokens are unambiguous; the tokens
+won. Five things follow that are easy to undo by accident:
+
+1. **It is dark-only.** There is no light ramp designed. `KvitteriaApp` pins `MODE_NIGHT_YES` so the
+   platform's own chrome comes up dark, `MainActivity` passes dark bar styles, and `themes.xml` mirrors
+   the ground, because Android paints the window before any Compose exists.
+2. **The accent is a line and a glow, never a flood.** So `KvButton` defaults to the quiet outline, and
+   `KvButtonStyle.Primary` is opted into.
+3. **Nothing hardcodes a value.** Colours, sizes, radii and spacing are all named tokens.
+4. **Elevation is an edge plus ambient darkness.** `kvElevation` applies both halves, and the small level
+   is an edge alone.
+5. **Amounts go through `KvAmount`.** Montserrat has a `tnum` feature and Poppins doesn't, so an amount set
+   in Poppins won't line up in a column.
+
+Touch targets use `minimumInteractiveComponentSize`, so a 30dp stepper draws at 30dp and reacts at 48dp.
+Icons are glyphs from `Phosphor-Regular.ttf`, drawn by `KvIcon` from code points named in `PhosphorIcons`
+and transcribed from Phosphor's own `src/regular/style.css`. Charts are plain `Canvas`, because three
+simple charts don't justify a library. A debug-only `DesignGalleryActivity` shows everything on a device:
+
+```bash
+adb shell am start -n dev.jelshoj.kvitteria/.DesignGalleryActivity
+```
 
 ### Strings
 
-`Localization/AppResources.resx` is **Danish** and `AppResources.en.resx` is the English satellite —
-the opposite of the usual arrangement, and the point: the app is Danish-first, so a device in an
-untranslated language should fall back to Danish. Both string sets are lifted from the mockup's own
-bilingual `L` table where it has a counterpart.
+`res/values/strings.xml` is **Danish** and `res/values-en/strings.xml` is English, the opposite of the
+usual arrangement and the point: a device in an untranslated language falls back to Danish. Strings live
+in the module that uses them, with shared ones in `core:presentation`.
 
-There is no generated designer class. `ResXFileCodeGenerator` is a Visual Studio single-file
-generator rather than an MSBuild target, so an uncommitted designer file simply does not exist on a
-CI runner — and `mobile.yml` builds this project on Ubuntu. The csproj clears `Generator` on both
-files, `Localization/AppResources.cs` is a hand-written marker whose full name is the manifest name,
-and strings are read through `ILocalizationService`'s `INotifyPropertyChanged` indexer so the
-language can change at runtime. XAML reads them as `{loc:Localize SignIn}`, which produces a
-`Binding` rather than a value — a value would resolve once at parse time and leave every built page
-in the old language.
+The choice is kept by AppCompat. `AppCompatDelegate.setApplicationLocales` restarts the activity, so every
+string updates with no language plumbing in composables, which needs `AppCompatActivity` and the locale
+service in the manifest. `generateLocaleConfig` publishes the two languages to the system's per-app
+setting, and `res/resources.properties` says the unqualified resources are Danish.
 
-`LocalizationProvider` is the one seam where a service is reached statically. A markup extension is
-constructed by the XAML parser rather than by the container, so it cannot be injected;
-`MauiProgram` sets it once from the resolved singleton and nothing else reads it. Do not grow it into
-a general service locator. The five `Tab` titles are the other case the extension cannot reach, so
-`AppShell.xaml.cs` sets them and re-applies on the service's `PropertyChanged` — the Shell outlives
-every page and would otherwise keep the language the app started in.
+`KrFormat` formats amounts by hand rather than through `NumberFormat`, so the true minus sign and the
+placement of `kr` are exact in every language. `DanishTime` shows dates in a fixed `Europe/Copenhagen`, so
+a purchase at 00:30 on the first is in the new month on a phone in New York. Household data and the
+server's `detail` are never translated.
 
-### Mailboxes (the Inbox settings tab)
+### Screens
 
-`Features/Overview/SettingViews` holds the first screen in this app that *writes*, and three
-conventions were established there rather than invented per-feature afterwards:
+- **Instant detail.** `KtorReceiptRepository` keeps listed receipts in memory, and detail paints from
+  `peek(id)` and then refreshes.
+- **Badges.** `WorkCounts` holds the two counts. The shell refreshes it on `ON_START`, and saves update it
+  directly.
+- **Taxonomy.** Categories, meals and the item list are cached for the session and invalidated by writes.
+- **Suggestions.** `SuggestionRanker` is a pure function ported from the mockup. It tokenizes with
+  `[^a-zæøå0-9]+` on root-locale lower-casing, so `Æ`, `Ø` and `Å` stay inside a word.
+- **Skips** are held in memory by `InMemorySkippedLines`, so they survive tab changes and end with the
+  process.
+- **A 409 on sort** means someone sorted the line, or a new item's name is taken. The queue tells them
+  apart without reading the message: after a reload, the line is either gone or still there.
+- **Optimistic line edits** snapshot the previous line and restore it on failure. Clearing a meal's last
+  line refreshes the receipt, because its coverage went with it on the server.
+- **Coverage steppers** debounce by 400 ms and send the full set, because the endpoint replaces it.
+- **Search** uses `debounce(300)` with `flatMapLatest`, which is what discards stale results.
+- **Mailbox state on Pipeline** joins the status report with `GET /mailboxes` by ID, because the report
+  has no error or enabled flag.
+- **Pickers** are bottom sheets, and the category sheet is grouped by parent, because a two-level tree
+  needs no tree control.
 
-- **`ApiResult<T>` + `ApiOutcome`** (`Services/ApiResult.cs`) — one result shape for every `/api`
-  call, carrying the problem+json `detail`. Errors stay values, as in `KvitteriaApiClient`; what
-  changes is that five operations sharing the same six failures get one enum instead of five that
-  drift. `ApiOutcome.Verification` is the 502 from `ImapConnection.VerifyAsync` and is deliberately
-  distinct: its detail names the host, the rejected credential, or the folders that *do* exist, none
-  of which a client could reconstruct. So 502/409/400 details are shown **verbatim**, in the server's
-  English, and only what the app can categorize itself (unreachable, forbidden, its own validation)
-  is localized. A localized "could not be verified" would throw away the one useful diagnostic.
-- **`IDialogService`** (`Features/Shared/DialogService.cs`) — kept apart from `INavigator`, which stays
-  about routes and confirmations. Both exist so a view model never reaches into `Shell.Current`.
-- **`IRefreshable`** (`Features/Shared/IRefreshable.cs`) — `SettingsPage` calls it from `OnAppearing`
-  and on a tab change. Same reasoning as the gate resolving on every appearance: Shell keeps a page
-  alive for the life of its route, so anything settled in a constructor is settled for the session.
+### Tests
 
-`MailboxDraft` (`Features/Shared/`) is a plain record rather than a reused `CreateMailboxDto`, because
-`MailboxDraftValidator` beside it is linked into `MobileApp.Tests` — which holds no project reference
-at all, Contracts included. `MailboxApiClient` maps draft → DTO at the boundary. The validator mirrors
-the server's `MailboxValidation` and deliberately omits the duplicate-folder check the mockup does
-client-side: the unique index owns that answer and reports it as a 409 naming host and username.
+Run from `android/`. Pure logic and ViewModels are tested on the JVM with JUnit 5, AssertK, Turbine and
+fakes, and the session and clients with Ktor's `MockEngine`:
 
-Two rows, one view model. `MailboxRowViewModel` feeds both `MailboxCard` (mine: the accent envelope
-over folder and host) and `MemberMailboxCard` (theirs: a circular initials avatar over name and
-folder), rendered through **`BindableLayout`** rather than `CollectionView` — the tab sits inside a
-`VerticalStackLayout`, where a virtualized list has no height to measure against. Note the first
-version of `MailboxCard` carried four `BindableProperty`s and set `BindingContext = this`, which is
-exactly what a template cannot work with: the item never arrives.
+```bash
+./gradlew spotlessCheck testDebugUnitTest test
+```
 
-"Din postkasse" lists **every** mailbox I own, not the first. The mockup takes
-`find(m => m.ownerId === meId)`, but uniqueness is per (member, host, username, folder), so a second
-mailbox of mine would land in neither section — invisible and impossible to edit or remove.
-
-`LastError` is the one thing on the card that neither the mockup nor the screenshots show. The backend
-records it per mailbox precisely so a frontend can say which one is broken, and without it a mailbox
-whose password expired looks identical to a working one while the household quietly stops receiving
-receipts.
-
-### `MobileApp.Tests`
-
-It **links four files as source** rather than referencing `MobileApp`, because it cannot reference
-it: `MobileApp` targets `net10.0-android` (plus Windows or Mac Catalyst per host) and a plain
-`net10.0` project cannot reference any of those. Adding a `net10.0` TFM to `MobileApp` to make it
-possible would mean guarding every MAUI file in the project.
-
-The cost is one `<Compile Include>` line per helper. The benefit is that it keeps `ServerUrl`,
-`HealthProbe`, `AuthErrorMapper` and `StoredSession` honest: one that reaches for `Preferences`,
-`SecureStorage` or anything else out of `Microsoft.Maui` stops compiling there immediately — the same
-discipline that keeps `CategoryTree` and `Reconciliation` testable on the backend. Anything needing a
-MAUI type belongs in `MobileApp/Services`, which is deliberately not linked.
-
-That is also why these run in `test.yml` beside the backend tests rather than in `mobile.yml`: they
-install no MAUI workload, so a backend pull request pays nothing for them, and `test.yml` is the
-workflow without a paths filter.
+`testDebugUnitTest` covers Android modules and `test` the pure JVM ones. There are no instrumented tests:
+end-to-end checks are by hand on an AVD against the compose stack.
 
 ## API and code conventions
 
@@ -731,18 +684,11 @@ endpoints keep the HTTP concerns.
 C# 14 **extension blocks** (`extension(RouteGroupBuilder app) { ... }`) are the idiom for endpoint
 registration and (`extension(string rawName)`) for string helpers.
 
-DTOs are **split across two projects**, and the split is forced rather than chosen. The records live
-in `Contracts` (`Kvitteria.Contracts.DTO`), because the app compiles against them. Their `ToDto()`
-extensions cannot follow: they take EF entities from `Features/Persistence/Model`, and `Contracts`
-must stay referenceable from MAUI. So the mapping lives in
-`Backend/Features/Endpoints/Extensions/<Name>Extension.cs` — one file per DTO, mirroring the record
-it maps to. Still no mapper layer; do not add one.
-
-What may go in `Contracts`: records, enums that cross the wire, and nothing else. It has zero
-`PackageReference`s and no `FrameworkReference` — see Gotchas. `Permission` deliberately stayed in
-`Features/Auth`: permissions cross the wire as `List<string>` in `MemberPermissionsDto` and
-`CurrentUserDto`, so the enum itself is a server concern.
-
+DTOs are **split across two folders**. The records live in `Backend/Contracts`, in the
+`Kvitteria.Contracts.DTO` namespace, and their `ToDto()` extensions in
+`Backend/Features/Endpoints/Extensions/<Name>Extension.cs`, one file per DTO, mirroring the record it maps
+to. Still no mapper layer; do not add one. A change to a record changes the API, so regenerate
+`docs/openapi/kvitteria.json` with it.
 Errors are returned as RFC 7807 problem details via `Results.Problem(statusCode:, detail:)`, and
 every route declares `.WithName()`, `.Produces<T>()`, and `.ProducesProblem(...)` for the OpenAPI
 document.
@@ -785,90 +731,9 @@ right-hand side, `CancellationToken ct` as the parameter name.
 - Tags pushed with the default `GITHUB_TOKEN` do **not** trigger other workflows, so image publishing
   runs as a job inside `release-please.yml` gated on its outputs. An `on: release` trigger would never
   fire, and every release would look successful with no image behind it.
-- `Contracts` must never gain a `FrameworkReference` to `Microsoft.AspNetCore.App`. A MAUI project
-  cannot consume the ASP.NET Core shared framework, so one `FrameworkReference` there breaks the app
-  build — and it is the natural thing to reach for the first time a DTO wants `IResult` or a
-  `[FromBody]` attribute. If a type in `Contracts` needs a package, it belongs in `Backend` instead.
-- **`CommunityToolkit.Maui` must stay inside the band the installed MAUI workload provides**, and
-  getting this wrong builds cleanly and then dies on launch. The toolkit depends on
-  `Microsoft.Maui.Controls`, which `Directory.Packages.props` pins to `$(MauiVersion)`. A toolkit
-  release wanting a newer Controls does **not** fail restore and does **not** warn: the central pin
-  wins for Controls, while the rest of the MAUI graph — `Microsoft.Maui.Core`, `Essentials`,
-  `Graphics` — is unpinned and floats up to satisfy the toolkit. The app then loads `Controls`
-  10.0.20 against `Core` 10.0.90, and since `Page` derives from Core types it crashes in
-  `AppHostBuilderExtensions.RemapForControls` with `System.TypeLoadException: Parent class vtable
-  failed to initialize ... VTable setup of type Microsoft.Maui.Controls.Page failed` — a stack that
-  names neither package. Check the split with:
-
-  ```bash
-  dotnet workload list   # the MauiVersion the workload supplies
-  ```
-
-  and by grepping `Microsoft.Maui.*` in `MobileApp/obj/project.assets.json`: every one of them must
-  carry the same version. Raise the toolkit only together with the workload — and remember CI takes
-  its workload from the SDK band in `global.json`, so a locally updated workload would diverge from
-  it silently, since CI only builds and never launches.
-- The MAUI template pins its two `PackageReference` versions inline, which central package management
-  rejects with **NU1008** — not the NU1010 you would get from an omitted version. The fix is the
-  `Label="Mobile"` group in `Directory.Packages.props`; everything else MAUI needs is an implicit
-  reference from the workload, which sets its own versions and is exempt. `$(MauiVersion)` does
-  resolve inside `Directory.Packages.props` despite how early that file is evaluated, so the pin
-  tracks the installed workload rather than a literal that would drift from `global.json`.
-  Transitive pinning was **not** a problem and stays enabled.
-- `MobileApp.csproj` gates each platform TFM on the host that can build it: `net10.0-android`
-  unconditionally, `net10.0-windows10.0.19041.0` under `IsOSPlatform('windows')`,
-  `net10.0-maccatalyst` under `IsOSPlatform('osx')`. Listing Mac Catalyst unconditionally makes
-  `dotnet build` on the solution fail on Windows and on every Linux runner. The template also matched
-  it twice on macOS, since `!linux` and `osx` both applied.
-- **The Windows TFM is a development target, and removing it breaks F5 in a way that names nothing.**
-  `Properties/launchSettings.json` contains exactly one profile, `Windows Machine`. With no
-  `net10.0-windows` framework behind it, Visual Studio still offers it, launches `dotnet.exe` against
-  a project it cannot run, and reports `The target process exited without raising a CoreCLR started
-  event` with exit code `0x80008083`. Shipping targets are Android and Mac Catalyst; that is not a
-  reason to drop the target the developer actually presses F5 on.
-- **Visual Studio caches the TFM list**, so editing `TargetFrameworks` needs a project reload before
-  the debug-target dropdown is truthful. Until then it offers targets the project no longer has and
-  omits ones it just gained — indistinguishable from the project being misconfigured. Deleting
-  `MobileApp/obj` forces it.
-- `test.yml` builds `Backend.Tests/Backend.Tests.csproj`, not the solution, because the solution now
-  contains MobileApp. The project reference chain still covers `Backend` and `Contracts`, so nothing
-  is lost and a backend pull request never installs a MAUI workload. Do not "simplify" it back to a
-  bare `dotnet build`.
 - `mobile.yml` filters on paths, `test.yml` deliberately does not. A path-skipped run of a **required**
   check stays pending forever and nothing can merge, so only the workflow that is expensive and
   non-blocking gets a filter.
-- `Contracts` is deliberately not a release-please component: nothing distributes it, so its own tag
-  and changelog would be noise. release-please attributes a commit to every package whose path it
-  touches, so a contracts change committed together with its consumer already lands in that
-  consumer's changelog — which is the shape you want anyway, since a DTO change with no consumer
-  change is dead code. Revisit only if it is ever published as a NuGet package.
-- `MobileApp`'s `ApplicationVersion` is Android's `versionCode`: an integer that must only ever
-  increase, which a semver string cannot supply. release-please owns `ApplicationDisplayVersion`;
-  CI passes `-p:ApplicationVersion=` from the run number. Getting this wrong is only discovered at
-  store-upload time.
-- **`[ObservableProperty]` on a partial property cannot carry an initializer** — partial properties
-  cannot in C# at all, and the error names the property rather than the attribute. Default such a
-  value from a `Prepare()` the page calls on appearing (`ServerViewModel.Address` does, which it
-  wants anyway: reached from "skift server" the field should show the address currently in use), or
-  compute it rather than storing it (`AccountSheetViewModel.IsDanish` reads the localization service
-  directly, so the sheet cannot disagree with the language in force).
-- **Toolkit 13 supersedes this, but the shape of the trap is worth keeping.** `Popup<T>` now has
-  `CloseAsync(T result, CancellationToken)`, so a popup closes *itself* and needs no page reference —
-  which is how `MailboxSheet` hands its view model a close callback. Before v12 the only way was
-  `ClosePopupAsync`, which extends **`Page`**, not the content view — closing was addressed to the page
-  the popup was shown over. `AccountSheet` therefore exposes its view model so
-  `OverviewPage` can hand it a close callback; the view model only knows it must be dismissed before
-  it navigates, since a route change under an open popup leaves the popup over the new screen.
-- Adding a file under `Platforms/Android/Resources` can leave `MobileApp/obj` stale, and the build
-  then fails at `aapt2` with `APT2000: ... .flata: No such file or directory` and `APT2066: failed
-  parsing overlays` — which name the intermediate file rather than the change that invalidated it.
-  Deleting `MobileApp/obj` fixes it, the same remedy as the cached TFM list above.
-- `Backend/Dockerfile` must copy **`Contracts/Contracts.csproj`** before `dotnet restore`, alongside
-  `Backend/Backend.csproj`. Restoring a project restores its references, so without it the restore
-  quietly covers `Backend` alone and the `dotnet publish --no-restore` two lines later dies with
-  **NETSDK1004** naming `Contracts/obj/project.assets.json` — a missing *file*, rather than the missing
-  `COPY` that caused it. `.dockerignore` excludes `**/obj`, so a locally restored working tree cannot
-  paper over it and this fails only inside Docker.
 - **`.Select(m => m.ToDto())` is client-evaluated**, because `ToDto` is a method call EF cannot
   translate. Two consequences that pull in opposite directions from the obvious reading: reading a
   navigation inside it does **not** join that navigation in, and an `Include` before it is **not**
@@ -879,7 +744,23 @@ right-hand side, `CancellationToken ct` as the parameter name.
   before it. Unprotecting eagerly meant a lost Data Protection key ring turned "disable this mailbox"
   into a 409 demanding the password be re-entered — the one thing whoever has a broken mailbox cannot
   supply. Toggling `IsEnabled` or reassigning the owner must cost neither a round-trip nor a decryption.
-- A bare `dotnet test` now resolves to a solution containing **two** MAUI-adjacent projects, so name
-  the project — `Backend.Tests/Backend.Tests.csproj` or `MobileApp.Tests/MobileApp.Tests.csproj`.
-  `MobileApp.Tests` must never gain a `ProjectReference` to `MobileApp`: it could not have one, and
-  the linked-source arrangement is what keeps the helpers free of MAUI types.
+- `test.yml` builds `Backend.Tests/Backend.Tests.csproj` and runs the OpenAPI check. It has no paths filter
+  on purpose, and neither step needs a database.
+- The app's `versionCode` is an integer that must only ever increase, which a semver string cannot supply.
+  release-please owns `versionName`, through the `x-release-please-version` comment that must stay on the
+  same line as the value. CI passes `-PversionCode=` from the run number.
+- A file-backed DataStore can't replace its file on Windows while it's open, and fails with `Unable to
+  rename ...`. It's a host problem and doesn't happen on a device, so `DataStoreSessionStoreTest` uses an
+  in-memory store.
+- Adaptive launcher icons need the `mipmap-anydpi-v26` folder. Lint calls the `-v26` qualifier obsolete at
+  min SDK 26, and following that advice fails at `aapt2` with `resource mipmap/ic_launcher not found`.
+- AboutLibraries can list two libraries with one display name, so anything keyed on a name crashes a
+  `LazyColumn` with `Key "..." was already used`. Key on `uniqueId`.
+- A per-app locale is resolved through the device's list as well, so `cmd locale set-app-locales --locales
+  de` on an `en-US` emulator shows English, not the Danish fallback. Only a device with no English in its
+  list falls back. Asking a `createConfigurationContext` with `LocaleList.forLanguageTags("de")` is the
+  honest check on an image without root.
+- `ANDROID_SDK_HOME` on this machine points at `C:\Android`, which `android emulator` doesn't read AVDs
+  from. The `pixel_7_-_api_36_0` AVD needs `emulator -avd` from the SDK folder directly.
+- Compose text nodes in `uiautomator dump` only exist while on screen, and `adb shell input text` can't type
+  non-ASCII, so a scripted check has to scroll first and use ASCII input.

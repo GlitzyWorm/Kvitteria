@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -11,7 +11,7 @@
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 
         <!-- TargetFramework, Nullable, ImplicitUsings and LangVersion come from
-             ../Directory.Build.props, shared with the test project and any future MAUI project. -->
+             ../Directory.Build.props, shared with the test project. -->
 
         <!-- Warnings were previously invisible: five real nullability issues sat in the build output
              unnoticed because nothing failed on them. -->
@@ -61,8 +61,5 @@
       <PackageReference Include="Scalar.AspNetCore" />
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\Contracts\Contracts.csproj" />
-    </ItemGroup>
 
 </Project>

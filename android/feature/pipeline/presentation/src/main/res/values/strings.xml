@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="pipeline_title">Pipeline</string>
+    <string name="never_polled">Ingen postkasse er tjekket endnu.</string>
+    <string name="last_poll">Seneste tjek %1$s · hver %2$d s</string>
+    <string name="stage_queued">I kø</string>
+    <string name="stage_extracting">Udtrækker</string>
+    <string name="stage_persisting">Gemmer</string>
+    <string name="stage_failed">Fejlet</string>
+    <string name="problems">Problemer</string>
+    <string name="no_problems">Ingen fejl. Alt er kørt igennem.</string>
+    <string name="mailboxes">Postkasser</string>
+    <string name="no_mailboxes">Ingen postkasser endnu.</string>
+    <string name="dismiss">Afvis</string>
+    <string name="dismiss_title">Afvis mailen?</string>
+    <string name="dismiss_message">Mailen bliver fjernet og kan ikke hentes igen.</string>
+    <string name="attempts">%1$d forsøg</string>
+    <string name="unreconciled">Afstemmer ikke</string>
+    <string name="mailbox_connected">Forbundet</string>
+    <string name="mailbox_failing">Fejler</string>
+    <string name="mailbox_paused">På pause</string>
+    <string name="last_mail">Seneste mail %1$s</string>
+    <string name="this_month">%1$d denne måned</string>
+</resources>
