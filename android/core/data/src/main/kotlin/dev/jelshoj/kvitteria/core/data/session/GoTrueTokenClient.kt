@@ -14,6 +14,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.ContentConvertException
@@ -77,6 +78,9 @@ class GoTrueTokenClient(
         if (response.status.isSuccess()) {
             val tokens = response.body<GoTrueSessionDto>()
             if (tokens.hasTokens) RefreshOutcome.Refreshed(tokens.toStoredSession(session.email, clock)) else RefreshOutcome.Rejected
+        } else if (response.status == HttpStatusCode.TooManyRequests || response.status.value >= 500) {
+            // Rate limiting and a failing server or proxy say nothing about the refresh token itself.
+            RefreshOutcome.Unreachable
         } else {
             RefreshOutcome.Rejected
         }

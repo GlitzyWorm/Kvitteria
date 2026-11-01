@@ -1,7 +1,16 @@
 {
-	# Nothing terminates TLS in front of this locally, and the site below is a bare port, so leaving
-	# automatic HTTPS on would only produce certificate attempts that cannot succeed.
-	auto_https off
+	# Automatic HTTPS stays on. A bare port such as the default :8080 below does not qualify for a
+	# certificate, so local and behind-a-proxy modes make no attempt and open no :80 redirect listener,
+	# while compose.public.yaml sets SITE_ADDRESS to the public URL and Caddy obtains and renews one.
+	# `auto_https off` could not be made switchable: the option has no `on`, so a variable cannot flip it.
+
+	servers {
+		# Whose forwarded client address Caddy believes. Private ranges by default, because a proxy on
+		# the host, Tailscale serve or a Tunnel daemon appears as a private peer; compose.public.yaml pins
+		# it to nobody. Strict reads the list right to left, so a value appended by a client is ignored.
+		trusted_proxies static {$TRUSTED_PROXIES:private_ranges}
+		trusted_proxies_strict
+	}
 
 	log {
 		format console
@@ -10,7 +19,12 @@
 
 # The single entrypoint. A frontend configures one origin and reaches auth, the API and eventually
 # the app itself through it.
-:8080 {
+{$SITE_ADDRESS::8080} {
+	# The one statement of the client address. It overwrites whatever the client sent, and both GoTrue
+	# and the backend rate limit on this header alone. X-Forwarded-For can hold a list, which would make
+	# a limiter key forgeable.
+	request_header X-Real-IP {client_ip}
+
 	# GoTrue serves at the root — /token, /signup, /.well-known/jwks.json. In a Supabase project it is
 	# Kong that mounts it under /auth/v1, and there is no Kong here, so the prefix is stripped on the
 	# way through. handle_path does that; a plain handle would forward it intact and 404.

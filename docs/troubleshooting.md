@@ -87,12 +87,47 @@ docker compose exec ollama ollama pull <the model the health check named>
 
 ## `household` — Degraded
 
-Nobody has claimed the household. This is how every fresh install starts, and it resolves itself the
-moment somebody signs in:
+Nobody has claimed the household. `./scripts/setup.sh` creates the admin before it opens the entrypoint, so
+this means you started the stack some other way, or setup stopped before the claim. Run the script again and it asks
+for the admin's email and password. By hand:
 
 ```bash
 ./scripts/token.sh you@example.com 'a-good-password' --signup
 ```
+
+Until that happens the first person to sign in becomes the admin, so keep the stack off the network.
+
+## A certificate is not issued (public-domain mode)
+
+Caddy obtains the certificate on first use, and a failure shows only in its log:
+
+```bash
+docker compose logs caddy | grep -iE "acme|certificate|error"
+```
+
+Look for `obtaining certificate` followed by an error. The usual causes are a DNS record that does not point at this
+host (check with `dig +short your.domain`), port 80 closed or already used by another service (the challenge arrives
+on 80 even though clients use 443), or hitting Let's Encrypt's rate limits after many failed attempts. Fix the cause
+and `docker compose restart caddy`.
+
+## Sign-in answers 429, or "rate limiting is not applied"
+
+A burst of password attempts from one address gets 429 for a while; wait a few minutes. If everyone behind one proxy is
+limited together, the proxy has a public address Caddy does not trust: set `TRUSTED_PROXIES` to its range.
+
+If GoTrue logs `request does not have a value for the rate limiting header, rate limiting is not applied`, that request
+arrived without `X-Real-IP` and was not limited. Something is reaching GoTrue without going through Caddy, usually its
+published development port (the backend's own claim during setup does this once, by design):
+
+```bash
+docker compose logs gotrue --tail 100 | grep -i "rate limit"
+```
+
+## Everything stopped working after changing `PUBLIC_URL`
+
+Tokens already issued name the old issuer, so the backend answers 401 to every one of them. Sign in again from each
+client. Also check that `.env` does not still pin `GOTRUE_SITE_URL` or `GOTRUE_URI_ALLOW_LIST` to the old address: a
+pinned value wins over `PUBLIC_URL`. See [Modes](configuration.md#modes).
 
 ## Everything reports healthy, but no receipts appear
 
@@ -211,7 +246,8 @@ passwords. Take a `pg_dump` first if any of that matters.
 
 **"Nothing answered at that address."** The app couldn't reach `/version`. From an emulator the host is
 `10.0.2.2`, not `localhost`. A release build also lands here for any `http` address, because it refuses
-cleartext traffic, so point it at the stack over TLS or use a debug build.
+cleartext traffic, so point it at the stack over TLS (a public domain or a proxy; see
+[Modes](configuration.md#modes)) or use a debug build.
 
 **"Something answered at that address, but it was not a Kvitteria server."** `/version` answered with
 something else, which usually means the port belongs to another service. Use the Caddy port, which is

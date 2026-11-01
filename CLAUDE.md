@@ -63,8 +63,19 @@ entrypoint are all services in this compose project.
 ```
 
 That writes `.env` (generating the Postgres password, `GOTRUE_JWT_SECRET`, and the ES256
-`GOTRUE_JWT_KEYS`), starts everything, and waits on `/health/ready`. `scripts/setup.ps1` is the
-Windows equivalent. Re-running it leaves an existing `.env` alone.
+`GOTRUE_JWT_KEYS`), asks for the public address and mode, and creates the first admin **before the
+entrypoint starts**. `scripts/setup.ps1` is the Windows equivalent. Re-running it leaves an existing `.env`
+alone and asks for nothing once the household has an admin.
+
+The order is the safety property, so keep it. Caddy `depends_on` a healthy backend, so a plain
+`docker compose up -d` opens the entrypoint on an unclaimed household for the seconds a claim takes, and
+that window is the whole first-caller race. The script therefore runs `up -d --wait backend gotrue` (Caddy
+stays down, so no network port is open in an HTTPS mode), claims through `docker compose exec -T backend
+curl`, re-reads the `household` check, and only then runs `up -d`. Going through `exec` means the claim
+needs neither DNS, a certificate nor the deployer's proxy. The credentials reach `curl` on stdin
+(`--data-binary @-`, and `-H @-` for the bearer), so the password is never an argument of any process;
+a `user_already_exists` answer falls back to the password grant, which is how an interrupted run
+completes. A deployer who skips the script keeps the race, and the README says so beside the manual route.
 
 After that, plain compose:
 
@@ -78,11 +89,42 @@ host-side tooling needs — Postgres on 54322, GoTrue on 9999, the backend direc
 Caddy. `compose.gpu.yaml` is a third overlay for GPU passthrough, opted into via `COMPOSE_FILE`
 in `.env`.
 
-**Caddy is the single entrypoint**, on `http://localhost:8080` by default. It routes `/auth/v1/*` to
+**Caddy is the single entrypoint**, on `http://localhost:8080` by default; see [Modes](#modes) for the
+HTTPS alternatives. It routes `/auth/v1/*` to
 GoTrue with the prefix stripped (standalone GoTrue serves at the root; in a Supabase project Kong is
 what adds that prefix), `/api/*` and `/health/*` and `/version` to the backend, and `/` to a future
 Angular build mounted at `/srv`. Scalar is at `/scalar` and the OpenAPI document at
 `/openapi/v1.json`, both Development-only.
+
+### Modes
+
+`PUBLIC_URL` says where the stack is and `COMPOSE_FILE` says who terminates TLS, because a domain and a
+proxy both have an `https://` address:
+
+| Mode | `PUBLIC_URL` | `COMPOSE_FILE` |
+|---|---|---|
+| Local | `http://localhost:8080` | unset |
+| Behind a proxy | `https://...` | `compose.yaml` |
+| Public domain | `https://...` | `compose.yaml:compose.public.yaml` (`;` on Windows) |
+
+The Caddyfile's site address is `{$SITE_ADDRESS::8080}`. A bare port does not qualify for a certificate, so
+local and proxy modes attempt none and open no `:80` listener; `compose.public.yaml` sets `SITE_ADDRESS` to
+the whole URL (compose interpolation cannot extract a host, and Caddy accepts a URL) and replaces the port
+list with `ports: !override` (Compose 2.24.4+; without it compose appends and leaves 8080 published). Three
+traps:
+
+- **`auto_https off` is gone on purpose.** The option has no `on`, so a variable could never switch it.
+- **`SITE_ADDRESS` must be unset, not empty, in the base file.** Caddy applies `{$VAR:default}` only to an
+  unset variable; an empty one blanks the site address and the Caddyfile fails with "server block without any
+  key". `compose.yaml` therefore does not mention it.
+- **Both HTTPS modes set `COMPOSE_FILE`, which leaves `compose.override.yaml` out.** Otherwise a stack set up
+  from a checkout runs in Development with Postgres and GoTrue published, and a published GoTrue port
+  bypasses the client-address header and therefore the rate limit.
+
+`GOTRUE_SITE_URL` and `GOTRUE_URI_ALLOW_LIST` default to `${PUBLIC_URL}` in `compose.yaml` and are no longer
+in `.env.example`. **An existing `.env` that still pins them wins over `PUBLIC_URL`**, so moving off
+localhost means deleting those two lines. Changing `PUBLIC_URL` changes the token issuer, so every client
+signs in again.
 
 Migrations are applied at startup by `DatabaseMigrator.MigrateDatabaseAsync`, called before the host
 starts. To add one, from `Kvitteria`:
@@ -100,7 +142,7 @@ reconciliation tolerance, Danish purchase-date parsing including the DST gap, `N
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
-mailbox write validation, the mailbox secret round-trip, the Danish month helpers and `MonthKey`, the
+mailbox write validation, the mailbox secret round-trip, the rate-limit partition key and trusted private ranges, the Danish month helpers and `MonthKey`, the
 spending, category, price and meal-day rollups, and receipt-search parsing. Run it from `Kvitteria`:
 
 ```bash
@@ -323,11 +365,52 @@ key needs `"key_ops": ["sign", "verify"]` or startup reports `no signing key det
 present, and is deliberately never given to the backend. `scripts/jwk_from_pem.py` generates a
 conforming key set from an openssl PEM using the standard library alone.
 
-**Local-only, for now.** Release builds refuse cleartext, so a physical device needs this served over\nTLS. Debug builds on an emulator reach a local stack at `http://10.0.2.2:8080`. Nothing blocks a move
+**Reachable from a phone.** A release build refuses cleartext, so a physical device needs one of the two HTTPS
+[modes](#modes); a debug build on an emulator reaches a local stack at `http://10.0.2.2:8080`. Signup stays
+open on purpose: members join by signing up after an admin pre-authorizes their email, and inviting needs a
+`service_role` key this project avoids having. A stranger who signs up gets a row in `auth.users` and a 403
+from the backend, so [request protection](#request-protection) is required rather than optional.
+`GOTRUE_DISABLE_SIGNUP` stays a manual switch, and setting it stops new members joining. Nothing blocks a move
 to hosted identity: `AppUser.AuthUserId` is deliberately **not** a foreign key to `auth.users`, so
 identity can relocate without a migration. `docs/configuration.md` lists what changes; the trap there
 is that a hosted Supabase project has its Data API **on** by default, which would bypass every policy
 below.
+
+### Request protection
+
+**Caddy states the client address once.** `request_header X-Real-IP {client_ip}` at the top of the site block
+overwrites whatever the client sent, and both GoTrue and the backend read that header alone. A dedicated
+header, not `X-Forwarded-For`: that can hold a list, GoTrue uses the raw value as its limiter key, and a list
+would make the key forgeable. The `servers` global option sets `trusted_proxies static
+{$TRUSTED_PROXIES:private_ranges}` with `trusted_proxies_strict` (right-to-left, so an appended value cannot be
+spoofed from the left). Compose defaults the variable to `private_ranges`, the peer a host-side proxy,
+Tailscale serve, a Tunnel daemon or a sibling container appears as. `compose.public.yaml` pins it to
+`127.0.0.1/32`, meaning nobody: on a dual-stack host an IPv6 client can reach Caddy from the Docker gateway,
+a private address. Docker Desktop hides client addresses behind its gateway, so there all clients share one
+limit; that fails towards limited, not unprotected.
+
+**Sign-in and sign-up use GoTrue's own limits.** They are inactive unless `GOTRUE_RATE_LIMIT_HEADER` names a
+header, which is why the stack once had none. `/signup` keeps GoTrue's default of 30 per 5 minutes
+(`GOTRUE_RATE_LIMIT_OTP`); `/token` is lowered to 30 (`GOTRUE_RATE_LIMIT_TOKEN_REFRESH`, default 150) because
+password and refresh grants share a limiter, so it is also the password-guessing budget: a burst of 30, then
+about six a minute. If Caddy ever stopped sending `X-Real-IP`, GoTrue would log a warning and silently limit
+nobody.
+
+**The API is limited in the backend** (`Features/Shared/RequestProtection.cs`): a sliding window of 300
+requests a minute per `Connection.RemoteIpAddress`, attached to the `/api` group with `RequireRateLimiting`
+so `/health/*` and `/version` are outside it by construction. 300 is deliberately generous, because a
+household shares one address and a screen load fires several requests. The limiter's default rejection is
+503, so `RejectionStatusCode` is 429 and `OnRejected` writes problem details and `Retry-After` (the window
+length, since a sliding window reports no retry time). `UseRateLimiter` runs before authentication so a flood
+is turned away before any token is validated. It is a per-group policy and changes nothing in the OpenAPI
+document. The backend does not depend on which proxy is in front.
+
+**`UseForwardedHeaders` runs first**, with `ForwardedForHeaderName = "X-Real-IP"`, `ForwardLimit = 1` and
+`KnownIPNetworks` set to the private ranges (`10/8`, `172.16/12`, `192.168/16`, `fc00::/7`). The compose
+subnet is assigned by Docker and cannot be named statically, and pinning one risks colliding with the host's
+own network; private ranges are safe because the backend publishes no port outside the development override,
+so only compose peers can reach it. It is `KnownIPNetworks`, not `KnownNetworks`, which is obsolete in .NET
+10 and fails the build under `TreatWarningsAsErrors`. An IPv4-mapped IPv6 address keys as its IPv4 form.
 
 ### Who gets in
 
@@ -542,7 +625,10 @@ Four things about that are easy to undo by accident:
 4. **Refreshes are serialized.** GoTrue rotates the refresh token on every use and honours the previous
    one for only ten seconds, so two concurrent refreshes can log the household out.
    `GoTrueSessionManager` holds a `Mutex` and re-checks the token after acquiring it, so a burst of 401s
-   produces one refresh. A refresh that fails for a *network* reason keeps the stored session.
+   produces one refresh. A refresh that fails for a *network* reason keeps the stored session, and so does one
+   answered with 429 or a 5xx: rate limiting and a proxy's 502 during a restart say nothing about the refresh
+   token, and treating them as a rejection would sign the household out. `GoTrueTokenClient.refresh` maps both to
+   `RefreshOutcome.Unreachable`; any other non-2xx stays `Rejected`.
 
 There are two `HttpClient`s, wrapped in `AnonymousHttpClient` and `ApiHttpClient` so that confusing them
 is a compile error rather than an endless refresh loop. GoTrue **must** use the anonymous one. Neither has
