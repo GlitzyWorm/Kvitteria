@@ -6,7 +6,7 @@
              rewrites this line and finds it by the trailing marker comment, so both must stay together
              on one line. The Dockerfile passes `-p:Version=` only when CI gives it one, so an ordinary
              `docker build` inherits this value rather than a placeholder. -->
-        <VersionPrefix>1.0.0</VersionPrefix> <!-- x-release-please-version -->
+        <VersionPrefix>1.1.0</VersionPrefix> <!-- x-release-please-version -->
 
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 
