@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.0.0...backend-v1.1.0) (2026-11-01)
+
+
+### Features
+
+* **android:** build the native app and retire MAUI ([#13](https://github.com/GlitzyWorm/Kvitteria/issues/13)) ([976af4d](https://github.com/GlitzyWorm/Kvitteria/commit/976af4df266d702919741a30f63370b548aca267))
+* **backend:** add spending insights and receipt search ([#12](https://github.com/GlitzyWorm/Kvitteria/issues/12)) ([3a9ee5f](https://github.com/GlitzyWorm/Kvitteria/commit/3a9ee5ffcd687bdcedcf966bbc44f2895f0b3cc7))
+* **backend:** atomic line sorting and the unassigned queue ([#11](https://github.com/GlitzyWorm/Kvitteria/issues/11)) ([950ffef](https://github.com/GlitzyWorm/Kvitteria/commit/950ffef633439ee39a9937af1fcd90f6396f40fc))
+* **backend:** keep mail durably and track pipeline failures ([#9](https://github.com/GlitzyWorm/Kvitteria/issues/9)) ([c248141](https://github.com/GlitzyWorm/Kvitteria/commit/c248141d85f547de279728535d8e5df818cf9fb5))
+* **contracts:** Add a shared contracts project ([77dbf6c](https://github.com/GlitzyWorm/Kvitteria/commit/77dbf6c9351ec09eadc913f861527ec95c30e60f))
+* **mobile:** add editable Pipeline settings tab ([#8](https://github.com/GlitzyWorm/Kvitteria/issues/8)) ([2564ae8](https://github.com/GlitzyWorm/Kvitteria/commit/2564ae8c8383c3b6ebffa794af60b8c4e5a00f64))
+* **mobile:** Implement Kvitteria design system and theme ([eb512db](https://github.com/GlitzyWorm/Kvitteria/commit/eb512db49d74ea2cfe52ad37a12addb1ce1bec0d))
+* **mobile:** Inbox tab with mailbox management ([#7](https://github.com/GlitzyWorm/Kvitteria/issues/7)) ([d353f0b](https://github.com/GlitzyWorm/Kvitteria/commit/d353f0b16a629966ea8e60b348628e2e029fc14f))
+* reach the stack from a phone, safely ([#15](https://github.com/GlitzyWorm/Kvitteria/issues/15)) ([bd74c47](https://github.com/GlitzyWorm/Kvitteria/commit/bd74c47b9d0fdc5f3a2c9fdf7d18f60b20c05cdb))
+
+
+### Build System
+
+* move TargetFramework into the backend projects ([f6e5519](https://github.com/GlitzyWorm/Kvitteria/commit/f6e55195c03a881db2909bd294960f611f4fb8c2))
+
 ## 1.0.0 (2026-08-21)
 
 
