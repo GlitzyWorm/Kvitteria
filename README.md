@@ -49,12 +49,34 @@ cd Kvitteria
 
 On Windows, `.\scripts\setup.ps1` instead.
 
-The script writes a `.env` with a generated database password and signing key, then starts everything
-and waits until it reports ready. The first run downloads a multi-gigabyte model, so give it time.
+The script asks for the address clients will use (press Enter for `http://localhost:8080`) and, for an
+`https://` address, whether a proxy you run already terminates TLS. It writes a `.env` with a generated database
+password and signing keys, asks for the **first admin's email and password**, and starts the backend and identity
+provider with the entrypoint still off. It creates the admin, confirms the household is claimed, and only then starts
+the rest. The first run downloads a multi-gigabyte model, so give it time. For an unattended run, set
+`KVITTERIA_PUBLIC_URL`, `KVITTERIA_TLS` (`proxy` or `domain`), `KVITTERIA_ADMIN_EMAIL` and
+`KVITTERIA_ADMIN_PASSWORD` instead of answering.
+
+Running it again is safe: it leaves `.env` alone and asks for nothing once the household has an admin.
+
+### Modes
+
+| You have | `PUBLIC_URL` | `COMPOSE_FILE` |
+|---|---|---|
+| Just this machine, or an emulator | `http://localhost:8080` | unset |
+| A proxy that already does HTTPS (Tailscale serve, Cloudflare Tunnel, Traefik, ...) | `https://...` | `compose.yaml` |
+| A domain pointing at this host, ports 80 and 443 open | `https://...` | `compose.yaml:compose.public.yaml` |
+
+With a domain, Caddy gets and renews a certificate itself. A physical phone needs one of the two HTTPS modes, because a
+release build of the Android app refuses plain HTTP. Rate limits, proxy recipes and moving an existing install are in
+[docs/configuration.md](docs/configuration.md#modes).
 
 Prefer to do it yourself? `cp .env.example .env`, fill in `POSTGRES_PASSWORD`, `GOTRUE_JWT_SECRET` and
 `GOTRUE_JWT_KEYS`, then `docker compose up -d`. Every variable is documented in
 [docs/configuration.md](docs/configuration.md).
+
+> **Skipping the script leaves the first-caller race.** On an empty household the first person to sign in becomes its
+> admin, so a stack you start by hand must not be reachable from outside until you have signed in yourself (below).
 
 Everything is served from one origin, `http://localhost:8080` by default:
 
@@ -68,9 +90,9 @@ Everything is served from one origin, `http://localhost:8080` by default:
 
 ## First run
 
-**The first account to sign in claims the household as its admin.** There is no setup wizard and no
-bootstrap password — until somebody signs in, there is nothing to protect, and afterwards nobody new
-gets in unless an admin pre-authorizes their email.
+The setup script has already created the first admin, and **the first account to sign in claims the household as its
+admin**. If you started the stack by hand, do this now, before anything outside your machine can reach it: whoever signs
+in first gets the household. Afterwards nobody new gets in unless an admin pre-authorizes their email.
 
 ```bash
 ./scripts/token.sh you@example.com 'a-good-password' --signup
@@ -268,8 +290,9 @@ permissions, mailboxes and settings. It is Danish first, with English as a choic
 installing or using the stack depends on it.
 
 It is a plain HTTP client of the backend, pointed at the same Caddy entrypoint a browser would use.
-Emulator only for now: a release build refuses plain HTTP, so a physical device needs the stack served
-over TLS, which it currently is not. Building it is covered in [docs/development.md](docs/development.md).
+A release build refuses plain HTTP, so a physical device needs one of the two HTTPS [modes](#modes); a debug build on an
+emulator reaches a local stack at `http://10.0.2.2:8080`. Building it is covered in
+[docs/development.md](docs/development.md).
 ## Contributing
 
 `docker compose` in a checkout picks up `compose.override.yaml` automatically, which builds the

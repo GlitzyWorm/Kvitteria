@@ -50,6 +50,7 @@ builder.Services.AddHouseholdAuth(builder.Configuration, builder.Environment);
 builder.Services.AddHouseholdHealthChecks();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddRequestProtection();
 builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
 
 builder.Services.AddOptionsSection<DatabaseOptions>(builder.Configuration);
@@ -103,7 +104,13 @@ if (!generatingOpenApiDocument)
 	await app.MigrateDatabaseAsync();
 }
 
+// First, so everything after it sees the client address the entrypoint stated instead of the proxy's.
+app.UseForwardedHeaders();
+
 app.UseExceptionHandler();
+
+// Ahead of authentication so an unauthenticated flood is turned away before any token is validated.
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -122,7 +129,8 @@ app.MapMetaEndpoints();
 // Every route requires an active household member; write routes add their own permission on top,
 // and the two policies compose as an AND.
 RouteGroupBuilder group = app.MapGroup("/api")
-                             .RequireAuthorization(PermissionPolicies.ActiveUser);
+                             .RequireAuthorization(PermissionPolicies.ActiveUser)
+                             .RequireRateLimiting(RequestProtection.PolicyName);
 
 group.MapReceiptEndpoints();
 

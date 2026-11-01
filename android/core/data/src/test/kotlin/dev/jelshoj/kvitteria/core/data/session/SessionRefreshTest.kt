@@ -151,6 +151,30 @@ class SessionRefreshTest {
     }
 
     @Test
+    fun `a rate limited refresh keeps the session and reports a network error`() = runTest {
+        val fixture = Fixture(old, identity = { respond("", HttpStatusCode.TooManyRequests) })
+        fixture.manager.load()
+
+        val result = fixture.call()
+
+        assertThat(result).isEqualTo(Result.Error(ApiError(DataError.Network.NO_INTERNET)))
+        assertThat(fixture.manager.session.value).isEqualTo(old)
+        assertThat(fixture.store.stored).isNotNull()
+    }
+
+    @Test
+    fun `a refresh answered with a gateway error keeps the session and reports a network error`() = runTest {
+        val fixture = Fixture(old, identity = { respond("", HttpStatusCode.BadGateway) })
+        fixture.manager.load()
+
+        val result = fixture.call()
+
+        assertThat(result).isEqualTo(Result.Error(ApiError(DataError.Network.NO_INTERNET)))
+        assertThat(fixture.manager.session.value).isEqualTo(old)
+        assertThat(fixture.store.stored).isNotNull()
+    }
+
+    @Test
     fun `an expiring token that can't be refreshed also keeps the session`() = runTest {
         val expiring = old.copy(expiresAt = now.plusSeconds(30))
         val fixture = Fixture(expiring, identity = { throw IOException("tunnel") })

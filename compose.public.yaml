@@ -1,0 +1,26 @@
+# Public-domain mode: Caddy obtains and renews a certificate for PUBLIC_URL itself and serves HTTPS.
+# Enable it by listing it in COMPOSE_FILE next to compose.yaml, and leave compose.override.yaml out so
+# nothing but Caddy publishes a port:
+#
+#   COMPOSE_FILE=compose.yaml:compose.public.yaml        (";" separates them on Windows)
+#
+# Needs DNS pointing at this host, ports 80 and 443 reachable, and Docker Compose 2.24.4 or newer for
+# `!override`. Certificates live in the caddy_data volume, so recreating Caddy reuses them.
+#
+# Behind a proxy that already terminates TLS, leave this file out: compose.yaml serves plain HTTP.
+
+services:
+  caddy:
+    environment:
+      # The whole URL: compose interpolation cannot pull a host out of it, and Caddy accepts a URL as a
+      # site address, taking the scheme and host from it.
+      SITE_ADDRESS: ${PUBLIC_URL:?PUBLIC_URL must be the https:// address clients use}
+      # Nobody. Nothing connects to Caddy from its own loopback, so no forwarded address is believed and
+      # every client is limited under the address of its connection. Private ranges are not safe here: on a
+      # dual-stack host an IPv6 client can reach Caddy from the Docker gateway, a private address.
+      TRUSTED_PROXIES: 127.0.0.1/32
+    # Replaces the base file's list rather than appending to it, which would leave 8080 published.
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"

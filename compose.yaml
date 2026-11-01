@@ -8,6 +8,10 @@ services:
     restart: unless-stopped
     ports:
       - "${CADDY_HTTP_PORT:-8080}:8080"
+    environment:
+      # SITE_ADDRESS is deliberately not passed here: Caddy falls back to the bare :8080 site only when
+      # the variable is unset, and an empty one would blank the site address. compose.public.yaml sets it.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-private_ranges}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       # Where the Angular build will be mounted. Empty for now.
@@ -93,8 +97,9 @@ services:
       # Owns the `auth` schema; the backend owns `public` in the same database.
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kvitteria}?search_path=auth&sslmode=disable
 
-      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:8080}
-      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-http://localhost:8080}
+      # Follow PUBLIC_URL unless .env pins them. The checked-in .env.example no longer does.
+      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-${PUBLIC_URL:-http://localhost:8080}}
+      GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-${PUBLIC_URL:-http://localhost:8080}}
 
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
@@ -105,6 +110,14 @@ services:
 
       GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
       GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: 10
+
+      # Per client address, keyed on the header Caddy overwrites. Without a header name GoTrue's limiter
+      # does nothing, which is how this stack ran before. /token covers password and refresh grants
+      # alike, so the refresh figure is also the password-guessing budget: a burst of 30, then about
+      # six a minute. GoTrue's own default for it is 150 per 5 minutes.
+      GOTRUE_RATE_LIMIT_HEADER: X-Real-IP
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: ${GOTRUE_RATE_LIMIT_TOKEN_REFRESH:-30}
+      GOTRUE_RATE_LIMIT_OTP: ${GOTRUE_RATE_LIMIT_OTP:-30}
 
       GOTRUE_LOG_LEVEL: ${GOTRUE_LOG_LEVEL:-info}
     healthcheck:
