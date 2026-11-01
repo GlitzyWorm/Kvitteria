@@ -15,7 +15,7 @@ Skills: `android-cli`, `android-module-structure`, `agp-9-upgrade`.
 - [x] 1.4 Add `android/LICENSE`, Spotless with the MPL header, and verify `./gradlew spotlessCheck` fails on a file with no header and passes once it has one
 - [x] 1.5 Add build-time OpenAPI generation to `docs/openapi/kvitteria.json`, with the `Program.cs` guard, and verify it generates with no database available, or adopt the fallback in `design.md`
 - [x] 1.6 Add the generate-and-diff step to `test.yml`, and verify locally that a changed DTO produces a diff and that two runs produce identical files
-- [ ] 1.7 Rewrite `mobile.yml` for Gradle with its new path filter, keeping the MAUI build in place until group 12, and verify the workflow passes on a pull request
+- [x] 1.7 Rewrite `mobile.yml` for Gradle with its new path filter, keeping the MAUI build in place until group 12, and verify the workflow passes on a pull request
 
 ## 2. Core domain and data
 
@@ -124,7 +124,7 @@ Skills: `r8-analyzer`.
 - [x] 12.1 Check parity of auth and settings against the `MobileApp` screens and tests, and verify every `MobileApp.Tests` case has a Kotlin counterpart
 - [x] 12.2 Delete `Kvitteria/MobileApp` and `Kvitteria/MobileApp.Tests`, remove them from `Kvitteria.slnx`, `Directory.Packages.props` and `test.yml`, drop the MAUI jobs from `mobile.yml`, and verify `dotnet test Backend.Tests/Backend.Tests.csproj` passes
 - [x] 12.3 Move `Contracts` to `Kvitteria/Backend/Contracts`, remove its project, `LICENSE`, and `Dockerfile` lines, and verify `git diff` on `docs/openapi/kvitteria.json` is empty and `docker compose build backend` succeeds
-- [ ] 12.4 Move the release-please package and manifest entry to `android` with `x-release-please-version` on `versionName`, and verify with a release-please dry run that it reads the version
+- [x] 12.4 Move the release-please package and manifest entry to `android` with `x-release-please-version` on `versionName`, and verify with a release-please dry run that it reads the version
 - [x] 12.5 Enable R8 for release with any needed keep rules, and verify `./gradlew assembleRelease` succeeds and a release build installs, signs in and loads receipts on the AVD
 
 ## 13. Documentation
