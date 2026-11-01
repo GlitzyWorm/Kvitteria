@@ -12,6 +12,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.withType
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 /** A pure JVM module with no Android dependency. */
 class DomainModuleConventionPlugin : Plugin<Project> {
@@ -20,6 +21,9 @@ class DomainModuleConventionPlugin : Plugin<Project> {
         extensions.configure<JavaPluginExtension> {
             sourceCompatibility = JavaVersion.VERSION_21
             targetCompatibility = JavaVersion.VERSION_21
+        }
+        extensions.configure<KotlinJvmProjectExtension> {
+            jvmToolchain(21)
         }
         tasks.withType<Test>().configureEach { useJUnitPlatform() }
         configureTestDependencies()
