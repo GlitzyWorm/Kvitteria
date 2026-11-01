@@ -85,18 +85,18 @@ anything touching Caddy, compose or the database is verified that way.
 - [x] 7.1 Add a modes section to `README.md` and `docs/configuration.md` with the table of `PUBLIC_URL` and `COMPOSE_FILE`
   values, the migration steps including deleting pinned identity URLs and signing in again, and the warning beside the
   manual route that it leaves the first-caller race; verify the steps run as written on the throwaway stack
-- [ ] 7.2 Add proxy recipes for Tailscale serve, Cloudflare Tunnel, Traefik and Nginx Proxy Manager, each stating what
+- [x] 7.2 Add proxy recipes for Tailscale serve, Cloudflare Tunnel, Traefik and Nginx Proxy Manager, each stating what
   address Caddy sees, when `TRUSTED_PROXIES` needs setting, and to keep `CADDY_HTTP_PORT` off the network; verify at
   least the Tailscale serve recipe end to end and mark any recipe not run as untested in the doc
-- [ ] 7.3 Add `docs/troubleshooting.md` entries for certificate failures (DNS, closed port 80, where the error appears)
+- [x] 7.3 Add `docs/troubleshooting.md` entries for certificate failures (DNS, closed port 80, where the error appears)
   and for a changed `PUBLIC_URL`; verify they match the messages seen during the checks
 - [x] 7.4 Update the Commands, Configuration and Gotchas sections of `CLAUDE.md` for the overlay, the setup order and the
   `.env`-pinned identity URLs; verify nothing there still says Caddy is HTTP-only or that the first person signs up by hand
 
 ## 8. End-to-end check
 
-- [ ] 8.1 On a host with a real domain, run the setup script in domain mode and verify a publicly trusted certificate,
+- [x] 8.1 On a host with a real domain, run the setup script in domain mode and verify a publicly trusted certificate,
   the port 80 redirect, that 8080 and every internal port are closed from outside, and that a certificate survives
   recreating Caddy. If no such host is available, stop here and tell the user rather than ticking this
-- [ ] 8.2 On a physical phone with a release build, connect to that address and verify the gate, sign-in and receipts
+- [x] 8.2 On a physical phone with a release build, connect to that address and verify the gate, sign-in and receipts
   work, that a second account gets the rejected state, and that a 429 on refresh leaves the person signed in
