@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.1.0...backend-v1.2.0) (2026-11-02)
+
+
+### Features
+
+* update the server from the app ([#18](https://github.com/GlitzyWorm/Kvitteria/issues/18)) ([490d44f](https://github.com/GlitzyWorm/Kvitteria/commit/490d44fcc48c4140425e912bb0eb4caadc0a80eb))
+
+
+### Bug Fixes
+
+* **backend:** limit Ollama threads to the CPUs it may use ([#20](https://github.com/GlitzyWorm/Kvitteria/issues/20)) ([343a67e](https://github.com/GlitzyWorm/Kvitteria/commit/343a67ece97e17f1438d5aebcc69575ec155b085))
+
 ## [1.1.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.0.0...backend-v1.1.0) (2026-11-01)
 
 
