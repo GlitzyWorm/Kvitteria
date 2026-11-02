@@ -138,7 +138,7 @@ would apply one as a side effect, and the absent connection-string default would
 first anyway. Commands that talk to a real database need `Database__ConnectionString` exported.
 
 `Kvitteria/Backend.Tests` (xUnit) covers the pure logic that has no other safety net: the
-reconciliation tolerance, Danish purchase-date parsing including the DST gap, `NormalizeString`
+reconciliation tolerance, the Ollama thread limit, Danish purchase-date parsing including the DST gap, `NormalizeString`
 culture-independence, the `CategoryTree` depth/height/descendant rules, the meal-coverage diff, the
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
@@ -307,6 +307,11 @@ remembered. `MailWorker` is a poller, not a consumer, and stands alone.
    delta. `OllamaClient` distinguishes `OllamaResponseException` (the model answered with something
    unusable — the only case where a "your JSON was malformed" hint is truthful) from
    `OllamaTransportException` (the model never saw the prompt, so retry unchanged and with no hint).
+   `OllamaThreads` sends `num_thread` when the process may run on fewer CPUs than `/proc/cpuinfo` lists. Docker
+   shows a container the host's real cpuinfo, so in an LXC Ollama counted 6 cores on a 4-CPU cpuset: 0.19 tokens/s
+   against 4.35, which reads as a timeout rather than as anything to do with CPUs. Ollama has no setting for it,
+   and with no limit the option is left out, so its own choice stands. The check assumes the backend's cpuset is
+   Ollama's, which holds for this compose file; a `cpus:` limit on one service alone would break that.
    If nothing reconciles, the best-delta result is kept with `Reconciled = false` and a warning.
    Enqueues to `PersistenceQueue`.
 3. **`ReceiptFactoryWorker`** — delegates to the scoped `ReceiptIngestionService`, which maps

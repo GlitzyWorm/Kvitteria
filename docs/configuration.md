@@ -172,7 +172,7 @@ Both are set for you in `compose.yaml` and derive from `PUBLIC_URL`.
 | Variable | Default | Notes |
 |---|---|---|
 | `OLLAMA_MODEL` | `qwen3.5:4b` | Read twice: Ollama pulls this tag, and the backend seeds it into its pipeline settings. That is what stops the pipeline asking for a model nobody pulled. |
-| `OLLAMA_REQUEST_TIMEOUT_SECONDS` | `1200` | Generous because CPU extraction takes minutes. |
+| `OLLAMA_REQUEST_TIMEOUT_SECONDS` | `1200` | Per attempt. Generous because CPU extraction takes minutes. If attempts reach it, see [troubleshooting](troubleshooting.md#a-receipt-mail-was-fetched-but-never-became-a-receipt) before raising it. |
 
 `OLLAMA_MODEL` **seeds only.** Once the settings row exists, this variable no longer affects it —
 change the model through `PUT /api/settings/pipeline`, which verifies it is pulled before saving. On
