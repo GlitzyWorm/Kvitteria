@@ -2516,6 +2516,57 @@
           }
         }
       }
+    },
+    "/api/system/update": {
+      "get": {
+        "tags": [
+          "Backend"
+        ],
+        "operationId": "GetUpdateStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Backend"
+        ],
+        "operationId": "StartUpdate",
+        "responses": {
+          "202": {
+            "description": "Accepted"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4615,6 +4666,76 @@
           "clearParent": {
             "type": "boolean",
             "default": false
+          }
+        }
+      },
+      "UpdateStatusDto": {
+        "required": [
+          "currentVersion",
+          "latestVersion",
+          "updateAvailable",
+          "releaseUrl",
+          "lastCheckedAt",
+          "canStart",
+          "state",
+          "targetVersion",
+          "detail",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "currentVersion": {
+            "type": "string"
+          },
+          "latestVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updateAvailable": {
+            "type": "boolean"
+          },
+          "releaseUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "canStart": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "targetVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

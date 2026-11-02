@@ -1,0 +1,13 @@
+# A `running` state from before a reboot can't be true any more, and clients would wait on it.
+[Unit]
+Description=Clear a Kvitteria update interrupted by a reboot
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@STACK_DIR@
+ExecStart=/bin/bash @STACK_DIR@/scripts/update.sh --after-boot
+
+[Install]
+WantedBy=multi-user.target

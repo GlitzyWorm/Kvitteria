@@ -8,6 +8,11 @@
     <string name="gate_unreachable_kicker">Forbindelse</string>
     <string name="gate_unreachable_title">Kan ikke nå serveren</string>
     <string name="gate_unreachable_blurb">Serveren svarede ikke. Den kan være slukket, eller adressen kan være forkert.</string>
+    <string name="gate_update_kicker">Opdatering</string>
+    <string name="gate_updating_title">Serveren opdateres</string>
+    <string name="gate_updating_blurb">Serveren bliver opdateret til version %1$s. Det tager et par minutter, og appen fortsætter af sig selv.</string>
+    <string name="gate_restore_title">Opdateringen mislykkedes</string>
+    <string name="gate_restore_blurb">Opdateringen stoppede, efter den havde ændret databasen, så serveren er stoppet. Kør denne kommando på serveren for at vende tilbage til, hvordan den var før opdateringen.</string>
     <string name="server_kicker">Server</string>
     <string name="server_title">Vælg din server</string>
     <string name="server_blurb">Kvitteria kører på din egen server. Indtast adressen på husstandens installation.</string>

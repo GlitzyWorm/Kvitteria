@@ -16,7 +16,13 @@ import dev.jelshoj.kvitteria.core.domain.session.ServerProbe
 import dev.jelshoj.kvitteria.core.domain.session.ServerSettings
 import dev.jelshoj.kvitteria.core.domain.session.SessionManager
 import dev.jelshoj.kvitteria.core.domain.session.SessionState
+import dev.jelshoj.kvitteria.core.domain.session.PublicUpdateStatus
+import dev.jelshoj.kvitteria.core.domain.session.UpdateRepository
+import dev.jelshoj.kvitteria.core.domain.session.UpdateState
+import java.time.Clock
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -26,7 +32,13 @@ import kotlinx.coroutines.launch
 data class GateState(
     /** The address that failed, so the retry screen names it. Null while resolving. */
     val unreachableAddress: String? = null,
+    /** The server is down for an update, so the gate waits rather than offering a retry. */
+    val updating: GateUpdating? = null,
+    /** The server stopped after an update changed its database, and a person has to run the restore. */
+    val restoreRequired: Boolean = false,
 )
+
+data class GateUpdating(val targetVersion: String)
 
 sealed interface GateAction {
     data object OnRetry : GateAction
@@ -41,6 +53,9 @@ sealed interface GateEvent {
     data object GoToRejected : GateEvent
 }
 
+/** Often enough to feel attentive, and rare enough not to matter on a server that's down. */
+internal const val UPDATE_RECHECK_MS = 5_000L
+
 /**
  * Decides where the app starts. The order is load-bearing: which server, whether it's a Kvitteria
  * backend, whether there's a session, whether it needs a refresh, and only then who this is to the
@@ -52,12 +67,16 @@ class GateViewModel(
     private val sessions: SessionManager,
     private val probe: ServerProbe,
     private val members: MemberRepository,
+    private val updates: UpdateRepository,
+    private val clock: Clock,
 ) : ViewModel() {
     private val _state = MutableStateFlow(GateState())
     val state = _state.asStateFlow()
 
     private val _events = Channel<GateEvent>()
     val events = _events.receiveAsFlow()
+
+    private var resolving: Job? = null
 
     init {
         resolve()
@@ -71,8 +90,9 @@ class GateViewModel(
     }
 
     private fun resolve() {
-        _state.update { it.copy(unreachableAddress = null) }
-        viewModelScope.launch {
+        resolving?.cancel()
+        _state.value = GateState()
+        resolving = viewModelScope.launch {
             val address = settings.load()
             if (address == null) {
                 _events.send(GateEvent.GoToServer)
@@ -80,10 +100,7 @@ class GateViewModel(
             }
 
             // Fails fast, which is what turns "the app hangs" into "the server is off".
-            if (probe.version() is Result.Error) {
-                showUnreachable(address)
-                return@launch
-            }
+            if (probe.version() is Result.Error && !waitOutUpdate(address)) return@launch
 
             if (sessions.load() == null) {
                 goToSignIn()
@@ -94,6 +111,39 @@ class GateViewModel(
                 SessionState.Ended -> goToSignIn()
                 SessionState.Unreachable -> showUnreachable(address)
                 is SessionState.Active -> resolveMember(address)
+            }
+        }
+    }
+
+    /**
+     * What a failed `/version` means. True once the server answers again, and false when the gate has
+     * settled on a screen. A status that goes unreadable part way keeps the last one, because Caddy
+     * restarts at the end of an update, and the half-hour limit still ends the wait.
+     */
+    private suspend fun waitOutUpdate(address: String): Boolean {
+        var status: PublicUpdateStatus? = null
+
+        while (true) {
+            status = updates.publicStatus() ?: status
+
+            when (status?.stateAt(clock.instant())) {
+                UpdateState.Running -> {
+                    _state.update { it.copy(updating = GateUpdating(status?.targetVersion.orEmpty())) }
+                    delay(UPDATE_RECHECK_MS)
+                    if (probe.version() is Result.Success) {
+                        _state.update { it.copy(updating = null) }
+                        return true
+                    }
+                }
+                UpdateState.RestoreRequired -> {
+                    _state.update { it.copy(updating = null, restoreRequired = true) }
+                    return false
+                }
+                else -> {
+                    _state.update { it.copy(updating = null) }
+                    showUnreachable(address)
+                    return false
+                }
             }
         }
     }

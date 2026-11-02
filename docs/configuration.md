@@ -204,6 +204,48 @@ Not in `.env`, and should not be. The backend accepts a symmetric signing secret
 where it takes precedence over the key set. Anywhere else it is rejected at startup, because honouring
 it would downgrade a deployment that already has working asymmetric keys to HS256 — silently.
 
+## Updates
+
+| Variable | Default | |
+|---|---|---|
+| `UPDATE_CHECK_ENABLED` | `true` | Becomes `Update__Enabled`. `false` stops the check, so the backend never contacts GitHub and reports no update. |
+| `UPDATE_REPOSITORY` | `GlitzyWorm/Kvitteria` | Becomes `Update__Repository`. Whose releases to follow, for a fork. `update.sh` reads the same variable. |
+
+The backend asks GitHub for the repository's releases shortly after it starts and once a day after that. It's
+one anonymous request. A failed check is logged, keeps the last result and has no effect on `/health/ready`.
+Only a published backend release with a stack bundle counts, because a release gets its bundle once its image
+exists. A development build never has an update.
+
+`GET /api/system/update` reports all of this to any member. `POST /api/system/update` starts an update and
+needs `ManageSettings`. It takes no body and answers 202, 409 when there's nothing to install, one is running
+or a restore is needed, and 503 when there's no live agent.
+
+`GET /update-status` is anonymous and comes from Caddy rather than the backend, because the backend is down
+during an update. It holds the state, the target version and the time of the last change, and answers 404
+until an update has run.
+
+### The update agent
+
+Clients can't start an update on their own: no container holds the Docker socket. On a Linux host with
+systemd, running `./scripts/setup.sh` as root installs a small agent instead, which is also how an existing
+install gets one, and leaves `.env` alone. Anywhere else setup says it skipped it, and the app shows the
+command to run.
+
+- `kvitteria-update.path` watches for `update-state/request`, and `kvitteria-update.service` runs
+  `scripts/update.sh`.
+- `kvitteria-update-heartbeat.timer` touches `update-state/heartbeat` every four minutes. The backend offers
+  updates only while it's under fifteen minutes old.
+- `kvitteria-update-boot.service` clears a `running` state left by a reboot.
+
+**What it can do:** run `update.sh` as root, which moves the stack to the newest release. The backend asks by
+creating a file, and the agent never reads what's in it, so someone controlling the backend could trigger
+that update and nothing more. They can't choose a version, so they can't force a downgrade.
+
+**What it can't do:** run `--restore`, which needs a terminal, or update while a restore is pending.
+
+The units carry this install's path, so one host has one agent. A second stack on the same host running
+`setup.sh` as root takes it over.
+
 ## Hosted identity
 
 `AppUser.AuthUserId` is deliberately not a foreign key to `auth.users`, so identity can relocate

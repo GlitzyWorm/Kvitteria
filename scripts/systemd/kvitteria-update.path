@@ -1,0 +1,11 @@
+# The host agent. A file appearing here is the whole of how the stack asks for an update: no container
+# has the Docker socket, and the file's contents are never read. setup.sh fills in @STACK_DIR@.
+[Unit]
+Description=Watch for a Kvitteria update request
+
+[Path]
+PathExists=@STACK_DIR@/update-state/request
+Unit=kvitteria-update.service
+
+[Install]
+WantedBy=multi-user.target

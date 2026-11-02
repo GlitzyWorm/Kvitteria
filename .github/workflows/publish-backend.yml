@@ -15,14 +15,20 @@ on:
       minor: { required: true, type: string, description: "Minor, e.g. 1" }
 
 permissions:
-  contents: read
+  # write, to attach the stack bundle to the release.
+  contents: write
   packages: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # A manual re-publish runs from whatever branch it was dispatched on, so it checks out the version's
+      # own tag: the image and the bundle have to be that version's files. A release-please run is already
+      # on the released commit.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('backend-v{0}', inputs.version) || github.ref }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -62,3 +68,17 @@ jobs:
           sbom: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # After the push and only after it: every client reads "has a bundle" as "can be installed", so a
+      # failed push above leaves the previous release the newest available. --clobber lets a re-publish
+      # replace the assets rather than fail on them.
+      - name: Attach the stack bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          bash scripts/bundle.sh "$VERSION" dist
+          gh release upload "backend-v${VERSION}" \
+            "dist/kvitteria-stack-${VERSION}.tar.gz" \
+            "dist/kvitteria-stack-${VERSION}.sha256" \
+            --clobber

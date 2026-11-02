@@ -56,6 +56,7 @@ fun SettingsRoot(
     onBack: () -> Unit,
     onChangeServer: () -> Unit,
     onOpenLicenses: () -> Unit,
+    onGate: () -> Unit,
 ) {
     var section by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
 
@@ -77,7 +78,7 @@ fun SettingsRoot(
             modifier = Modifier.padding(horizontal = KvSpace.gutter),
         )
         when (section) {
-            0 -> AccountRoot(onChangeServer = onChangeServer, onOpenLicenses = onOpenLicenses)
+            0 -> AccountRoot(onChangeServer = onChangeServer, onOpenLicenses = onOpenLicenses, onGate = onGate)
             1 -> HouseholdRoot()
             2 -> PermissionsRoot()
             3 -> MailboxesRoot()

@@ -27,6 +27,8 @@ import dev.jelshoj.kvitteria.core.designsystem.KvType
 import dev.jelshoj.kvitteria.core.designsystem.KvWordmark
 import dev.jelshoj.kvitteria.core.designsystem.KvitteriaTheme
 import dev.jelshoj.kvitteria.core.designsystem.PhosphorIcons
+import dev.jelshoj.kvitteria.core.domain.session.RESTORE_COMMAND
+import dev.jelshoj.kvitteria.core.presentation.CommandLine
 import dev.jelshoj.kvitteria.core.presentation.ObserveAsEvents
 import dev.jelshoj.kvitteria.core.presentation.R as CoreR
 import dev.jelshoj.kvitteria.feature.auth.presentation.AuthScaffold
@@ -63,17 +65,30 @@ fun GateScreen(
     onAction: (GateAction) -> Unit,
 ) {
     val address = state.unreachableAddress
-    if (address == null) {
-        Column(
-            modifier = Modifier.fillMaxSize().background(KvColors.bg),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(KvSpace.s8, Alignment.CenterVertically),
+    val updating = state.updating
+    when {
+        state.restoreRequired -> AuthScaffold(
+            kicker = stringResource(R.string.gate_update_kicker),
+            title = stringResource(R.string.gate_restore_title),
+            blurb = stringResource(R.string.gate_restore_blurb),
         ) {
-            KvWordmark()
+            CommandLine(RESTORE_COMMAND)
+            KvButton(
+                text = stringResource(CoreR.string.retry),
+                onClick = { onAction(GateAction.OnRetry) },
+                style = KvButtonStyle.Primary,
+                glyph = PhosphorIcons.ArrowClockwise,
+                fill = true,
+            )
+        }
+        updating != null -> AuthScaffold(
+            kicker = stringResource(R.string.gate_update_kicker),
+            title = stringResource(R.string.gate_updating_title),
+            blurb = stringResource(R.string.gate_updating_blurb, updating.targetVersion),
+        ) {
             KvSpinner()
         }
-    } else {
-        AuthScaffold(
+        address != null -> AuthScaffold(
             kicker = stringResource(R.string.gate_unreachable_kicker),
             title = stringResource(R.string.gate_unreachable_title),
             blurb = stringResource(R.string.gate_unreachable_blurb),
@@ -93,6 +108,30 @@ fun GateScreen(
                 fill = true,
             )
         }
+        else -> Column(
+            modifier = Modifier.fillMaxSize().background(KvColors.bg),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(KvSpace.s8, Alignment.CenterVertically),
+        ) {
+            KvWordmark()
+            KvSpinner()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun GateUpdatingPreview() {
+    KvitteriaTheme {
+        GateScreen(GateState(updating = GateUpdating("1.2.0")), onAction = {})
+    }
+}
+
+@Preview
+@Composable
+private fun GateRestorePreview() {
+    KvitteriaTheme {
+        GateScreen(GateState(restoreRequired = true), onAction = {})
     }
 }
 

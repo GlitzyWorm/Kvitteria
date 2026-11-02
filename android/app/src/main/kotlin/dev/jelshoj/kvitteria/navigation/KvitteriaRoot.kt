@@ -77,6 +77,7 @@ fun KvitteriaRoot(sessions: SessionManager = koinInject()) {
                 onPush = { backStack.add(it) },
                 onBack = { backStack.removeLastOrNull() },
                 onChangeServer = { backStack.add(ServerRoute) },
+                onGate = { backStack.replaceAll(GateRoute) },
             )
         },
     )

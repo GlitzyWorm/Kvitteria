@@ -263,12 +263,37 @@ Check the host can do it at all with `docker run --rm --gpus all ollama/ollama n
 ## Upgrading
 
 ```bash
-docker compose pull && docker compose up -d
+./scripts/update.sh
 ```
 
-Migrations are applied on start, so there is no separate step. Read the release notes first while this
-is pre-1.0 — and note that `BACKEND_VERSION=latest` moves across minor versions, so pin an exact
-version in `.env` if you would rather choose when that happens.
+That moves the stack to the newest release: it backs up the database, replaces the compose files, the
+Caddyfile and the scripts, pins the exact version in `.env` and checks that the new backend works. The
+server is offline for a minute or two. Migrations only go forward, so it won't install anything older
+than what's running, and it stops if a release would change the Postgres major version. Read the release
+notes first.
+
+If the new version doesn't come up, it goes back to the old one by itself. If a migration had already
+changed the database by then, it stops and leaves the backend down, because only the backup can undo that:
+
+```bash
+./scripts/update.sh --restore
+```
+
+That replaces the whole database with the dump taken before the update, so it asks first and needs a
+terminal. See [troubleshooting](docs/troubleshooting.md#a-failed-update) for what each outcome means. The
+last three dumps are kept in `.update/dumps`.
+
+Without internet access on the server, download `kvitteria-stack-<version>.tar.gz` from the release and
+pass it with `--bundle <file>`.
+
+On a Linux host with systemd, running `./scripts/setup.sh` as root also installs a small agent, so someone
+with `ManageSettings` can start the update from the app. See
+[configuration](docs/configuration.md#updates).
+
+**On Windows** the script needs bash, so run it from Git Bash or WSL. There's no agent on Docker Desktop:
+the app tells you a release exists and shows the command.
+
+A git checkout isn't updated this way. Pull and rebuild with `docker compose up -d --build`.
 
 ## Backups
 

@@ -232,6 +232,51 @@ If it is a *write* that 403s while reads work, it is a permission rather than me
 never restricted. Check what you hold at `GET /api/users/me`, and what members are granted at
 `GET /api/settings/permissions`. Permission changes take effect within a minute without a new token.
 
+## A failed update
+
+`./scripts/update.sh` says what happened as it stops, and the same reason is in
+`update-state/status.json`. The state there is one of these:
+
+**`failed`, the stack kept running.** A download, a checksum, a pulled image or a refusal stopped the update
+before anything changed, or the database backup failed and the backend was started again on its old
+version. Nothing needs undoing. Fix the cause, which the message names, and run it again.
+
+**`failed`, naming the new version.** The new backend works but another service wouldn't start. `.env` is
+already pinned to the new version. Run `docker compose up -d` and read what it reports.
+
+**`failed`, "the host restarted during the update".** The update was interrupted and may have stopped part way.
+Look at `docker compose ps`, start anything that's down with `docker compose up -d`, and run the update
+again. A backend stopped by the update stays stopped after a reboot.
+
+**`failed`, "rolling back did not bring the backend up".** The new version failed, the files and pin were put
+back, and the old version didn't return either. That points at something other than the release, so start
+with `docker compose logs backend`.
+
+**`rolled-back`.** The new version didn't become healthy within five minutes, no migration had applied, and the
+previous version is running again. Nothing is lost. `docker compose logs backend` shows why the new version
+failed only until the containers are replaced, so look before retrying. After `--restore` this is also the state,
+with a detail saying so.
+
+**`restore-required`.** A migration applied and the new version still didn't become healthy, so the old version
+can't run against this database. The backend is stopped, the entrypoint stays up and the app explains this on
+its opening screen. No further update will run until this is resolved. Normally:
+
+```bash
+./scripts/update.sh --restore
+```
+
+That replaces the whole database, sign-ins included, with the dump taken before the update, and puts back the
+files and the version pin. Anything that arrived after the dump is gone, though the backend was stopped before it
+was taken, so that's only what happened during the failed update. It asks you to type `RESTORE` and refuses to
+run without a terminal. The dumps are in `.update/dumps` and what was replaced is in `.update/previous`.
+
+**The app says the update didn't start.** The agent didn't pick the request up within a minute. Check it with
+`systemctl status kvitteria-update.path` and `journalctl -u kvitteria-update.service`, or run `./scripts/update.sh`
+on the server.
+
+**The app offers the command rather than a button.** The server has no live agent: it's not a Linux host with
+systemd, `setup.sh` wasn't run as root, or `update-state/heartbeat` is over fifteen minutes old.
+
 ## Starting over
 
 ```bash

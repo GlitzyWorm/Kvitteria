@@ -143,7 +143,8 @@ culture-independence, the `CategoryTree` depth/height/descendant rules, the meal
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
 mailbox write validation, the mailbox secret round-trip, the rate-limit partition key and trusted private ranges, the Danish month helpers and `MonthKey`, the
-spending, category, price and meal-day rollups, and receipt-search parsing. Run it from `Kvitteria`:
+spending, category, price and meal-day rollups, receipt-search parsing, and release selection and the update
+status decisions. Run it from `Kvitteria`:
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
@@ -562,6 +563,62 @@ also matches names, so `1000` finds `REMA 1000`, on purpose. `ILIKE` on `Ø`/`Å
 testing by hand from a Windows shell, percent-encode the UTF-8 bytes (`f%C3%B8tex`): a non-ASCII argument can reach
 `curl` in the console code page and look like a search that finds nothing.
 
+## Updates
+
+`scripts/update.sh` is the one implementation of an update; the console, the app and a later web interface
+are only triggers. `docs/configuration.md` and `docs/troubleshooting.md` cover running it. This is why it's
+shaped the way it is.
+
+**The backend never gets the Docker socket.** That would make an API compromise root on the host, and a
+sidecar holding it is no better. The backend creates `update-state/request`, a systemd path unit on the host
+sees it, and the agent runs the script. The contents are never read and `POST /api/system/update` takes no
+body, so the channel carries one meaning: update to the newest release. Nobody can ask for a downgrade across a
+migration. The cost is that only Linux hosts with systemd get a button, and setup says so everywhere else.
+
+**The stack only ever gets written to.** The backend owns `update-state/`, and the script may run as root,
+so nothing there is an input. `.update/state`, which no container can see, is what the `restore-required`
+refusal and the boot cleanup read. `status.json` and the heartbeat are built in `.update/` and renamed in,
+because a rename replaces a planted symlink and a write follows it. `touch --no-dereference` looks like the
+answer for the heartbeat, but it won't create a missing file.
+
+**Two status files, because Caddy has to answer.** The backend is stopped for the riskiest part of an update
+and stays stopped after `restore-required`, so `/update-status` comes from Caddy, from `update-state/public`.
+That route is anonymous, so it holds a state, a version and a time; `detail` can name paths and stays in
+`status.json`, read through the API. It's outside the OpenAPI document, so `ContractTest` can't cover it.
+Caddy mounts the directory rather than the file because the rename replaces the inode.
+
+**The order is the safety property.** Download, checksum and pull happen with nothing touched. The backend
+stops before the dump, so no receipt lands after it. Five things in there are easy to undo by accident:
+
+1. **`--no-deps` on every `up`.** Caddy depends on a healthy backend and the backend on a healthy Ollama, so a
+   plain `up` during an Ollama problem fails an update that has nothing to do with it, and can take the status
+   route down.
+2. **Success is judged by the script**, from `/version` and the `postgres` and `migrations` checks read by `exec`.
+   `up --wait` follows the healthcheck, where Ollama alone reads as a failed update and would trigger a rollback
+   for nothing. The body of `/health/ready` is what counts, since it's a 503 with Ollama down.
+3. **`pull --policy missing` still pulls a tag named `latest`.** Images other than the backend are checked one by
+   one with `docker image inspect`, or every update would move `ollama:latest`.
+4. **The script hands over to its replacement.** Bash reads a script as it runs, so `update.sh` is unlinked rather
+   than overwritten, and the old one `exec`s the new one with `--continue`. `.update/previous/` is the interface
+   between them, not the command line, so a change there has to work across one release boundary. This is also
+   how a release fixes the process delivering it.
+5. **Compose can't see a changed Caddyfile.** It compares configuration, not the contents of a mounted file, so
+   the script restarts Caddy when the hash changed.
+
+**Rollback turns on migration history.** Unchanged means the old version can run against this database, so
+it comes back by itself. Changed means only the dump can undo it, so the backend stays stopped and the state is
+`restore-required`. An unreadable history counts as changed. Restoring is never automatic: it would drop the
+database, `auth` included, on the strength of a check that can fail for unrelated reasons. `--restore` demands a
+terminal and a typed word, so the agent can't reach it.
+
+**The backend side needs no database.** `UpdateChecker` (`Features/Update`) holds the last result in memory,
+because a restart just checks again, and that keeps this feature out of its own rollback calculation.
+`ReleaseSelection` is the same rule as the script's `grep`, kept twice because the script has to work with no
+backend running. `UpdateRun.Parse` and `UpdateGate` are the decisions, pure and tested; `UpdateStateStore` is the
+file access, where a missing or unwritable directory simply reads as no agent. "Has a bundle" stands for "has
+an image" because `publish-backend` uploads it after the push. Reads follow the household rule, and `POST` reuses
+`ManageSettings`, since updating is retuning the server.
+
 ## Android app
 
 `android/` is a Gradle project with convention plugins in `build-logic/` and versions in
@@ -605,7 +662,9 @@ an order that is load-bearing:
 
 1. **No stored server** → server entry.
 2. **`GET /version`** — proves the origin is a Kvitteria backend rather than merely something that
-   answers. Failure stays on the gate with a retry naming the address, and doesn't sign out.
+   answers. Failure reads `/update-status` on the anonymous client: `running` waits and rechecks by itself until
+   `/version` answers, `restore-required` explains the command to run, and anything else, a 404 or a `running`
+   over thirty minutes old included, stays on the gate with a retry naming the address. None of them signs out.
 3. **No session** → `GET /health/ready`, whose `household` check decides claim versus sign-in.
 4. **An expiring session** → refresh before spending it on a request that would 401.
 5. **`GET /api/users/me`** → 200 opens the tabs, **403** is the rejected state, **401** clears the session
@@ -629,6 +688,15 @@ Four things about that are easy to undo by accident:
    answered with 429 or a 5xx: rate limiting and a proxy's 502 during a restart say nothing about the refresh
    token, and treating them as a rejection would sign the household out. `GoTrueTokenClient.refresh` maps both to
    `RefreshOutcome.Unreachable`; any other non-2xx stays `Rejected`.
+
+**Konto follows an update it started, and the gate covers everyone else.** After `POST /api/system/update` Konto
+stays in charge and polls `/version` and `/update-status`, because the old server keeps answering `/version` while
+the image downloads: the gate would open the tabs and the server would vanish from under them. Only
+`restore-required` goes to the gate. It ignores any status whose `updatedAt` matches the one from before the `POST`,
+or a `rolled-back` from an earlier try at the same version would read as an instant outcome. The reason comes from
+`GET /api/system/update`, because `/update-status` is anonymous and has none. A 404 from that endpoint, on an older
+server, simply leaves no update row. The gate's wait keeps the last status through a failed read, since Caddy restarts
+at the end of an update.
 
 There are two `HttpClient`s, wrapped in `AnonymousHttpClient` and `ApiHttpClient` so that confusing them
 is a compile error rather than an endless refresh loop. GoTrue **must** use the anonymous one. Neither has
@@ -817,6 +885,11 @@ right-hand side, `CancellationToken ct` as the parameter name.
 - Tags pushed with the default `GITHUB_TOKEN` do **not** trigger other workflows, so image publishing
   runs as a job inside `release-please.yml` gated on its outputs. An `on: release` trigger would never
   fire, and every release would look successful with no image behind it.
+- **A new environment variable needs a default in the compose file.** An update unpacks a bundle over an
+  existing `.env`, which nothing edits except the `BACKEND_VERSION` pin, so a `${VAR}` with no default starts
+  blank on every upgraded install. `.env.example` alone doesn't reach them.
+- `publish-backend.yml` needs `contents: write` to attach the bundle, and so does the `permissions:` block on
+  the job in `release-please.yml` that calls it: a caller caps what a reusable workflow can have.
 - `mobile.yml` filters on paths, `test.yml` deliberately does not. A path-skipped run of a **required**
   check stays pending forever and nothing can merge, so only the workflow that is expensive and
   non-blocking gets a filter.

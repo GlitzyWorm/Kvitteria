@@ -6,6 +6,8 @@
 -->
 <resources>
     <string name="retry">Try again</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
     <string name="role_admin">Admin</string>
     <string name="role_member">Member</string>
     <string name="close">Close</string>

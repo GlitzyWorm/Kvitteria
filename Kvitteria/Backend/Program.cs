@@ -9,6 +9,7 @@ using Backend.Features.Mail;
 using Backend.Features.Persistence;
 using Backend.Features.Shared;
 using Backend.Features.Persistence.Factory;
+using Backend.Features.Update;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -90,6 +91,19 @@ builder.Services.AddHostedService<ExtractionWorker>();
 builder.Services.AddScoped<ReceiptIngestionService>();
 builder.Services.AddSingleton<PersistenceQueue>();
 builder.Services.AddHostedService<ReceiptFactoryWorker>();
+
+builder.Services.AddOptionsSection<UpdateOptions>(builder.Configuration);
+builder.Services.AddHttpClient<GitHubReleasesClient>(client => {
+	client.BaseAddress = new Uri("https://api.github.com/");
+	client.Timeout = TimeSpan.FromSeconds(30);
+	// GitHub rejects a request without one.
+	client.DefaultRequestHeaders.UserAgent.ParseAdd("Kvitteria");
+	client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+});
+builder.Services.AddSingleton<UpdateStateStore>();
+// A singleton as well as a hosted service, so the endpoints read the instance that does the checking.
+builder.Services.AddSingleton<UpdateChecker>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateChecker>());
 
 if (generatingOpenApiDocument)
 {

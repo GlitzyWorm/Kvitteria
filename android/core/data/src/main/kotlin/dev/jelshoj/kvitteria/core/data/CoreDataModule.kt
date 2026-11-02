@@ -23,6 +23,7 @@ import dev.jelshoj.kvitteria.core.data.session.KtorServerProbe
 import dev.jelshoj.kvitteria.core.data.session.SessionCipher
 import dev.jelshoj.kvitteria.core.data.session.TokenClient
 import dev.jelshoj.kvitteria.core.data.taxonomy.KtorTaxonomyRepository
+import dev.jelshoj.kvitteria.core.data.update.KtorUpdateRepository
 import dev.jelshoj.kvitteria.core.data.work.KtorWorkCounts
 import dev.jelshoj.kvitteria.core.domain.WorkCounts
 import dev.jelshoj.kvitteria.core.domain.insights.InsightsRepository
@@ -32,6 +33,7 @@ import dev.jelshoj.kvitteria.core.domain.session.ServerProbe
 import dev.jelshoj.kvitteria.core.domain.session.ServerSettings
 import dev.jelshoj.kvitteria.core.domain.session.SessionManager
 import dev.jelshoj.kvitteria.core.domain.session.SessionStore
+import dev.jelshoj.kvitteria.core.domain.session.UpdateRepository
 import dev.jelshoj.kvitteria.core.domain.taxonomy.TaxonomyRepository
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
@@ -62,5 +64,6 @@ val coreDataModule = module {
     singleOf(::KtorMemberRepository) { bind<MemberRepository>() }
     singleOf(::KtorInsightsRepository) { bind<InsightsRepository>() }
     singleOf(::KtorServerProbe) { bind<ServerProbe>() }
+    singleOf(::KtorUpdateRepository) { bind<UpdateRepository>() }
     singleOf(::KtorWorkCounts) { bind<WorkCounts>() }
 }
