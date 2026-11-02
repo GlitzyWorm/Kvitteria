@@ -1,0 +1,9 @@
+# Made in the private directory and renamed in, because the backend owns update-state/ and root shouldn't
+# follow a symlink it finds there. The rename replaces one rather than writing through it.
+[Unit]
+Description=Refresh the Kvitteria update agent's heartbeat
+
+[Service]
+Type=oneshot
+WorkingDirectory=@STACK_DIR@
+ExecStart=/bin/sh -c 'mkdir -p .update && touch .update/heartbeat && mv -f .update/heartbeat update-state/heartbeat'

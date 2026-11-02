@@ -161,6 +161,16 @@ if [ "$fresh" = true ]; then
 	collect_credentials
 fi
 
+# --- The directory updates report through ------------------------------------------------------------
+
+# Before anything starts, or Docker creates it as root for the bind mount. The backend runs as this UID,
+# the .NET image's `app` user, and has to be able to write the request file here.
+APP_UID=1654
+mkdir -p update-state/public
+if [ "$(id -u)" = "0" ]; then
+	chown "$APP_UID" update-state update-state/public
+fi
+
 # --- Start the services the claim needs, without the entrypoint -------------------------------------
 
 # Caddy depends on a healthy backend, so a plain `up -d` would open the entrypoint on an unclaimed
@@ -261,6 +271,29 @@ fi
 
 echo "-> The household is claimed. Starting the entrypoint."
 docker compose up -d
+
+# --- The update agent ---------------------------------------------------------------------------------
+
+# Lets the app start an update without any container holding the Docker socket. Everywhere else the app
+# still shows that a release exists, with the command to run.
+install_agent() {
+	if [ "$(id -u)" != "0" ] || [ ! -d /run/systemd/system ] || [ -e .git ]; then
+		echo "-> Skipped the update agent: it needs root on a systemd host, outside a git checkout. The app can't start updates here; run ./scripts/update.sh on the server instead."
+		return 0
+	fi
+
+	echo "-> Installing the update agent"
+	local dir unit
+	dir="$(pwd)"
+	for unit in scripts/systemd/*; do
+		sed "s|@STACK_DIR@|${dir}|g" "$unit" >"/etc/systemd/system/$(basename "$unit")"
+	done
+	systemctl daemon-reload
+	systemctl enable --now kvitteria-update.path kvitteria-update-heartbeat.timer
+	systemctl enable kvitteria-update-boot.service
+}
+
+install_agent
 
 url="$(grep -E '^PUBLIC_URL=' .env | cut -d= -f2-)"
 echo

@@ -26,12 +26,14 @@ fun EntryProviderScope<NavKey>.settingsEntries(
     onPush: (NavKey) -> Unit,
     onBack: () -> Unit,
     onChangeServer: () -> Unit,
+    onGate: () -> Unit,
 ) {
     entry<SettingsRoute> {
         SettingsRoot(
             onBack = onBack,
             onChangeServer = onChangeServer,
             onOpenLicenses = { onPush(LicensesRoute) },
+            onGate = onGate,
         )
     }
     entry<LicensesRoute> { LicensesRoot(onBack = onBack) }

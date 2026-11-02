@@ -37,6 +37,7 @@ import dev.jelshoj.kvitteria.core.data.taxonomy.CreateCategoryDto
 import dev.jelshoj.kvitteria.core.data.taxonomy.MealDto
 import dev.jelshoj.kvitteria.core.data.session.VersionDto
 import dev.jelshoj.kvitteria.core.data.taxonomy.UpdateCategoryDto
+import dev.jelshoj.kvitteria.core.data.update.UpdateStatusDto
 import dev.jelshoj.kvitteria.core.data.work.FailedCountDto
 import dev.jelshoj.kvitteria.core.data.work.UnassignedLineCountDto
 import dev.jelshoj.kvitteria.feature.pipeline.data.MailboxActivityDto
@@ -110,6 +111,7 @@ class ContractTest {
         Model("MealCoverageMonthDto", MealCoverageMonthDto.serializer()),
         Model("MealCoverageStatsDto", MealCoverageStatsDto.serializer()),
         Model("VersionDto", VersionDto.serializer()),
+        Model("UpdateStatusDto", UpdateStatusDto.serializer()),
         Model("UnassignedLineCountDto", UnassignedLineCountDto.serializer()),
         Model("PipelineStatusDto", FailedCountDto.serializer()),
         Model("UnassignedLineDto", UnassignedLineDto.serializer()),

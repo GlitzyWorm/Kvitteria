@@ -226,6 +226,16 @@ release-please workflow rather than on the tag, because a tag pushed with the de
 trigger other workflows — an `on: release` job would never fire and every release would appear
 successful with no image behind it.
 
+Once the image is pushed, the same job runs `scripts/bundle.sh` and attaches `kvitteria-stack-<version>.tar.gz`
+and its `.sha256` to the release. The bundle is everything the stack runs from outside the image: the compose
+files, the Caddyfile, the init scripts, `.env.example`, and `scripts/` with the update tooling and systemd
+units. `compose.override.yaml` stays out. Having a bundle is also what marks a release as installable, so
+nothing offers a release whose image failed to publish. Re-publishing a version through `workflow_dispatch`
+checks out its `backend-v<version>` tag and replaces both assets.
+
+A bundle lands on an existing `.env`, so a new variable has to work without anyone editing that file: give
+it a default in the compose file.
+
 Two one-time repository settings:
 
 - *Settings → Actions → General → Workflow permissions* → allow Actions to create pull requests.

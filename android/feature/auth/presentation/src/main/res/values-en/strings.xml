@@ -8,6 +8,11 @@
     <string name="gate_unreachable_kicker">Connection</string>
     <string name="gate_unreachable_title">Cannot reach the server</string>
     <string name="gate_unreachable_blurb">The server did not answer. It may be switched off, or the address may be wrong.</string>
+    <string name="gate_update_kicker">Update</string>
+    <string name="gate_updating_title">The server is updating</string>
+    <string name="gate_updating_blurb">The server is updating to version %1$s. This takes a few minutes, and the app will carry on by itself.</string>
+    <string name="gate_restore_title">The update failed</string>
+    <string name="gate_restore_blurb">The update stopped after changing the database, so the server is stopped. Run this command on the server to go back to how it was before the update.</string>
     <string name="server_kicker">Server</string>
     <string name="server_title">Choose your server</string>
     <string name="server_blurb">Kvitteria runs on your own server. Enter the address of your household’s installation.</string>

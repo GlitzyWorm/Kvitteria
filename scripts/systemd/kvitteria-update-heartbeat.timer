@@ -1,0 +1,12 @@
+# Under five minutes apart, with room for the timer's own accuracy. The backend offers updates only while
+# the heartbeat is under fifteen minutes old.
+[Unit]
+Description=Show the stack that the Kvitteria update agent is alive
+
+[Timer]
+OnActiveSec=0
+OnUnitActiveSec=4min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

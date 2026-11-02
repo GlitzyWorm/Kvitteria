@@ -27,6 +27,7 @@ static class ReceiptEndpoints
 			app.MapMailboxEndpoints();
 			app.MapPipelineEndpoints();
 			app.MapInsightsEndpoints();
+			app.MapSystemEndpoints();
 		}
 
 		private void MapReceiptGroupEndpoints()

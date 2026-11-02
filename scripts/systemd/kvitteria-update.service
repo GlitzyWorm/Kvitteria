@@ -1,0 +1,14 @@
+# Runs one update to the newest release. Always the same command: a request carries no arguments, so
+# whoever can write the request file can't choose a version, and --restore can't be reached from here.
+[Unit]
+Description=Update Kvitteria to the newest release
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@STACK_DIR@
+# Before the update rather than inside it, so a script that can't even start doesn't leave PathExists
+# firing in a loop.
+ExecStartPre=/bin/rm -f @STACK_DIR@/update-state/request
+ExecStart=/bin/bash @STACK_DIR@/scripts/update.sh

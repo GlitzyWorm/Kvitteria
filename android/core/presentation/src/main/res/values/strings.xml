@@ -6,6 +6,8 @@
 -->
 <resources>
     <string name="retry">Prøv igen</string>
+    <string name="copy">Kopiér</string>
+    <string name="copied">Kopieret</string>
     <string name="role_admin">Administrator</string>
     <string name="role_member">Medlem</string>
     <string name="close">Luk</string>

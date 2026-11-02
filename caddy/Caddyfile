@@ -46,6 +46,16 @@
 		reverse_proxy backend:8080
 	}
 
+	# Served by Caddy itself, because the backend is stopped for the riskiest part of an update and is the
+	# thing that failed after a bad one. Anonymous, so the file holds a state, a version and a time and
+	# nothing else. 404 until an update has run.
+	handle /update-status {
+		root * /update-status
+		rewrite * /update-status.json
+		header Cache-Control no-store
+		file_server
+	}
+
 	# Development-only on the backend, which answers 404 for both in any other environment.
 	handle /openapi/* {
 		reverse_proxy backend:8080

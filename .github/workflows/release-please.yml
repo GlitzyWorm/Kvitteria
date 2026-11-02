@@ -39,8 +39,9 @@ jobs:
     # Two conditions: something released, and it was the backend.
     if: needs.release-please.outputs.releases_created == 'true' && needs.release-please.outputs.backend_released == 'true'
     uses: ./.github/workflows/publish-backend.yml
+    # Caps what the called workflow gets, so its own `contents: write` for the bundle has to be granted here.
     permissions:
-      contents: read
+      contents: write
       packages: write
     with:
       version: ${{ needs.release-please.outputs.backend_version }}

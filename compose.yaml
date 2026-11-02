@@ -14,6 +14,9 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-private_ranges}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The one part of update-state/ anyone may read, because /update-status is anonymous. The directory
+      # rather than the file: the update script renames over it, and a file mount keeps the old inode.
+      - ./update-state/public:/update-status:ro
       # Where the Angular build will be mounted. Empty for now.
       - spa_dist:/srv
       - caddy_data:/data
@@ -56,6 +59,13 @@ services:
       Auth__AllowInsecureJwksTransport: ${AUTH_ALLOW_INSECURE_JWKS_TRANSPORT:-true}
       # Auth__SharedSecret is deliberately absent. GoTrue signs with ES256 here, and the backend
       # rejects a shared secret outside Development rather than letting it downgrade validation.
+
+      Update__Enabled: ${UPDATE_CHECK_ENABLED:-true}
+      Update__Repository: ${UPDATE_REPOSITORY:-GlitzyWorm/Kvitteria}
+    volumes:
+      # How the backend asks the host agent for an update, and reads how it went. There is no Docker
+      # socket anywhere in this file: a file here is the whole of what the backend can do to the host.
+      - ./update-state:/update-state
     healthcheck:
       # Readiness, not liveness: this is what caddy waits on, and an unmigrated database or an
       # unreachable Ollama means the stack is not usable yet. start_period covers the first

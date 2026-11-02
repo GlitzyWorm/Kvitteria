@@ -40,6 +40,10 @@ ScaffoldingReadMe.txt
 # the database password and the GoTrue signing keys live there.
 .env
 
+# What an update leaves on a server: dumps and replaced files, and the status it shares with the stack.
+update-state/
+.update/
+
 # Others
 ~$*
 *~
