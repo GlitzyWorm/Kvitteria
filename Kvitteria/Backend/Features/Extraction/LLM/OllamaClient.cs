@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +43,7 @@ public sealed class OllamaClient(
 			Think: settings.OllamaThinkingMode,
 			Stream: false,
 			Format: ReceiptExtractionPrompt.Schema,
-			Options: new OllamaChatOptions(temperature, settings.OllamaNumCtx),
+			Options: new OllamaChatOptions(temperature, settings.OllamaNumCtx, OllamaThreads.Current),
 			KeepAlive: settings.OllamaKeepAlive);
 
 		HttpResponseMessage response;
@@ -137,7 +138,10 @@ public sealed class OllamaClient(
 
 	private sealed record OllamaChatMessage(string Role, string Content);
 
-	private sealed record OllamaChatOptions(double Temperature, int NumCtx);
+	private sealed record OllamaChatOptions(
+		double Temperature,
+		int NumCtx,
+		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NumThread);
 
 	private sealed record OllamaChatResponse(
 		OllamaChatMessage? Message,
