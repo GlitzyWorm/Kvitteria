@@ -10,6 +10,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import androidx.core.graphics.scale
 import androidx.core.net.toUri
 import androidx.exifinterface.media.ExifInterface
 import dev.jelshoj.kvitteria.core.domain.Result
@@ -20,6 +21,10 @@ import dev.jelshoj.kvitteria.feature.capture.domain.PreparedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +56,7 @@ class AndroidImagePreparer(
     private fun prepare(source: ByteArray): Result<PreparedImage, PrepareError> {
         val exif = runCatching { ExifInterface(ByteArrayInputStream(source)) }.getOrNull()
         val degrees = exif?.rotationDegrees ?: 0
-        val capturedAt = exif?.dateTimeOriginal?.let(Instant::ofEpochMilli)
+        val capturedAt = exif?.capturedAt()
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(source, 0, source.size, bounds)
@@ -76,7 +81,7 @@ class AndroidImagePreparer(
         val scaled = if (turned.width == target.width && turned.height == target.height) {
             turned
         } else {
-            Bitmap.createScaledBitmap(turned, target.width, target.height, true)
+            turned.scale(target.width, target.height)
         }
 
         var quality = PixelBudget.JPEG_QUALITY
@@ -90,6 +95,19 @@ class AndroidImagePreparer(
         return Result.Success(PreparedImage(bytes, scaled.width, scaled.height, capturedAt))
     }
 
+    /**
+     * When the photo was taken, from `DateTimeOriginal` and, when the camera wrote one, its offset. Without
+     * an offset the time is the phone's local time, which is where the photo was almost certainly taken.
+     * Read through `getAttribute` because the library's own parsed getter is restricted API.
+     */
+    private fun ExifInterface.capturedAt(): Instant? {
+        val stamp = getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL)?.trim() ?: return null
+        val local = runCatching { LocalDateTime.parse(stamp, EXIF_TIME) }.getOrNull() ?: return null
+        val offset = getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL)
+            ?.let { runCatching { ZoneOffset.of(it.trim()) }.getOrNull() }
+        return if (offset != null) local.toInstant(offset) else local.atZone(ZoneId.systemDefault()).toInstant()
+    }
+
     private fun Bitmap.toJpeg(quality: Int): ByteArray =
         ByteArrayOutputStream().also { compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
 
@@ -98,5 +116,6 @@ class AndroidImagePreparer(
         const val MAX_SOURCE_BYTES = 64 * 1024 * 1024
         const val MIN_QUALITY = 55
         const val QUALITY_STEP = 10
+        val EXIF_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
     }
 }
