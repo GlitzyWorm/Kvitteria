@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.2.0...backend-v1.3.0) (2026-11-08)
+
+
+### Features
+
+* add receipts from photos and screenshots ([#21](https://github.com/GlitzyWorm/Kvitteria/issues/21)) ([70f0253](https://github.com/GlitzyWorm/Kvitteria/commit/70f0253ba9a131813dc8f5b6bfc23570ecafdf91))
+
 ## [1.2.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.1.0...backend-v1.2.0) (2026-11-02)
 
 
