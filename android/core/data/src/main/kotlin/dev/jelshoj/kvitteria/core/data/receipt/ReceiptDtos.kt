@@ -64,6 +64,9 @@ data class ReceiptDto(
     val error: String?,
     val memberId: String?,
     val memberDisplayName: String?,
+    // Defaulted, so a server from before image intake still reads.
+    val hasImage: Boolean = false,
+    val possibleDuplicateOfId: String? = null,
 )
 
 @Serializable
@@ -115,4 +118,6 @@ fun ReceiptDto.toReceipt(): Receipt = Receipt(
     warning = error,
     memberId = memberId,
     memberName = memberDisplayName,
+    hasImage = hasImage,
+    possibleDuplicateOfId = possibleDuplicateOfId,
 )

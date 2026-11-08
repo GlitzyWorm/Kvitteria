@@ -15,14 +15,17 @@ Everything runs on your own machine. No receipt data, and no mailbox password, l
 ## What it actually does
 
 ```
-mailbox (IMAP) ──▶ extraction (Ollama) ──▶ Postgres ──▶ API
-                        │
-                        └─ retries until the arithmetic reconciles
+mailbox (IMAP) ──────────────────────────▶ extraction (Ollama) ──▶ Postgres ──▶ API
+photo or screenshot ──▶ transcription ──┘         │
+                        (Ollama, vision)          └─ retries until the arithmetic reconciles
 ```
 
 1. **Polls your mailbox.** Each household member registers their own IMAP folder. Unseen messages are
    read, converted to plain text, and queued — and only marked read once they are safely queued, so a
    crash never loses a receipt.
+   **Or takes a picture.** A paper slip or a store app's receipt screen can be scanned, picked or shared
+   into the Android app, which uploads it. The model writes the image out as text once, and that text
+   goes through the same extraction. The image is kept with the receipt it became.
 2. **Extracts line items** with a local model, constrained to a JSON schema. The prompt encodes rules
    specific to Danish receipts: printed amounts are line totals rather than unit prices, `HERAF PANT
    IALT` and `HERAF MOMS` order their labels before their amounts, decimals use commas.
@@ -151,6 +154,7 @@ all of them. What members may do is one setting an admin edits at
 | `ManageUsers` | pre-authorizing and disabling members |
 | `ManageSettings` | retuning the extraction pipeline |
 | `ManageMailboxes` | registering mailboxes — separate from the above, so somebody can add their own without also retuning extraction |
+| `AddReceipts` | uploading a photo or screenshot of a receipt; members have it by default |
 
 The everyday loop is categorization:
 
@@ -297,8 +301,8 @@ A git checkout isn't updated this way. Pull and rebuild with `docker compose up 
 
 ## Backups
 
-One database holds everything: your receipts, your household, the identities you sign in with, **and
-the keys that encrypt your stored mailbox passwords**.
+One database holds everything: your receipts and the images they were read from, your household, the
+identities you sign in with, **and the keys that encrypt your stored mailbox passwords**.
 
 ```bash
 docker compose exec -T postgres pg_dump -U postgres kvitteria > kvitteria.sql

@@ -81,6 +81,12 @@ class ReceiptsViewModel(private val repository: ReceiptRepository) : ViewModel()
                 }
                 .collect(::onFirstPage)
         }
+        viewModelScope.launch {
+            repository.deleted.collect { id ->
+                _state.update { state -> state.copy(receipts = state.receipts.filterNot { it.id == id }) }
+                refreshes.update { it + 1 }
+            }
+        }
     }
 
     private suspend fun onFirstPage(result: Result<Page<Receipt>, dev.jelshoj.kvitteria.core.domain.ApiError>) {

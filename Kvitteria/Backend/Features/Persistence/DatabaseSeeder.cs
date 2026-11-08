@@ -21,10 +21,10 @@ internal static class DatabaseSeeder
 		[("Morgenmad", false), ("Frokost", false), ("Aftensmad", true), ("Snacks", false)];
 
 	/// <summary>
-	/// What members may do before an admin decides otherwise. Sorting new items is the whole point of
-	/// having more than one account; changing the taxonomy is not.
+	/// What members may do before an admin decides otherwise. Sorting new items and adding receipts from
+	/// your own phone are the whole point of having more than one account; changing the taxonomy is not.
 	/// </summary>
-	private static readonly Permission[] DefaultMemberPermissions = [Permission.CategorizeLines];
+	private static readonly Permission[] DefaultMemberPermissions = [Permission.CategorizeLines, Permission.AddReceipts];
 
 	private static readonly (string Name, string[] Children)[] SeedCategories = [
 		("Fødevarer", ["Frugt & Grønt", "Kød & Fisk", "Mejeri & Æg", "Brød & Bageri", "Kolonial", "Frost", "Færdigretter", "Slik & Snacks"]),

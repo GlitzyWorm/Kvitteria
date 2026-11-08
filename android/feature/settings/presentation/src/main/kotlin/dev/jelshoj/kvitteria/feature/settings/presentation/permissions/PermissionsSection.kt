@@ -64,6 +64,7 @@ fun Permission.labelRes(): Int = when (this) {
     Permission.ManageUsers -> R.string.perm_manage_users
     Permission.ManageSettings -> R.string.perm_manage_settings
     Permission.ManageMailboxes -> R.string.perm_manage_mailboxes
+    Permission.AddReceipts -> R.string.perm_add_receipts
 }
 
 @StringRes
@@ -74,6 +75,7 @@ fun Permission.blurbRes(): Int = when (this) {
     Permission.ManageUsers -> R.string.perm_manage_users_blurb
     Permission.ManageSettings -> R.string.perm_manage_settings_blurb
     Permission.ManageMailboxes -> R.string.perm_manage_mailboxes_blurb
+    Permission.AddReceipts -> R.string.perm_add_receipts_blurb
 }
 
 data class PermissionsState(

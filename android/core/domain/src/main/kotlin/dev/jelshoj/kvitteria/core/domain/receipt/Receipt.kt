@@ -7,9 +7,11 @@
 package dev.jelshoj.kvitteria.core.domain.receipt
 
 import dev.jelshoj.kvitteria.core.domain.ApiError
+import dev.jelshoj.kvitteria.core.domain.EmptyResult
 import dev.jelshoj.kvitteria.core.domain.Result
 import java.math.BigDecimal
 import java.time.Instant
+import kotlinx.coroutines.flow.Flow
 
 enum class ReceiptStatus { Queued, Extracting, Extracted, Completed, Failed, Unknown }
 
@@ -47,6 +49,10 @@ data class Receipt(
     val warning: String?,
     val memberId: String?,
     val memberName: String?,
+    /** Whether it was read from an uploaded image, which [ReceiptRepository.image] then fetches. */
+    val hasImage: Boolean = false,
+    /** The stored receipt with the same merchant, day and total, when there was one. */
+    val possibleDuplicateOfId: String? = null,
 ) {
     /** What reconciliation compares with zero: the total less the lines and pant. */
     val difference: BigDecimal
@@ -90,4 +96,16 @@ interface ReceiptRepository {
 
     /** The endpoint replaces the receipt's whole coverage, so [days] is the full set. */
     suspend fun setCoverage(receiptId: String, days: Map<String, Int>): Result<List<MealCoverage>, ApiError>
+
+    /**
+     * Deletes the receipt for good, and forgets it here so no list paints it again. A 404 forgets it too:
+     * it is gone either way.
+     */
+    suspend fun delete(id: String): EmptyResult<ApiError>
+
+    /** IDs of receipts deleted or found gone, so a list that still shows one can drop it. */
+    val deleted: Flow<String>
+
+    /** The JPEG the receipt was read from. */
+    suspend fun image(id: String): Result<ByteArray, ApiError>
 }

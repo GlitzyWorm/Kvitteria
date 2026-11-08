@@ -6,6 +6,8 @@
 
 package dev.jelshoj.kvitteria.feature.receipts.presentation
 
+import dev.jelshoj.kvitteria.core.presentation.detailOrUiText
+import dev.jelshoj.kvitteria.core.domain.DataError
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.jelshoj.kvitteria.core.domain.ApiError
@@ -50,6 +52,14 @@ data class LineEditor(
     val error: UiText? = null,
 )
 
+/** The receipt's image, fetched only for a receipt that has one. */
+sealed interface ReceiptImage {
+    data object None : ReceiptImage
+    data object Loading : ReceiptImage
+    class Loaded(val bytes: ByteArray) : ReceiptImage
+    data object Failed : ReceiptImage
+}
+
 data class ReceiptDetailState(
     val receipt: Receipt? = null,
     val isLoading: Boolean = true,
@@ -63,7 +73,14 @@ data class ReceiptDetailState(
     val editor: LineEditor? = null,
     val canCategorize: Boolean = false,
     val canEdit: Boolean = false,
+    val image: ReceiptImage = ReceiptImage.None,
+    val isViewerOpen: Boolean = false,
+    val isConfirmingDelete: Boolean = false,
+    val isDeleting: Boolean = false,
 ) {
+    /** Deleting is correction work, so it goes with the permission to correct figures. */
+    val canDelete: Boolean get() = canEdit
+
     /** Tracking meals that appear on a line get a stepper. */
     val coverageMeals: List<Meal>
         get() = meals.filter { meal -> meal.tracksDayCoverage && receipt?.lines?.any { it.mealId == meal.id } == true }
@@ -87,6 +104,19 @@ sealed interface ReceiptDetailAction {
     data class OnEditorChange(val editor: LineEditor) : ReceiptDetailAction
     data object OnDismissEditor : ReceiptDetailAction
     data object OnSaveEditor : ReceiptDetailAction
+    data object OnRetryImage : ReceiptDetailAction
+    data object OnOpenImage : ReceiptDetailAction
+    data object OnCloseImage : ReceiptDetailAction
+    data object OnAskDelete : ReceiptDetailAction
+    data object OnDismissDelete : ReceiptDetailAction
+    data object OnConfirmDelete : ReceiptDetailAction
+    data object OnOpenDuplicate : ReceiptDetailAction
+}
+
+sealed interface ReceiptDetailEvent {
+    /** Deleted, or found already gone: back to the list, which has dropped it. */
+    data object Close : ReceiptDetailEvent
+    data class OpenReceipt(val id: String) : ReceiptDetailEvent
 }
 
 private const val COVERAGE_DEBOUNCE_MS = 400L
@@ -110,6 +140,9 @@ class ReceiptDetailViewModel(
     private val _messages = Channel<UiText>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
+    private val _events = Channel<ReceiptDetailEvent>(Channel.BUFFERED)
+    val events = _events.receiveAsFlow()
+
     private var coverageSave: Job? = null
 
     init {
@@ -128,6 +161,42 @@ class ReceiptDetailViewModel(
             val meals = (taxonomy.meals() as? Result.Success)?.data.orEmpty()
             _state.update { it.copy(categories = categories, meals = meals) }
         }
+        loadImageIfNeeded()
+    }
+
+    /** Once per receipt: the image never changes, so a refresh doesn't fetch it again. */
+    private fun loadImageIfNeeded() {
+        val state = _state.value
+        if (state.receipt?.hasImage != true || state.image is ReceiptImage.Loaded || state.image is ReceiptImage.Loading) return
+        _state.update { it.copy(image = ReceiptImage.Loading) }
+        viewModelScope.launch {
+            val image = when (val result = receipts.image(receiptId)) {
+                is Result.Success -> ReceiptImage.Loaded(result.data)
+                is Result.Error -> ReceiptImage.Failed
+            }
+            _state.update { it.copy(image = image) }
+        }
+    }
+
+    private fun delete() {
+        if (_state.value.isDeleting) return
+        _state.update { it.copy(isDeleting = true) }
+        viewModelScope.launch {
+            val result = receipts.delete(receiptId)
+            _state.update { it.copy(isDeleting = false, isConfirmingDelete = false) }
+            when (result) {
+                is Result.Success -> _events.send(ReceiptDetailEvent.Close)
+                is Result.Error -> {
+                    _messages.send(result.error.detailOrUiText())
+                    // Already gone is the outcome that was asked for: the list has dropped it and reloads.
+                    if (result.error.kind == DataError.Network.NOT_FOUND) {
+                        _events.send(ReceiptDetailEvent.Close)
+                    } else {
+                        members.refreshIfForbidden(result.error)
+                    }
+                }
+            }
+        }
     }
 
     private fun Receipt?.days(): Map<String, Int> = this?.coverage.orEmpty().associate { it.mealId to it.daysCovered }
@@ -137,14 +206,17 @@ class ReceiptDetailViewModel(
         if (coverageSave?.isActive == true) return
         viewModelScope.launch {
             when (val result = receipts.receipt(receiptId)) {
-                is Result.Success -> _state.update {
-                    it.copy(
-                        receipt = result.data,
-                        coverage = result.data.days(),
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = null,
-                    )
+                is Result.Success -> {
+                    _state.update {
+                        it.copy(
+                            receipt = result.data,
+                            coverage = result.data.days(),
+                            isLoading = false,
+                            isRefreshing = false,
+                            error = null,
+                        )
+                    }
+                    loadImageIfNeeded()
                 }
                 is Result.Error -> {
                     val message = result.error.toUiText()
@@ -183,6 +255,18 @@ class ReceiptDetailViewModel(
             is ReceiptDetailAction.OnEditorChange -> _state.update { it.copy(editor = action.editor.copy(error = null)) }
             ReceiptDetailAction.OnDismissEditor -> _state.update { it.copy(editor = null) }
             ReceiptDetailAction.OnSaveEditor -> saveEditor()
+            ReceiptDetailAction.OnRetryImage -> {
+                _state.update { it.copy(image = ReceiptImage.None) }
+                loadImageIfNeeded()
+            }
+            ReceiptDetailAction.OnOpenImage -> _state.update { it.copy(isViewerOpen = it.image is ReceiptImage.Loaded) }
+            ReceiptDetailAction.OnCloseImage -> _state.update { it.copy(isViewerOpen = false) }
+            ReceiptDetailAction.OnAskDelete -> _state.update { it.copy(isConfirmingDelete = it.canDelete) }
+            ReceiptDetailAction.OnDismissDelete -> _state.update { it.copy(isConfirmingDelete = false) }
+            ReceiptDetailAction.OnConfirmDelete -> delete()
+            ReceiptDetailAction.OnOpenDuplicate -> _state.value.receipt?.possibleDuplicateOfId?.let {
+                _events.trySend(ReceiptDetailEvent.OpenReceipt(it))
+            }
         }
     }
 

@@ -7,6 +7,8 @@
 package dev.jelshoj.kvitteria
 
 import android.app.Application
+import dev.jelshoj.kvitteria.feature.capture.data.captureDataModule
+import dev.jelshoj.kvitteria.feature.capture.presentation.capturePresentationModule
 import androidx.appcompat.app.AppCompatDelegate
 import dev.jelshoj.kvitteria.core.data.coreDataModule
 import dev.jelshoj.kvitteria.feature.auth.data.authDataModule
@@ -48,6 +50,8 @@ class KvitteriaApp : Application() {
                 sortPresentationModule,
                 pipelineDataModule,
                 pipelinePresentationModule,
+                captureDataModule,
+                capturePresentationModule,
                 overviewPresentationModule,
                 insightsPresentationModule,
                 appModule,

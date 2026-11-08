@@ -124,6 +124,8 @@
     <string name="perm_manage_settings">Ændre indstillinger</string>
     <string name="perm_manage_settings_blurb">Ændre husstandens indstillinger, inklusive hvad medlemmer må.</string>
     <string name="perm_manage_mailboxes">Håndtér postkasser</string>
+    <string name="perm_add_receipts">Tilføje kvitteringer</string>
+    <string name="perm_add_receipts_blurb">Sende et billede eller skærmbillede af en kvittering til husstanden. Adskilt fra Rette kvitteringer, så alle kan tilføje deres egne.</string>
     <string name="perm_manage_mailboxes_blurb">Tilføje, ændre og fjerne de IMAP-postkasser kvitteringer hentes fra. Adskilt fra Ændre indstillinger, så et medlem kan tilmelde sin egen postkasse.</string>
     <string name="perms_blurb">Hvad et medlem må ændre. Alle kan se alt — det er kun skrivning der styres. Administratorer har altid alle rettigheder.</string>
     <string name="perms_read_only">Vist så du kan se hvad der er skjult for dig. Kun administratorer og medlemmer med Ændre indstillinger kan ændre listen.</string>

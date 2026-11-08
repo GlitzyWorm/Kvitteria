@@ -15,7 +15,7 @@ public sealed class ReceiptFactoryWorker(
 {
 	protected override string WorkerName => "Receipt factory";
 
-	protected override string Describe(ReceiptRecord item) => item.Subject;
+	protected override string Describe(ReceiptRecord item) => item.Label;
 
 	protected override async Task OnFailedAsync(ReceiptRecord item, string error)
 	{
@@ -30,7 +30,7 @@ public sealed class ReceiptFactoryWorker(
 	{
 		if (record.Extracted is null)
 		{
-			logger.LogWarning("Skipping '{Subject}': no extraction to persist.", record.Subject);
+			logger.LogWarning("Skipping '{Subject}': no extraction to persist.", record.Label);
 			return;
 		}
 		
@@ -44,6 +44,6 @@ public sealed class ReceiptFactoryWorker(
 
 		logger.LogInformation(
 			"Persisted receipt {ReceiptId} for '{Subject}': {LineCount} lines, total {GrandTotal}, reconciled={Reconciled}",
-			receipt.Id, record.Subject, receipt.ReceiptLines.Count, receipt.GrandTotal, receipt.Reconciled);
+			receipt.Id, record.Label, receipt.ReceiptLines.Count, receipt.GrandTotal, receipt.Reconciled);
 	}
 }

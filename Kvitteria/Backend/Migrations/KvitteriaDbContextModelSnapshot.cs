@@ -126,6 +126,38 @@ namespace Backend.Migrations
                     b.ToTable("PipelineSettings");
                 });
 
+            modelBuilder.Entity("Backend.Features.Persistence.Model.ReceiptImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Sha256")
+                        .IsUnique();
+
+                    b.ToTable("ReceiptImages");
+                });
+
             modelBuilder.Entity("Backend.Features.Persistence.Model.ReceiptIntake", b =>
                 {
                     b.Property<Guid>("Id")
@@ -147,6 +179,9 @@ namespace Backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
@@ -158,6 +193,9 @@ namespace Backend.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<Guid?>("ImageId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("MailDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -166,6 +204,11 @@ namespace Backend.Migrations
 
                     b.Property<DateTime>("ReceivedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("SourceMessageId")
                         .HasMaxLength(300)
@@ -184,6 +227,9 @@ namespace Backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AppUserId");
+
+                    b.HasIndex("ImageId")
+                        .IsUnique();
 
                     b.HasIndex("MailboxId");
 
@@ -332,12 +378,18 @@ namespace Backend.Migrations
                     b.Property<Guid?>("AppUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Error")
                         .HasColumnType("text");
 
                     b.Property<decimal>("GrandTotal")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid?>("ImageId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("MailboxId")
                         .HasColumnType("uuid");
@@ -348,6 +400,9 @@ namespace Backend.Migrations
                     b.Property<decimal>("PantTotal")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid?>("PossibleDuplicateOfId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("PurchaseDate")
                         .HasColumnType("timestamp with time zone");
@@ -368,9 +423,12 @@ namespace Backend.Migrations
 
                     b.HasIndex("AppUserId");
 
+                    b.HasIndex("ImageId")
+                        .IsUnique();
+
                     b.HasIndex("MailboxId");
 
-                    b.HasIndex("MerchantId");
+                    b.HasIndex("PossibleDuplicateOfId");
 
                     b.HasIndex("PurchaseDate");
 
@@ -378,6 +436,8 @@ namespace Backend.Migrations
                         .IsUnique();
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("MerchantId", "GrandTotal", "PurchaseDate");
 
                     b.ToTable("Receipts");
                 });
@@ -553,12 +613,19 @@ namespace Backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Backend.Features.Persistence.Model.ReceiptImage", "Image")
+                        .WithMany()
+                        .HasForeignKey("ImageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Backend.Features.Persistence.Model.Mailbox", "Mailbox")
                         .WithMany()
                         .HasForeignKey("MailboxId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("AppUser");
+
+                    b.Navigation("Image");
 
                     b.Navigation("Mailbox");
                 });
@@ -608,6 +675,11 @@ namespace Backend.Migrations
                         .HasForeignKey("AppUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Backend.Features.Persistence.Model.ReceiptImage", "Image")
+                        .WithMany()
+                        .HasForeignKey("ImageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Backend.Features.Persistence.Model.Mailbox", null)
                         .WithMany()
                         .HasForeignKey("MailboxId")
@@ -619,7 +691,14 @@ namespace Backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Backend.Features.Persistence.Model.Receipts.Receipt", null)
+                        .WithMany()
+                        .HasForeignKey("PossibleDuplicateOfId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("AppUser");
+
+                    b.Navigation("Image");
 
                     b.Navigation("Merchant");
                 });

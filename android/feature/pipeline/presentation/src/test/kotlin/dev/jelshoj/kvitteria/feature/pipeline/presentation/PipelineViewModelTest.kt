@@ -6,6 +6,7 @@
 
 package dev.jelshoj.kvitteria.feature.pipeline.presentation
 
+import dev.jelshoj.kvitteria.feature.pipeline.domain.FailureSource
 import app.cash.turbine.test
 import assertk.assertThat
 import assertk.assertions.isEqualTo
@@ -88,6 +89,12 @@ private class NoReceipts : ReceiptRepository {
     override suspend fun correctLine(lineId: String, correction: LineCorrection): Result<ReceiptLine, ApiError> = error("unused")
 
     override suspend fun setCoverage(receiptId: String, days: Map<String, Int>): Result<List<MealCoverage>, ApiError> = error("unused")
+
+    override suspend fun delete(id: String): Result<Unit, ApiError> = error("unused")
+
+    override suspend fun image(id: String): Result<ByteArray, ApiError> = error("unused")
+
+    override val deleted: kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.emptyFlow()
 }
 
 private class FakeCounts : WorkCounts {
@@ -215,5 +222,32 @@ class PipelineViewModelTest {
         assertThat(MailboxHealth("m", true, null).toState()).isEqualTo(MailboxState.Connected)
         assertThat(MailboxHealth("m", true, "bad password").toState()).isEqualTo(MailboxState.Failing)
         assertThat(MailboxHealth("m", false, "bad password").toState()).isEqualTo(MailboxState.Paused)
+    }
+
+    @Test
+    fun `a mixed list names mail by subject and an upload as an uploaded image`() = runTest {
+        val upload = ReceiptFailure(
+            id = "u1",
+            subject = "",
+            from = "",
+            mailDate = Instant.parse("2026-10-26T12:07:00Z"),
+            failedAt = Instant.parse("2026-11-08T19:36:48Z"),
+            error = "No receipt was found in the image.",
+            attempts = 0,
+            memberName = "Sofie",
+            source = FailureSource.Upload,
+            receivedAt = Instant.parse("2026-11-08T19:36:43Z"),
+        )
+
+        val mail = failure.summary(java.util.Locale.forLanguageTag("da"))
+        val uploaded = upload.summary(java.util.Locale.forLanguageTag("da"))
+
+        assertThat(mail.title).isEqualTo(UiText.DynamicString("Din kvittering"))
+        assertThat(mail.meta.first()).isEqualTo("netto@x.dk")
+        assertThat(uploaded.title).isEqualTo(UiText.StringResource(R.string.failure_uploaded_image))
+        assertThat(uploaded.meta.first()).isEqualTo("Sofie")
+        // The upload time, not the empty subject or sender.
+        assertThat(uploaded.meta.none { it.isBlank() }).isEqualTo(true)
+        assertThat(uploaded.meta.size).isEqualTo(2)
     }
 }

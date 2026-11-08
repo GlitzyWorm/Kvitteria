@@ -9,6 +9,7 @@ using Backend.Features.Shared;
 using Kvitteria.Contracts.DTO;
 using Kvitteria.Contracts.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Endpoints;
 
 static class PipelineEndpoints
@@ -158,13 +159,28 @@ static class PipelineEndpoints
 
 			// DELETE /pipeline/failures/{id}
 			pipelineGroup.MapDelete("/failures/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				             // An upload's image goes with it, in the same transaction: nothing else will ever point at it.
+				             await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
+
+				             Guid? imageId = await dbContext.ReceiptIntakes
+				                                            .Where(i => i.Id == id && i.Status == ReceiptStatus.Failed)
+				                                            .Select(i => i.ImageId)
+				                                            .FirstOrDefaultAsync(ct);
+
 				             // A conditional delete, so a mail that was retried a moment ago is not removed from under the worker.
 				             int deleted = await dbContext.ReceiptIntakes
 				                                          .Where(i => i.Id == id && i.Status == ReceiptStatus.Failed)
 				                                          .ExecuteDeleteAsync(ct);
 
 				             if (deleted == 1)
+				             {
+					             if (imageId is { } image)
+						             await dbContext.ReceiptImages.Where(img => img.Id == image).ExecuteDeleteAsync(ct);
+
+					             await transaction.CommitAsync(ct);
+
 					             return Results.NoContent();
+				             }
 
 				             bool exists = await dbContext.ReceiptIntakes.AnyAsync(i => i.Id == id, ct);
 

@@ -14,7 +14,15 @@ enum class Role { Admin, Member, Unknown }
 
 enum class MemberStatus { Pending, Active, Disabled, Unknown }
 
-enum class Permission { CategorizeLines, ManageTaxonomy, EditReceipts, ManageUsers, ManageSettings, ManageMailboxes }
+enum class Permission {
+    CategorizeLines,
+    ManageTaxonomy,
+    EditReceipts,
+    ManageUsers,
+    ManageSettings,
+    ManageMailboxes,
+    AddReceipts,
+}
 
 /** The signed-in member. [permissions] is the server's resolved set, so an admin holds all of them. */
 data class CurrentMember(

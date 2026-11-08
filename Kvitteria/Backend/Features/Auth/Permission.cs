@@ -26,5 +26,11 @@ public enum Permission
 	/// <see cref="ManageSettings"/> so a member can register their own mailbox without also being able
 	/// to retune the pipeline or edit everyone's permissions.
 	/// </summary>
-	ManageMailboxes
+	ManageMailboxes,
+
+	/// <summary>
+	/// Upload a receipt image. Separate from <see cref="EditReceipts"/> because adding a receipt from
+	/// your own phone is ordinary household use, while correcting extracted figures is correction work.
+	/// </summary>
+	AddReceipts
 }

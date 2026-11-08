@@ -23,7 +23,10 @@ public static class ReceiptDtoExtension
 			receipt.MealCoverage.OrderBy(mc => mc.Meal!.SortOrder).Select(mc => mc.ToDto()).ToList(),
 			receipt.Error,
 			receipt.AppUserId,
-			receipt.AppUser?.DisplayName
+			receipt.AppUser?.DisplayName,
+			// The key alone: the image is fetched separately and never loaded with a receipt.
+			receipt.ImageId != null,
+			receipt.PossibleDuplicateOfId
 		);
 	}
 }

@@ -78,8 +78,9 @@ fun EntryProviderScope<NavKey>.overviewEntries(
     onOpenSort: () -> Unit,
     onOpenInsights: () -> Unit,
     onOpenReceipt: (String) -> Unit,
+    addReceipt: @Composable () -> Unit = {},
 ) {
-    entry<OverviewRoute> { OverviewRoot(onOpenSettings, onOpenSort, onOpenInsights, onOpenReceipt) }
+    entry<OverviewRoute> { OverviewRoot(onOpenSettings, onOpenSort, onOpenInsights, onOpenReceipt, addReceipt) }
 }
 
 val overviewPresentationModule = module {
@@ -92,6 +93,7 @@ fun OverviewRoot(
     onOpenSort: () -> Unit,
     onOpenInsights: () -> Unit,
     onOpenReceipt: (String) -> Unit,
+    addReceipt: @Composable () -> Unit = {},
     viewModel: OverviewViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -107,11 +109,18 @@ fun OverviewRoot(
         onOpenSort = onOpenSort,
         onOpenInsights = onOpenInsights,
         onOpenReceipt = onOpenReceipt,
+        addReceipt = addReceipt,
     )
 }
 
+/** [addReceipt] is a slot the app fills, because adding a receipt belongs to another feature. */
 @Composable
-private fun ProfileBar(state: OverviewState, memberCount: Int?, onOpenSettings: () -> Unit) {
+private fun ProfileBar(
+    state: OverviewState,
+    memberCount: Int?,
+    onOpenSettings: () -> Unit,
+    addReceipt: @Composable () -> Unit,
+) {
     val part = stringResource(
         when (state.greeting) {
             Greeting.Morning -> R.string.greeting_morning
@@ -132,6 +141,7 @@ private fun ProfileBar(state: OverviewState, memberCount: Int?, onOpenSettings: 
                 BasicText(pluralStringResource(R.plurals.household_members, memberCount, memberCount), style = KvType.hint)
             }
         }
+        addReceipt()
         KvIconButton(PhosphorIcons.Gear, stringResource(R.string.settings), onOpenSettings, tint = KvColors.neutral300)
     }
 }
@@ -298,10 +308,11 @@ fun OverviewScreen(
     onOpenSort: () -> Unit,
     onOpenInsights: () -> Unit,
     onOpenReceipt: (String) -> Unit,
+    addReceipt: @Composable () -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Box(Modifier.padding(horizontal = KvSpace.gutter, vertical = KvSpace.s2)) {
-            ProfileBar(state, state.data.data?.memberCount, onOpenSettings)
+            ProfileBar(state, state.data.data?.memberCount, onOpenSettings, addReceipt)
         }
         LoadableContent(
             state = state.data,

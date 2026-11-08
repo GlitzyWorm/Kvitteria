@@ -70,6 +70,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun ReceiptsRoot(
     onOpenReceipt: (String) -> Unit,
+    addReceipt: @Composable () -> Unit = {},
     viewModel: ReceiptsViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -80,7 +81,7 @@ fun ReceiptsRoot(
     ObserveAsEvents(viewModel.messages) { toast.show(it.asString(context)) }
 
     KvToastBox(toast) {
-        ReceiptsScreen(state = state, onAction = viewModel::onAction, onOpenReceipt = onOpenReceipt)
+        ReceiptsScreen(state = state, onAction = viewModel::onAction, onOpenReceipt = onOpenReceipt, addReceipt = addReceipt)
     }
 }
 
@@ -112,6 +113,7 @@ fun ReceiptsScreen(
     state: ReceiptsState,
     onAction: (ReceiptsAction) -> Unit,
     onOpenReceipt: (String) -> Unit,
+    addReceipt: @Composable () -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val nearEnd by remember {
@@ -129,7 +131,10 @@ fun ReceiptsScreen(
             modifier = Modifier.padding(horizontal = KvSpace.gutter, vertical = KvSpace.s3),
             verticalArrangement = Arrangement.spacedBy(KvSpace.s3),
         ) {
-            KvHeading(stringResource(R.string.receipts_title))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                KvHeading(stringResource(R.string.receipts_title), Modifier.weight(1f))
+                addReceipt()
+            }
             KvField(
                 label = stringResource(R.string.search),
                 value = state.search,

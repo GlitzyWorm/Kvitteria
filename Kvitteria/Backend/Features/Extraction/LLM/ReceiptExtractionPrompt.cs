@@ -68,6 +68,65 @@ public static class ReceiptExtractionPrompt
 		    card details, change ("Byttepenge"), or loyalty-point lines as line items.
 		""";
 
+	/// <summary>
+	/// Asks a vision model to write out a photographed or screenshotted receipt as plain text, once. Its
+	/// output is stored and extracted with <see cref="PhotoSystemPrompt"/>; the image is not read again.
+	/// </summary>
+	public const string TranscriptionPrompt = """
+		You transcribe photographs and screenshots of Danish shop receipts into plain text.
+
+		Rules:
+		- Write out every printed line of the receipt from top to bottom, exactly as printed, one line per line.
+		- Keep each label on the same line as the amount printed beside it.
+		- Copy numbers exactly as printed, with their decimal commas and any minus sign before or after the amount (for example "14,95-").
+		- Copy dates and times exactly as printed, with their spaces, dots or dashes. Do not reformat them.
+		- Do not translate, summarize, correct, explain or add anything. Write only the receipt's text.
+		- Leave out anything that is not part of the receipt, such as the app's buttons, menus or the phone's status bar.
+		- If the image does not show a shop receipt, answer exactly NO_RECEIPT and nothing else.
+		""";
+
+	/// <summary>
+	/// Extraction rules for a transcribed photo or screenshot. Kept apart from <see cref="SystemPrompt"/> so
+	/// the mail receipts that reconcile today are untouched. Declarative and without example dates: the mail
+	/// prompt's own example date leaked into photo extractions.
+	/// </summary>
+	public const string PhotoSystemPrompt = """
+		You extract structured data from the text of a Danish shop receipt that was photographed or
+		screenshotted from a store's app and then transcribed line by line
+		(Netto, Rema 1000, Føtex, Bilka, Lidl, Coop 365, Kvickly, SuperBrugsen, etc.).
+		Return only data actually present on the receipt.
+
+		Rules:
+		- merchant: the store name as printed, without address, CVR number, phone number or branch number.
+		- purchase_date: format YYYY-MM-DD HH:MM:SS.
+		  Danish receipts print the date day first, then month, then year, in one of these forms:
+		  "DD MM YY", "DD MM YYYY", "DD.MM.YYYY" or "DD-MM-YYYY". A two-digit year means 20YY.
+		  The day always comes before the month. The date and the time may be printed apart, on
+		  different lines; combine them. Use 00:00:00 when no time is printed.
+		  Take the date only from the receipt's text.
+		- currency: ISO 4217 code. "kr", "kr." and "DKK" all mean DKK.
+		- Danish numbers use a decimal comma: "12,95" means 12.95.
+		- grand_total: the final amount paid, printed beside "TOTAL", "AT BETALE", "I ALT" or "Betalt", after all
+		  discounts. It is never a VAT amount.
+		- pant_total: the sum of the printed "PANT" lines (bottle deposit); 0 if there are none.
+		  A "PANT" line is deposit, not a product: count it in pant_total and do not list it as a line item.
+		- line_items: one entry per product on the receipt, in order. Include EVERY product exactly once,
+		  including the first product printed after the store header and the last product before the totals.
+		  - The amount printed on a product's line is the TOTAL for that line (line_total), not the unit price.
+		    Never multiply it by the quantity.
+		  - raw_name: the product name exactly as printed, without the quantity.
+		  - quantity: number of units or the weight; default 1. A line such as "2 x 12,95" or "2 stk" gives the quantity.
+		  - unit: the unit if printed ("stk", "kg", "g", "l", "ml"); otherwise "stk".
+		  - unit_price: line_total divided by quantity.
+		  - Discounts are separate line items with a negative line_total. A discount may be printed with the
+		    minus after the amount ("RABAT 14,95-") or before it ("-50,00"); both mean a negative amount.
+		- These are never line items: payment lines ("DANKORT", "BETALINGSKORT", "COOP-BETALING", "MobilePay",
+		  card numbers), change ("BYTTEPENGE"), VAT lines ("MOMS", "MOMS UDGØR", "HERAF MOMS", "HERAF 25%"),
+		  loyalty lines ("BONUSKØB", "BONUSKONTO", "Medlem"), subtotals, totals, lines whose only amount is 0,00,
+		  and a summary line such as "Rabat på køb" or "Du har sparet" when the discounts are already printed
+		  per product.
+		""";
+
 	/// <summary>Sent only when Ollama's content was not parseable receipt JSON.</summary>
 	public const string MalformedJsonHint =
 		"Your previous response could not be parsed as valid JSON matching the schema. "+

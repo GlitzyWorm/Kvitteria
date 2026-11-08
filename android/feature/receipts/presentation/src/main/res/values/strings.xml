@@ -29,4 +29,11 @@
     <string name="unit_price">Stykpris</string>
     <string name="line_total">Linjetotal</string>
     <string name="invalid_number">Skriv et tal, fx 12,50.</string>
+    <string name="receipt_image">Billedet kvitteringen er læst fra</string>
+    <string name="image_failed">Billedet kunne ikke hentes.</string>
+    <string name="possible_duplicate">Måske en dublet</string>
+    <string name="possible_duplicate_body">En gemt kvittering har samme butik, dag og beløb. Tryk for at se den.</string>
+    <string name="delete_receipt">Slet kvittering</string>
+    <string name="delete_receipt_title">Slet kvitteringen?</string>
+    <string name="delete_receipt_body">Kvitteringen, dens linjer, dækning og billede slettes for altid. Varer og det, linjerne har lært, beholdes.</string>
 </resources>

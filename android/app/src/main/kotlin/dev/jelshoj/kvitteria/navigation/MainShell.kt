@@ -28,6 +28,20 @@ import dev.jelshoj.kvitteria.core.designsystem.KvTabBar
 import dev.jelshoj.kvitteria.core.designsystem.PhosphorIcons
 import dev.jelshoj.kvitteria.core.domain.WorkCounts
 import dev.jelshoj.kvitteria.core.presentation.OnStart
+import dev.jelshoj.kvitteria.core.presentation.ObserveAsEvents
+import dev.jelshoj.kvitteria.core.presentation.UiText
+import dev.jelshoj.kvitteria.core.designsystem.KvToastBox
+import dev.jelshoj.kvitteria.core.designsystem.rememberKvToastState
+import dev.jelshoj.kvitteria.core.domain.member.Permission
+import dev.jelshoj.kvitteria.core.domain.session.SessionManager
+import dev.jelshoj.kvitteria.feature.capture.domain.PendingCapture
+import dev.jelshoj.kvitteria.feature.capture.presentation.AddReceiptButton
+import dev.jelshoj.kvitteria.feature.capture.presentation.CaptureNotices
+import dev.jelshoj.kvitteria.feature.capture.presentation.ConfirmCaptureRoute
+import dev.jelshoj.kvitteria.feature.capture.presentation.captureEntries
+import dev.jelshoj.kvitteria.feature.capture.presentation.R as CaptureR
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import dev.jelshoj.kvitteria.feature.insights.presentation.InsightsRoute
 import dev.jelshoj.kvitteria.feature.insights.presentation.insightsEntries
 import dev.jelshoj.kvitteria.feature.overview.presentation.OverviewRoute
@@ -45,9 +59,29 @@ import org.koin.compose.viewmodel.koinViewModel
 private val tabs: List<NavKey> = listOf(OverviewRoute, SortRoute, ReceiptsRoute, InsightsRoute, PipelineRoute)
 
 /** Foreground refresh of the badges, for as long as the shell lives. */
-class MainShellViewModel(val counts: WorkCounts) : ViewModel() {
+class MainShellViewModel(
+    val counts: WorkCounts,
+    val pending: PendingCapture,
+    val notices: CaptureNotices,
+    private val sessions: SessionManager,
+) : ViewModel() {
     fun refresh() {
         viewModelScope.launch { counts.refresh() }
+    }
+
+    /**
+     * Whether to open the confirmation of an image shared from another app. Runs once the shell exists,
+     * which is after sign-in, so a share that arrived signed out is shown here. Without [Permission.AddReceipts]
+     * the image is discarded with a message rather than offered.
+     */
+    fun takeShared(): Boolean {
+        if (!pending.awaitingShell.value) return false
+        val member = sessions.member.value ?: return false
+        pending.opened()
+        if (member.can(Permission.AddReceipts)) return true
+        pending.clear()
+        notices.post(UiText.StringResource(CaptureR.string.capture_no_permission))
+        return false
     }
 }
 
@@ -59,8 +93,17 @@ fun MainShell(
     val navigation = rememberTabNavigation(tabs)
     val unassigned by viewModel.counts.unassignedLines.collectAsStateWithLifecycle()
     val failed by viewModel.counts.failedMail.collectAsStateWithLifecycle()
+    val sharedWaiting by viewModel.pending.awaitingShell.collectAsStateWithLifecycle()
+    val toast = rememberKvToastState()
+    val context = LocalContext.current
 
     OnStart(viewModel::refresh)
+    ObserveAsEvents(viewModel.notices.messages) { toast.show(it.asString(context)) }
+    LaunchedEffect(sharedWaiting) {
+        if (sharedWaiting && viewModel.takeShared()) navigation.push(ConfirmCaptureRoute)
+    }
+
+    val addReceipt: @Composable () -> Unit = { AddReceiptButton(onOpenConfirm = { navigation.push(ConfirmCaptureRoute) }) }
 
     val openReceipt: (String) -> Unit = { id -> navigation.pushOn(ReceiptsRoute, ReceiptDetailRoute(id)) }
     val entries = entryProvider<NavKey> {
@@ -69,19 +112,24 @@ fun MainShell(
             onOpenSort = { navigation.selectTab(SortRoute) },
             onOpenInsights = { navigation.selectTab(InsightsRoute) },
             onOpenReceipt = openReceipt,
+            addReceipt = addReceipt,
         )
         sortEntries(onOpenReceipts = { navigation.selectTab(ReceiptsRoute) })
         receiptsEntries(
             onOpenReceipt = { navigation.push(ReceiptDetailRoute(it)) },
             onBack = navigation::back,
+            addReceipt = addReceipt,
         )
+        captureEntries(onClose = navigation::back)
         insightsEntries()
         pipelineEntries(onOpenReceipt = openReceipt)
     }
 
     Column(Modifier.fillMaxSize().background(KvColors.bg)) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            NavDisplay(entries = navigation.decoratedEntries(entries), onBack = navigation::back)
+            KvToastBox(toast) {
+                NavDisplay(entries = navigation.decoratedEntries(entries), onBack = navigation::back)
+            }
         }
         KvTabBar(
             tabs = listOf(

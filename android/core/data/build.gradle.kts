@@ -23,4 +23,5 @@ dependencies {
     testImplementation(project(":feature:sort:data"))
     testImplementation(project(":feature:pipeline:data"))
     testImplementation(project(":feature:settings:data"))
+    testImplementation(project(":feature:capture:data"))
 }

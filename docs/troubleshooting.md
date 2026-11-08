@@ -156,20 +156,25 @@ stop the others. Things to check:
   come apart — restoring one without the other — the error asks you to re-enter it. Do that; it cannot
   be recovered.
 
-## A receipt mail was fetched but never became a receipt
+## A receipt mail or photo never became a receipt
 
-Mail that fails extraction is kept, with the reason, until someone deals with it. Look at the stages
-and the failures:
+Mail and uploaded images that fail are kept, with the reason, until someone deals with it. Look at the
+stages and the failures:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/status
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures
 ```
 
-`status` counts mail per stage (`queued`, `extracting`, `persisting`, `failed`) plus `unreconciled`
-receipts, and gives per-mailbox `lastMessageAt` and `receiptsThisMonth`. Each failure names the
-underlying cause in `error` (an unreachable Ollama, an unpulled model, unusable output). The mail text
-is never returned.
+`status` counts mail and uploads per stage (`queued`, `extracting`, `persisting`, `failed`) plus
+`unreconciled` receipts, and gives per-mailbox `lastMessageAt` and `receiptsThisMonth`. An image being
+transcribed counts as `extracting`. Each failure names the underlying cause in `error` (an unreachable
+Ollama, an unpulled model, unusable output), and `source` says whether it was `Mail` or an `Upload`. The
+mail text, transcription and image are never returned. In the backend log an upload is named
+`upload <id>` where a mail is named by its subject.
+
+An upload that fails with `No receipt was found in the image.` was read and judged not to be a receipt.
+Retrying reads it again; dismissing deletes the image.
 
 Once the cause is fixed, retry it, which needs `EditReceipts`:
 
@@ -177,8 +182,8 @@ Once the cause is fixed, retry it, which needs `EditReceipts`:
 curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures/<id>/retry
 ```
 
-A mail that was never a receipt can be dismissed, which deletes it and its text. Nothing changes on
-the mail server:
+A mail that was never a receipt can be dismissed, which deletes it and its text, or for an upload its
+image and transcription. Nothing changes on the mail server:
 
 ```bash
 curl -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pipeline/failures/<id>

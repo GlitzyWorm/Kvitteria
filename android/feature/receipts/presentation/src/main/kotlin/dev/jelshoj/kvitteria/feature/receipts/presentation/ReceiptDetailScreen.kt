@@ -82,6 +82,7 @@ import org.koin.core.parameter.parametersOf
 fun ReceiptDetailRoot(
     id: String,
     onBack: () -> Unit,
+    onOpenReceipt: (String) -> Unit = {},
     viewModel: ReceiptDetailViewModel = koinViewModel(key = id) { parametersOf(id) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -90,6 +91,12 @@ fun ReceiptDetailRoot(
 
     OnStart(viewModel::refresh)
     ObserveAsEvents(viewModel.messages) { toast.show(it.asString(context)) }
+    ObserveAsEvents(viewModel.events) { event ->
+        when (event) {
+            ReceiptDetailEvent.Close -> onBack()
+            is ReceiptDetailEvent.OpenReceipt -> onOpenReceipt(event.id)
+        }
+    }
 
     KvToastBox(toast) {
         ReceiptDetailScreen(state = state, onAction = viewModel::onAction, onBack = onBack)
@@ -106,7 +113,19 @@ fun ReceiptDetailScreen(
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             KvIconButton(PhosphorIcons.ArrowLeft, stringResource(CoreR.string.back), onBack, tint = KvColors.accent)
-            BasicText(stringResource(R.string.receipts_title), style = KvType.small.copy(color = KvColors.accent))
+            BasicText(
+                stringResource(R.string.receipts_title),
+                style = KvType.small.copy(color = KvColors.accent),
+                modifier = Modifier.weight(1f),
+            )
+            if (state.canDelete && receipt != null) {
+                KvIconButton(
+                    PhosphorIcons.Trash,
+                    stringResource(R.string.delete_receipt),
+                    { onAction(ReceiptDetailAction.OnAskDelete) },
+                    tint = KvColors.neutral300,
+                )
+            }
         }
         PullToRefreshBox(
             isRefreshing = state.isRefreshing,
@@ -140,6 +159,18 @@ fun ReceiptDetailScreen(
     }
 
     state.editor?.let { LineEditorDialog(it, onAction) }
+
+    val image = state.image
+    if (state.isViewerOpen && image is ReceiptImage.Loaded) {
+        ReceiptImageViewer(image.bytes, onClose = { onAction(ReceiptDetailAction.OnCloseImage) })
+    }
+    if (state.isConfirmingDelete) {
+        DeleteReceiptDialog(
+            isDeleting = state.isDeleting,
+            onConfirm = { onAction(ReceiptDetailAction.OnConfirmDelete) },
+            onDismiss = { onAction(ReceiptDetailAction.OnDismissDelete) },
+        )
+    }
 }
 
 @Composable
@@ -154,6 +185,18 @@ private fun DetailContent(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item { Header(receipt) }
+        if (receipt.possibleDuplicateOfId != null) {
+            item { PossibleDuplicateMark(onOpen = { onAction(ReceiptDetailAction.OnOpenDuplicate) }) }
+        }
+        if (receipt.hasImage) {
+            item {
+                ReceiptThumbnail(
+                    image = state.image,
+                    onOpen = { onAction(ReceiptDetailAction.OnOpenImage) },
+                    onRetry = { onAction(ReceiptDetailAction.OnRetryImage) },
+                )
+            }
+        }
         items(receipt.lines, key = { it.id }) { line -> LineCard(line, state, onAction) }
         item { CoverageCard(state, onAction) }
     }

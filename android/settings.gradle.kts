@@ -31,7 +31,7 @@ rootProject.name = "kvitteria"
 
 include(":app")
 include(":core:domain", ":core:data", ":core:presentation", ":core:design-system")
-for (feature in listOf("auth", "sort", "pipeline", "settings")) {
+for (feature in listOf("auth", "sort", "pipeline", "settings", "capture")) {
     include(":feature:$feature:domain", ":feature:$feature:data", ":feature:$feature:presentation")
 }
 include(":feature:overview:presentation", ":feature:receipts:presentation", ":feature:insights:presentation")

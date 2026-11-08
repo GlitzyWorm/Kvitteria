@@ -26,4 +26,5 @@
     <string name="mailbox_paused">Paused</string>
     <string name="last_mail">Last mail %1$s</string>
     <string name="this_month">%1$d this month</string>
+    <string name="failure_uploaded_image">Uploaded image</string>
 </resources>

@@ -167,6 +167,38 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Backend"
+        ],
+        "operationId": "DeleteReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/receipts/{id}/meal-coverage": {
@@ -232,6 +264,139 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/receipts/uploads": {
+      "post": {
+        "tags": [
+          "Backend"
+        ],
+        "operationId": "UploadReceiptImage",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "image": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "capturedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptUploadDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/receipts/{id}/image": {
+      "get": {
+        "tags": [
+          "Backend"
+        ],
+        "operationId": "GetReceiptImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2918,6 +3083,10 @@
           }
         }
       },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
       "ItemAliasDto": {
         "required": [
           "id",
@@ -4082,7 +4251,9 @@
           "receiptMealCoverage",
           "error",
           "memberId",
-          "memberDisplayName"
+          "memberDisplayName",
+          "hasImage",
+          "possibleDuplicateOfId"
         ],
         "type": "object",
         "properties": {
@@ -4149,6 +4320,16 @@
               "null",
               "string"
             ]
+          },
+          "hasImage": {
+            "type": "boolean"
+          },
+          "possibleDuplicateOfId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -4163,7 +4344,10 @@
           "attempts",
           "memberId",
           "memberDisplayName",
-          "mailboxId"
+          "mailboxId",
+          "source",
+          "receivedAt",
+          "hasTranscription"
         ],
         "type": "object",
         "properties": {
@@ -4209,6 +4393,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "source": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hasTranscription": {
+            "type": "boolean"
           }
         }
       },
@@ -4327,6 +4521,18 @@
       },
       "ReceiptStatus": {
         "type": "integer"
+      },
+      "ReceiptUploadDto": {
+        "required": [
+          "intakeId"
+        ],
+        "type": "object",
+        "properties": {
+          "intakeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
       },
       "SortReceiptLineDto": {
         "required": [

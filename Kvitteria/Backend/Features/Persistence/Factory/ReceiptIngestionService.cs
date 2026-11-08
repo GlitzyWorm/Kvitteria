@@ -31,13 +31,25 @@ public sealed class ReceiptIngestionService(
 		// the mail was already resolved, which must not produce a second receipt.
 		ReceiptIntake intake = await dbContext.ReceiptIntakes.FirstOrDefaultAsync(i => i.Id == record.IntakeId, ct)
 		                       ?? throw new InvalidOperationException(
-			                       $"The recorded mail for '{record.Subject}' no longer exists; it was already resolved.");
+			                       $"The recorded intake for '{record.Label}' no longer exists; it was already resolved.");
 
 		Guid merchantId = await ResolveMerchantIdAsync(extracted.Merchant, ct);
 
+		// record.Date is the mail's date, or an upload's capture time and otherwise its upload time.
+		DateTime purchaseDate = PurchaseDate.Resolve(extracted.PurchaseDate, record.Date, logger, record.Label);
+
+		Guid? possibleDuplicateOfId = await FindPossibleDuplicateAsync(merchantId, extracted.GrandTotal, purchaseDate, ct);
+
+		if (possibleDuplicateOfId is not null)
+		{
+			logger.LogInformation(
+				"'{Subject}' matches receipt {ReceiptId} on merchant, day and total; flagged as a possible duplicate.",
+				record.Label, possibleDuplicateOfId);
+		}
+
 		var receipt = new Receipt {
 			MerchantId = merchantId,
-			PurchaseDate = PurchaseDate.Resolve(extracted.PurchaseDate, record.Date, logger, record.Subject),
+			PurchaseDate = purchaseDate,
 			GrandTotal = extracted.GrandTotal,
 			PantTotal = extracted.PantTotal,
 			Reconciled = record.Reconciled,
@@ -45,6 +57,10 @@ public sealed class ReceiptIngestionService(
 			SourceMessageId = record.MessageId,
 			AppUserId = intake.AppUserId,
 			MailboxId = intake.MailboxId,
+			// The image moves from the intake to the receipt in this transaction rather than being deleted.
+			ImageId = intake.ImageId,
+			PossibleDuplicateOfId = possibleDuplicateOfId,
+			CreatedAt = DateTime.UtcNow,
 			Error = record.Error,
 			ReceiptLines = extracted.LineItems.Select(l => new ReceiptLine {
 				RawName = l.RawName,
@@ -58,12 +74,33 @@ public sealed class ReceiptIngestionService(
 
 		dbContext.Receipts.Add(receipt);
 
-		// Deleted in the same transaction, so the mail text is held exactly as long as it is unresolved.
+		// Deleted in the same transaction, so the mail text or transcription is held exactly as long as it
+		// is unresolved.
 		dbContext.ReceiptIntakes.Remove(intake);
 		await dbContext.SaveChangesAsync(ct);
 		await transaction.CommitAsync(ct);
 
 		return receipt;
+	}
+
+	/// <summary>
+	/// The earliest stored receipt with the same merchant, the same Danish calendar day and the same total,
+	/// whatever its source. Exact on purpose: a false flag is noise, a missed one is how things were.
+	/// </summary>
+	private async Task<Guid?> FindPossibleDuplicateAsync(Guid merchantId, decimal grandTotal, DateTime purchaseDate, CancellationToken ct)
+	{
+		(DateTime dayStart, DateTime dayEnd) = DanishTime.DayRangeUtc(purchaseDate);
+
+		return await dbContext.Receipts
+		                      .AsNoTracking()
+		                      .Where(r => r.MerchantId == merchantId &&
+		                                  r.GrandTotal == grandTotal &&
+		                                  r.PurchaseDate >= dayStart &&
+		                                  r.PurchaseDate < dayEnd)
+		                      .OrderBy(r => r.CreatedAt)
+		                      .ThenBy(r => r.Id)
+		                      .Select(r => (Guid?)r.Id)
+		                      .FirstOrDefaultAsync(ct);
 	}
 
 	private async Task<Guid> ResolveMerchantIdAsync(string merchantName, CancellationToken ct)

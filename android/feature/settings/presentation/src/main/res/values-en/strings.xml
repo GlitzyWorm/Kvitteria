@@ -124,6 +124,8 @@
     <string name="perm_manage_settings">Change settings</string>
     <string name="perm_manage_settings_blurb">Change household-wide settings, including what members are allowed to do.</string>
     <string name="perm_manage_mailboxes">Manage mailboxes</string>
+    <string name="perm_add_receipts">Add receipts</string>
+    <string name="perm_add_receipts_blurb">Send a photo or screenshot of a receipt to the household. Separate from Edit receipts so everyone can add their own.</string>
     <string name="perm_manage_mailboxes_blurb">Add, edit and remove the IMAP mailboxes receipts are collected from. Separate from Change settings so a member can register their own mailbox.</string>
     <string name="perms_blurb">What a member may change. Everyone sees everything — only writing is controlled. Admins always hold every permission.</string>
     <string name="perms_read_only">Shown so you can see what is hidden from you. Only admins and members with Change settings can change the list.</string>

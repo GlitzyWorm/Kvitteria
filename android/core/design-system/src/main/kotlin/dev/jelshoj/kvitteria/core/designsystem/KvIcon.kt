@@ -38,11 +38,13 @@ object PhosphorIcons {
     val ChartPieSlice = KvGlyph('')
     val Check = KvGlyph('')
     val CheckCircle = KvGlyph('')
+    val Copy = KvGlyph('')
     val Confetti = KvGlyph('')
     val EnvelopeSimple = KvGlyph('')
     val FlowArrow = KvGlyph('')
     val Gear = KvGlyph('')
     val GraduationCap = KvGlyph('')
+    val Image = KvGlyph('')
     val Info = KvGlyph('')
     val Lightning = KvGlyph('')
     val LockSimple = KvGlyph('')
@@ -51,6 +53,7 @@ object PhosphorIcons {
     val PencilSimple = KvGlyph('')
     val Plus = KvGlyph('')
     val Receipt = KvGlyph('')
+    val Scan = KvGlyph('')
     val SignOut = KvGlyph('')
     val SlidersHorizontal = KvGlyph('')
     val Sparkle = KvGlyph('')
@@ -66,8 +69,8 @@ object PhosphorIcons {
     /** Every glyph, for the gallery that proves each one renders. */
     val all = listOf(
         ArrowClockwise, ArrowLeft, ArrowRight, CaretDown, CaretLeft, CaretRight, ChartPieSlice, Check, CheckCircle,
-        Confetti, EnvelopeSimple, FlowArrow, Gear, GraduationCap, Info, Lightning, LockSimple, MagnifyingGlass, Minus,
-        PencilSimple, Plus, Receipt, SignOut, SlidersHorizontal, Sparkle, Translate, Trash, TrendUp, UserPlus, Users,
+        Confetti, Copy, EnvelopeSimple, FlowArrow, Gear, GraduationCap, Image, Info, Lightning, LockSimple, MagnifyingGlass, Minus,
+        PencilSimple, Plus, Receipt, Scan, SignOut, SlidersHorizontal, Sparkle, Translate, Trash, TrendUp, UserPlus, Users,
         Warning, WarningCircle, X,
     )
 }

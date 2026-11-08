@@ -17,6 +17,7 @@ static class ReceiptEndpoints
 		public void MapReceiptEndpoints()
 		{
 			app.MapReceiptGroupEndpoints();
+			app.MapReceiptUploadEndpoints();
 			app.MapReceiptLineEndpoints();
 			app.MapCanonicalItemEndpoints();
 			app.MapItemAliasEndpoints();

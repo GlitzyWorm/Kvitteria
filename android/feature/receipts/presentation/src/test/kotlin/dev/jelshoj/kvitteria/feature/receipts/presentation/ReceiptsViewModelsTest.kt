@@ -15,6 +15,7 @@ import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import dev.jelshoj.kvitteria.core.domain.ApiError
 import dev.jelshoj.kvitteria.core.domain.DataError
+import dev.jelshoj.kvitteria.core.domain.EmptyResult
 import dev.jelshoj.kvitteria.core.domain.Result
 import dev.jelshoj.kvitteria.core.domain.member.CurrentMember
 import dev.jelshoj.kvitteria.core.domain.member.Member
@@ -36,6 +37,7 @@ import dev.jelshoj.kvitteria.core.domain.taxonomy.CanonicalItem
 import dev.jelshoj.kvitteria.core.domain.taxonomy.Category
 import dev.jelshoj.kvitteria.core.domain.taxonomy.Meal
 import dev.jelshoj.kvitteria.core.domain.taxonomy.TaxonomyRepository
+import dev.jelshoj.kvitteria.core.presentation.UiText
 import java.math.BigDecimal
 import java.time.Instant
 import kotlinx.coroutines.CompletableDeferred
@@ -102,6 +104,26 @@ private class FakeReceipts : ReceiptRepository {
         coverageSent += days
         stored = stored.copy(coverage = days.map { MealCoverage(it.key, "", it.value) })
         return Result.Success(stored.coverage)
+    }
+
+    var deleteResult: EmptyResult<ApiError> = Result.Success(Unit)
+    val deletedIds = mutableListOf<String>()
+    var imageResult: Result<ByteArray, ApiError> = Result.Success(byteArrayOf(1, 2, 3))
+    var imageFetches = 0
+
+    val deletions = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 8)
+    override val deleted = deletions
+
+    override suspend fun delete(id: String): EmptyResult<ApiError> {
+        this.deletedIds += id
+        val result = deleteResult
+        if (result is Result.Success || (result as? Result.Error)?.error?.kind == DataError.Network.NOT_FOUND) deletions.tryEmit(id)
+        return result
+    }
+
+    override suspend fun image(id: String): Result<ByteArray, ApiError> {
+        imageFetches++
+        return imageResult
     }
 }
 
@@ -329,5 +351,93 @@ class ReceiptsViewModelsTest {
 
         assertThat(repository.stored.lines.single().lineTotal).isEqualTo(BigDecimal("12.50"))
         assertThat(viewModel.state.value.editor).isNull()
+    }
+
+    @Test
+    fun `a confirmed delete closes detail and the list drops the receipt`() = runTest(dispatcher) {
+        val listed = list()
+        repository.stored = sampleReceipt("r1")
+        val viewModel = ReceiptDetailViewModel("r1", repository, FakeTaxonomy(), FakeMembers(), FakeSessions())
+        advanceUntilIdle()
+
+        // The server no longer lists it once it is gone.
+        repository.pages = { page, _ -> Result.Success(Page(emptyList(), page, 30, 0)) }
+        viewModel.events.test {
+            viewModel.onAction(ReceiptDetailAction.OnAskDelete)
+            assertThat(viewModel.state.value.isConfirmingDelete).isEqualTo(true)
+            viewModel.onAction(ReceiptDetailAction.OnConfirmDelete)
+            advanceUntilIdle()
+            assertThat(awaitItem()).isEqualTo(ReceiptDetailEvent.Close)
+        }
+        assertThat(repository.deletedIds).containsExactly("r1")
+        assertThat(listed.state.value.receipts).isEqualTo(emptyList())
+    }
+
+    @Test
+    fun `a delete answered 404 shows the server's message and returns to the reloaded list`() = runTest(dispatcher) {
+        val listed = list()
+        val fetchesBefore = repository.searches.size
+        repository.deleteResult = Result.Error(ApiError(DataError.Network.NOT_FOUND, "Receipt with id r not found"))
+        val viewModel = detail()
+
+        viewModel.messages.test {
+            viewModel.events.test {
+                viewModel.onAction(ReceiptDetailAction.OnAskDelete)
+                viewModel.onAction(ReceiptDetailAction.OnConfirmDelete)
+                advanceUntilIdle()
+                assertThat(awaitItem()).isEqualTo(ReceiptDetailEvent.Close)
+            }
+            assertThat(awaitItem()).isEqualTo(UiText.DynamicString("Receipt with id r not found"))
+        }
+        assertThat(repository.searches.size).isEqualTo(fetchesBefore + 1)
+        assertThat(listed.state.value.isLoading).isEqualTo(false)
+    }
+
+    @Test
+    fun `delete is not offered without EditReceipts`() = runTest(dispatcher) {
+        val sessions = FakeSessions().apply {
+            member.value = member.value!!.copy(permissions = setOf(Permission.CategorizeLines))
+        }
+        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), sessions)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.canDelete).isEqualTo(false)
+        viewModel.onAction(ReceiptDetailAction.OnAskDelete)
+        assertThat(viewModel.state.value.isConfirmingDelete).isEqualTo(false)
+    }
+
+    @Test
+    fun `an image that fails to load offers a retry and leaves the rest alone`() = runTest(dispatcher) {
+        repository.stored = sampleReceipt().copy(hasImage = true)
+        repository.imageResult = Result.Error(ApiError(DataError.Network.NO_INTERNET))
+        val viewModel = detail()
+
+        assertThat(viewModel.state.value.image).isEqualTo(ReceiptImage.Failed)
+        assertThat(viewModel.state.value.receipt).isNotNull()
+        assertThat(viewModel.state.value.error).isNull()
+
+        repository.imageResult = Result.Success(byteArrayOf(7))
+        viewModel.onAction(ReceiptDetailAction.OnRetryImage)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.image is ReceiptImage.Loaded).isEqualTo(true)
+    }
+
+    @Test
+    fun `a receipt from mail fetches no image`() = runTest(dispatcher) {
+        val viewModel = detail()
+
+        assertThat(viewModel.state.value.image).isEqualTo(ReceiptImage.None)
+        assertThat(repository.imageFetches).isEqualTo(0)
+    }
+
+    @Test
+    fun `the duplicate mark opens the matching receipt`() = runTest(dispatcher) {
+        repository.stored = sampleReceipt().copy(possibleDuplicateOfId = "r0")
+        val viewModel = detail()
+
+        viewModel.events.test {
+            viewModel.onAction(ReceiptDetailAction.OnOpenDuplicate)
+            assertThat(awaitItem()).isEqualTo(ReceiptDetailEvent.OpenReceipt("r0"))
+        }
     }
 }
