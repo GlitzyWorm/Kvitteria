@@ -135,4 +135,46 @@ public class DanishTimeTests
 			Assert.True(instant >= start && instant < end, $"{instant:O} is not inside {year}-{month:00}");
 		}
 	}
+
+	[Fact]
+	public void An_ordinary_day_runs_from_local_midnight_to_local_midnight()
+	{
+		// November is CET, UTC+1.
+		(DateTime start, DateTime end) = DanishTime.DayRangeUtc(new DateTime(2026, 11, 3, 12, 0, 0, DateTimeKind.Utc));
+
+		Assert.Equal(new DateTime(2026, 11, 2, 23, 0, 0, DateTimeKind.Utc), start);
+		Assert.Equal(new DateTime(2026, 11, 3, 23, 0, 0, DateTimeKind.Utc), end);
+	}
+
+	[Fact]
+	public void Ten_to_midnight_and_ten_past_are_different_days()
+	{
+		// 23:50 and 00:10 Danish time in November, UTC+1.
+		var tenToMidnight = new DateTime(2026, 11, 3, 22, 50, 0, DateTimeKind.Utc);
+		var tenPast = new DateTime(2026, 11, 3, 23, 10, 0, DateTimeKind.Utc);
+
+		(DateTime start, DateTime end) = DanishTime.DayRangeUtc(tenToMidnight);
+
+		Assert.True(tenToMidnight >= start && tenToMidnight < end);
+		Assert.False(tenPast >= start && tenPast < end);
+		Assert.Equal(end, DanishTime.DayRangeUtc(tenPast).StartUtc);
+	}
+
+	[Fact]
+	public void The_spring_forward_day_is_23_hours_long()
+	{
+		(DateTime start, DateTime end) = DanishTime.DayRangeUtc(new DateTime(2026, 3, 29, 12, 0, 0, DateTimeKind.Utc));
+
+		Assert.Equal(new DateTime(2026, 3, 28, 23, 0, 0, DateTimeKind.Utc), start);
+		Assert.Equal(new DateTime(2026, 3, 29, 22, 0, 0, DateTimeKind.Utc), end);
+	}
+
+	[Fact]
+	public void The_fall_back_day_is_25_hours_long()
+	{
+		(DateTime start, DateTime end) = DanishTime.DayRangeUtc(new DateTime(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc));
+
+		Assert.Equal(new DateTime(2026, 10, 24, 22, 0, 0, DateTimeKind.Utc), start);
+		Assert.Equal(new DateTime(2026, 10, 25, 23, 0, 0, DateTimeKind.Utc), end);
+	}
 }

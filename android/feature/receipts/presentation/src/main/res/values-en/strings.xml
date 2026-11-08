@@ -29,4 +29,11 @@
     <string name="unit_price">Unit price</string>
     <string name="line_total">Line total</string>
     <string name="invalid_number">Enter a number, such as 12.50.</string>
+    <string name="receipt_image">The image the receipt was read from</string>
+    <string name="image_failed">The image couldn’t be loaded.</string>
+    <string name="possible_duplicate">Possible duplicate</string>
+    <string name="possible_duplicate_body">A stored receipt has the same shop, day and total. Tap to see it.</string>
+    <string name="delete_receipt">Delete receipt</string>
+    <string name="delete_receipt_title">Delete this receipt?</string>
+    <string name="delete_receipt_body">The receipt, its lines, coverage and image are deleted for good. Items and what the lines taught are kept.</string>
 </resources>

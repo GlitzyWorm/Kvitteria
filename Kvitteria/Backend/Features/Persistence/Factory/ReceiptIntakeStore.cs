@@ -1,8 +1,10 @@
-using Backend.Features.Mail;
+﻿using Backend.Features.Mail;
 using Backend.Features.Persistence.Model;
 using Backend.Features.Shared;
 using Kvitteria.Contracts.Shared;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 namespace Backend.Features.Persistence.Factory;
 
 /// <summary>
@@ -72,8 +74,113 @@ public sealed class ReceiptIntakeStore(IServiceScopeFactory scopeFactory)
 	}
 
 	/// <summary>
+	/// Records an uploaded image and its intake as queued, in one transaction. Returns null when identical
+	/// bytes are already recorded, which the unique hash index decides rather than a preceding query. The
+	/// intake's <c>MailDate</c> is the capture time, or the upload time when none was sent, so the purchase
+	/// date falls back to it through the same path a mail's date does.
+	/// </summary>
+	public async Task<ReceiptRecord?> RecordUploadAsync(
+		byte[] content,
+		int width,
+		int height,
+		DateTime? capturedAt,
+		Guid appUserId,
+		CancellationToken ct)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
+
+		DateTime now = DateTime.UtcNow;
+
+		var image = new ReceiptImage {
+			Content = content,
+			Sha256 = SHA256.HashData(content),
+			Width = width,
+			Height = height,
+			CreatedAt = now
+		};
+
+		var intake = new ReceiptIntake {
+			Source = IntakeSource.Upload,
+			SourceMessageId = null,
+			From = "",
+			Subject = "",
+			MailDate = capturedAt ?? now,
+			BodyText = "",
+			BodySource = "image",
+			MailboxId = null,
+			AppUserId = appUserId,
+			Status = ReceiptStatus.Queued,
+			ReceivedAt = now,
+			CapturedAt = capturedAt,
+			Image = image
+		};
+
+		dbContext.ReceiptIntakes.Add(intake);
+
+		// One SaveChanges is one transaction: the image and its intake exist together or not at all.
+		if (!await dbContext.TrySaveChangesAsync(ct))
+			return null;
+
+		return ToRecord(intake);
+	}
+
+	/// <summary>
+	/// Removes an upload that was recorded but never queued, with its image, so a refused upload leaves
+	/// nothing behind. Only while still <c>Queued</c>, so nothing a worker has claimed is pulled away.
+	/// </summary>
+	public async Task<bool> DeleteQueuedUploadAsync(Guid intakeId, CancellationToken ct)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
+
+		await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
+
+		Guid? imageId = await dbContext.ReceiptIntakes
+		                               .Where(i => i.Id == intakeId && i.Source == IntakeSource.Upload && i.Status == ReceiptStatus.Queued)
+		                               .Select(i => i.ImageId)
+		                               .FirstOrDefaultAsync(ct);
+
+		int deleted = await dbContext.ReceiptIntakes
+		                             .Where(i => i.Id == intakeId && i.Source == IntakeSource.Upload && i.Status == ReceiptStatus.Queued)
+		                             .ExecuteDeleteAsync(ct);
+
+		if (deleted == 1 && imageId is { } id)
+			await dbContext.ReceiptImages.Where(img => img.Id == id).ExecuteDeleteAsync(ct);
+
+		await transaction.CommitAsync(ct);
+
+		return deleted == 1;
+	}
+
+	/// <summary>An image's bytes, or null when the row is gone.</summary>
+	public async Task<byte[]?> LoadImageAsync(Guid imageId, CancellationToken ct)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
+
+		return await dbContext.ReceiptImages
+		                      .Where(img => img.Id == imageId)
+		                      .Select(img => img.Content)
+		                      .FirstOrDefaultAsync(ct);
+	}
+
+	/// <summary>
+	/// Stores an upload's transcription, only while it is <c>Extracting</c>: a worker that lost its row to a
+	/// dismiss or a restart writes nothing. From here on a retry or a restart extracts from this text.
+	/// </summary>
+	public Task<bool> SaveTranscriptionAsync(Guid id, string text, CancellationToken ct)
+	{
+		// Postgres text cannot hold NUL, and a model can produce one as easily as a mail can.
+		string clean = text.Replace("\0", "");
+
+		return TransitionAsync(id, [ReceiptStatus.Extracting], s => s.SetProperty(i => i.BodyText, clean), ct);
+	}
+
+	/// <summary>
 	/// Puts anything a previous process left mid-flight back to <c>Queued</c> and returns every queued
-	/// mail, oldest first. Assumes a single backend process: it cannot tell another instance's work from
+	/// mail and upload, oldest first. An upload keeps any transcription it stored, so only one that was
+	/// still being read is transcribed again. Assumes a single backend process: it cannot tell another instance's work from
 	/// an orphan.
 	/// </summary>
 	public async Task<List<ReceiptRecord>> RecoverAsync(CancellationToken ct)
@@ -94,7 +201,7 @@ public sealed class ReceiptIntakeStore(IServiceScopeFactory scopeFactory)
 		return queued.Select(ToRecord).ToList();
 	}
 
-	/// <summary>The mail as a pipeline record, or null when the row is gone.</summary>
+	/// <summary>The intake as a pipeline record, or null when the row is gone.</summary>
 	public async Task<ReceiptRecord?> LoadAsync(Guid id, CancellationToken ct)
 	{
 		using IServiceScope scope = scopeFactory.CreateScope();
@@ -166,6 +273,8 @@ public sealed class ReceiptIntakeStore(IServiceScopeFactory scopeFactory)
 			new DateTimeOffset(DateTime.SpecifyKind(i.MailDate, DateTimeKind.Utc)),
 			i.BodyText,
 			i.BodySource,
-			i.AppUserId
+			i.AppUserId,
+			i.Source,
+			i.ImageId
 		) { EnqueuedAt = DateTimeOffset.UtcNow };
 }

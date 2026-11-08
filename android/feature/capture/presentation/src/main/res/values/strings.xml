@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="add_receipt">Tilføj kvittering</string>
+    <string name="add_receipt_scan">Scan en papirkvittering</string>
+    <string name="add_receipt_scan_body">Kameraet finder kvitteringen, beskærer og retter den op.</string>
+    <string name="add_receipt_choose">Vælg et billede</string>
+    <string name="add_receipt_choose_body">Et foto eller et skærmbillede fra butikkens app.</string>
+    <string name="capture_unreadable">Billedet kunne ikke læses.</string>
+    <string name="capture_too_large">Billedet er for stort til at sende, selv nedskaleret.</string>
+    <string name="capture_scanner_unavailable">Scanneren findes ikke på denne enhed. Vælg et billede i stedet.</string>
+    <string name="capture_queued">Kvitteringen er sendt og bliver læst nu.</string>
+    <string name="capture_no_permission">Du må ikke tilføje kvitteringer, så det delte billede blev kasseret.</string>
+    <string name="confirm_title">Send kvittering</string>
+    <string name="confirm_body">Billedet sendes til husstandens server, som læser kvitteringen. Det tager et par minutter.</string>
+    <string name="confirm_image">Billedet der sendes</string>
+    <string name="confirm_upload">Send</string>
+    <string name="confirm_discard">Kassér</string>
+</resources>

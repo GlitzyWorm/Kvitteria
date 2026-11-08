@@ -30,6 +30,13 @@ data class PipelineStatus(
     val mailboxes: List<MailboxActivity>,
 )
 
+/** Where a failed intake came from. Unknown is a source a newer server added. */
+enum class FailureSource { Mail, Upload, Unknown }
+
+/**
+ * A mail or upload that didn't become a receipt. An upload has no [subject] or [from], and its
+ * [mailDate] is when the image was taken.
+ */
 data class ReceiptFailure(
     val id: String,
     val subject: String,
@@ -39,6 +46,10 @@ data class ReceiptFailure(
     val error: String,
     val attempts: Int,
     val memberName: String,
+    val source: FailureSource = FailureSource.Mail,
+    /** When it reached the server: for an upload, the upload time. */
+    val receivedAt: Instant = mailDate,
+    val hasTranscription: Boolean = false,
 )
 
 /** The part of a mailbox the status report doesn't carry. */

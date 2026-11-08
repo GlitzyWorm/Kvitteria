@@ -18,7 +18,7 @@ public sealed class ExtractionWorker(
 {
 	protected override string WorkerName => "Extraction";
 
-	protected override string Describe(ReceiptRecord item) => item.Subject;
+	protected override string Describe(ReceiptRecord item) => item.Label;
 
 	protected override async Task OnFailedAsync(ReceiptRecord item, string error)
 	{
@@ -35,7 +35,7 @@ public sealed class ExtractionWorker(
 		// The claim makes a duplicate enqueue harmless: only one worker turns Queued into Extracting.
 		if (!await store.ClaimAsync(mail.IntakeId, ct))
 		{
-			logger.LogInformation("Skipping '{Subject}': it is no longer queued.", mail.Subject);
+			logger.LogInformation("Skipping '{Subject}': it is no longer queued.", mail.Label);
 			return;
 		}
 
@@ -48,11 +48,22 @@ public sealed class ExtractionWorker(
 		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
 		PipelineSettings settings = await dbContext.PipelineSettings.AsNoTracking().FirstAsync(ct);
 
+		string systemPrompt = ReceiptExtractionPrompt.SystemPrompt;
+
+		if (mail.Source == IntakeSource.Upload)
+		{
+			systemPrompt = ReceiptExtractionPrompt.PhotoSystemPrompt;
+
+			// A stored transcription is reused by a retry and by restart recovery, so the image is read once.
+			if (mail.BodyText.Length == 0 && !await TranscribeAsync(client, mail, ct))
+				return;
+		}
+
 		ExtractionOutcome outcome;
 
 		try
 		{
-			outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, mail.Subject, ct);
+			outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, systemPrompt, mail.Label, ct);
 		}
 		catch (ExtractionExhaustedException ex)
 		{
@@ -68,7 +79,7 @@ public sealed class ExtractionWorker(
 
 		if (!await store.MarkExtractedAsync(mail.IntakeId, outcome.Attempts, ct))
 		{
-			logger.LogWarning("Dropping the extraction of '{Subject}': its record changed while it was extracting.", mail.Subject);
+			logger.LogWarning("Dropping the extraction of '{Subject}': its record changed while it was extracting.", mail.Label);
 			return;
 		}
 
@@ -76,9 +87,47 @@ public sealed class ExtractionWorker(
 
 		logger.LogInformation(
 			"Extracted '{Subject}': merchant={Merchant}, total={GrandTotal} {Currency}, {LineCount} lines, reconciled={Reconciled} ({Attempts} attempt(s))",
-			mail.Subject, outcome.Receipt.Merchant, outcome.Receipt.GrandTotal, outcome.Receipt.Currency,
+			mail.Label, outcome.Receipt.Merchant, outcome.Receipt.GrandTotal, outcome.Receipt.Currency,
 			outcome.Receipt.LineItems.Count, outcome.Reconciled, outcome.Attempts);
 	}
+
+	/// <summary>
+	/// Reads an upload's image into text and stores it on the row. Not wrapped in the extraction retry
+	/// budget, which would multiply the most expensive call: a transport failure or timeout propagates
+	/// and fails the intake with zero attempts, and a member retries it. False means the row changed under
+	/// the worker and the result was dropped.
+	/// </summary>
+	private async Task<bool> TranscribeAsync(OllamaClient client, ReceiptRecord upload, CancellationToken ct)
+	{
+		byte[] image = await store.LoadImageAsync(upload.ImageId ?? Guid.Empty, ct)
+		               ?? throw new InvalidOperationException("The uploaded image no longer exists.");
+
+		logger.LogInformation("Transcribing {Upload} ({Bytes} bytes).", upload.Label, image.Length);
+
+		string text = await client.TranscribeAsync(image, ct);
+
+		// Nothing is stored, so a retry reads the image again rather than extracting from the sentinel.
+		if (ReceiptTranscription.IsNoReceipt(text))
+			throw new NoReceiptInImageException();
+
+		if (!await store.SaveTranscriptionAsync(upload.IntakeId, text, ct))
+		{
+			logger.LogWarning("Dropping the transcription of {Upload}: its record changed while it was transcribing.", upload.Label);
+			return false;
+		}
+
+		upload.BodyText = text;
+
+		logger.LogInformation("Transcribed {Upload}: {Length} chars.", upload.Label, text.Length);
+
+		if (logger.IsEnabled(LogLevel.Debug))
+			logger.LogDebug("Transcription of {Upload}:\n{Text}", upload.Label, text);
+
+		return true;
+	}
+
+	/// <summary>The model said the image shows no receipt. Its message is the whole recorded error.</summary>
+	private sealed class NoReceiptInImageException() : InvalidOperationException(ReceiptTranscription.NoReceiptError);
 
 	/// <summary>
 	/// Result of the retry loop. <paramref name="Warning"/> is set when the extraction succeeded but
@@ -98,7 +147,7 @@ public sealed class ExtractionWorker(
 	}
 
 	private async Task<ExtractionOutcome> ExtractWithRetriesAsync(
-		OllamaClient client, PipelineSettings settings, string bodyText, string subject, CancellationToken ct)
+		OllamaClient client, PipelineSettings settings, string bodyText, string systemPrompt, string subject, CancellationToken ct)
 	{
 		int maxAttempts = Math.Max(1, settings.OllamaMaxExtractionAttempts);
 		decimal tolerance = Math.Abs(settings.OllamaReconciliationToleranceKr);
@@ -118,7 +167,7 @@ public sealed class ExtractionWorker(
 
 			try
 			{
-				result = await client.ExtractAsync(bodyText, hint, temperature, ct);
+				result = await client.ExtractAsync(bodyText, systemPrompt, hint, temperature, ct);
 			}
 			catch (OllamaResponseException ex)
 			{

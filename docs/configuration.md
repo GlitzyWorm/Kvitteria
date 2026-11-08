@@ -178,6 +178,26 @@ Both are set for you in `compose.yaml` and derive from `PUBLIC_URL`.
 change the model through `PUT /api/settings/pipeline`, which verifies it is pulled before saving. On
 an existing install, editing `.env` changes what Ollama pulls and nothing else.
 
+### Receipt images
+
+Uploaded photos and screenshots need a model that can read images. The default `qwen3.5:4b` can. With a
+text-only model, `POST /api/receipts/uploads` answers 409 naming the model and nothing else changes, and
+images already queued fail at transcription until the model is switched back. Check a model with:
+
+```bash
+docker compose exec ollama ollama show qwen3.5:4b
+```
+
+and look for `vision` under its capabilities.
+
+- **Memory.** Reading an image costs more memory than extracting text. With `qwen3.5:4b` loaded, a
+  5 GB machine had 4.8 GB in use, and an image of about 1.8 megapixels made it run out and hang. The
+  server therefore refuses anything over 1 000 000 pixels or 2 MB, and the app scales images down to
+  that before uploading. Give Ollama at least 6 GB if you can.
+- **Time.** On four CPU cores, transcribing one image took 50–85 seconds, before extraction.
+- **Storage.** Each image is kept with its receipt, about 100 KB apiece, in the database, so the
+  [`pg_dump` backup](../README.md#backups) still covers everything.
+
 ## Runtime
 
 | Variable | Default | Notes |

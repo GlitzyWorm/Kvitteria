@@ -33,6 +33,23 @@ public sealed class Receipt
 	/// <summary>The mailbox it came through. SetNull on delete.</summary>
 	public Guid? MailboxId { get; set; }
 
+	/// <summary>The image it was read from, for an uploaded receipt. Deleted with the receipt.</summary>
+	public Guid? ImageId { get; set; }
+	public ReceiptImage? Image { get; set; }
+
+	/// <summary>
+	/// The earliest stored receipt with the same merchant, Danish calendar day and total when this one was
+	/// stored. A self-reference with SetNull, so the flag cannot outlive the receipt it points to.
+	/// </summary>
+	public Guid? PossibleDuplicateOfId { get; set; }
+
+	/// <summary>
+	/// When the receipt was stored. The keys are version 7 GUIDs but not monotonic within a millisecond,
+	/// so "earliest stored" is ordered by this, then by <see cref="Id"/>. Receipts stored before the
+	/// column existed share the migration's time and fall back to the key.
+	/// </summary>
+	public DateTime CreatedAt { get; set; }
+
 	public List<ReceiptMealCoverage> MealCoverage { get; set; } = [];
 
 	public Merchant? Merchant { get; set; }

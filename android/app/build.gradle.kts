@@ -56,6 +56,9 @@ dependencies {
     implementation(project(":feature:overview:presentation"))
     implementation(project(":feature:receipts:presentation"))
     implementation(project(":feature:insights:presentation"))
+    implementation(project(":feature:capture:domain"))
+    implementation(project(":feature:capture:data"))
+    implementation(project(":feature:capture:presentation"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

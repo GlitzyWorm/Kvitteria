@@ -24,13 +24,19 @@ reconcile is not a failure.
 - **THEN** a receipt is stored with its warning and no failure is recorded
 
 ### Requirement: Failures can be listed
-The system SHALL provide a paged list of failed mail, newest failure first, to any active household
-member. Each entry SHALL carry subject, sender, mail date, failure time, error, attempts, and the
-member it came from when known. It SHALL NOT include the mail text.
+The system SHALL provide a paged list of failed intakes, newest failure first, to any active household
+member. Each entry SHALL carry its source, failure time, error, attempts, and the member it came from when
+known. A mail entry SHALL carry subject, sender and mail date; an upload entry SHALL carry its upload time
+and whether it has a transcription. Entries SHALL NOT include mail text, transcriptions or images.
 
 #### Scenario: Listing failures
 - **WHEN** an active member requests the failure list
-- **THEN** they receive the failed mail with those fields, in that order
+- **THEN** they receive the failed intakes with those fields, in that order
+
+#### Scenario: Failed upload listed
+- **WHEN** an uploaded image has failed
+- **THEN** its entry names upload as the source, its member and upload time, and has an empty subject and
+  sender
 
 #### Scenario: Nothing has failed
 - **WHEN** no mail is marked failed
@@ -45,9 +51,9 @@ member it came from when known. It SHALL NOT include the mail text.
 - **THEN** the request is rejected with a 400 problem response
 
 ### Requirement: Failed mail can be retried
-The system SHALL let a member with `EditReceipts` send a failed mail back through extraction from its
-recorded text, using the current pipeline settings. The request SHALL return as soon as the mail is
-queued.
+The system SHALL let a member with `EditReceipts` send a failed mail or upload back through extraction from
+its recorded text, using the current pipeline settings. An upload with no stored transcription SHALL be
+transcribed again first. The request SHALL return as soon as the intake is queued.
 
 #### Scenario: Retry accepted
 - **WHEN** a member with `EditReceipts` retries a failed mail
@@ -60,6 +66,10 @@ queued.
 #### Scenario: Retry fails again
 - **WHEN** a retried mail fails again
 - **THEN** it returns to the failure list with the new error
+
+#### Scenario: Retrying an upload that was not a receipt
+- **WHEN** an upload that failed because no receipt was found is retried
+- **THEN** it is transcribed again, since it has no stored transcription
 
 #### Scenario: Mail is not failed
 - **WHEN** a retry targets a mail that is queued or already being processed, including a second retry

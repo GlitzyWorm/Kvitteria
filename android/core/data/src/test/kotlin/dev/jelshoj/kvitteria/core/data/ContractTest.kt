@@ -40,6 +40,7 @@ import dev.jelshoj.kvitteria.core.data.taxonomy.UpdateCategoryDto
 import dev.jelshoj.kvitteria.core.data.update.UpdateStatusDto
 import dev.jelshoj.kvitteria.core.data.work.FailedCountDto
 import dev.jelshoj.kvitteria.core.data.work.UnassignedLineCountDto
+import dev.jelshoj.kvitteria.feature.capture.data.ReceiptUploadDto
 import dev.jelshoj.kvitteria.feature.pipeline.data.MailboxActivityDto
 import dev.jelshoj.kvitteria.feature.pipeline.data.MailboxHealthDto
 import dev.jelshoj.kvitteria.feature.pipeline.data.PipelineStatusDto
@@ -133,6 +134,7 @@ class ContractTest {
         sent("PatchAppUserDto", PatchAppUserDto.serializer()),
         Model("MemberPermissionsDto", MemberPermissionsDto.serializer()),
         sent("PutMemberPermissionsDto", PutMemberPermissionsDto.serializer()),
+        Model("ReceiptUploadDto", ReceiptUploadDto.serializer()),
     )
 
     private val schemas: JsonObject by lazy {

@@ -15,6 +15,7 @@ import dev.jelshoj.kvitteria.core.domain.ApiError
 import dev.jelshoj.kvitteria.core.domain.EmptyResult
 import dev.jelshoj.kvitteria.core.domain.Result
 import dev.jelshoj.kvitteria.core.domain.map
+import dev.jelshoj.kvitteria.feature.pipeline.domain.FailureSource
 import dev.jelshoj.kvitteria.feature.pipeline.domain.MailboxActivity
 import dev.jelshoj.kvitteria.feature.pipeline.domain.MailboxHealth
 import dev.jelshoj.kvitteria.feature.pipeline.domain.PipelineRepository
@@ -64,6 +65,10 @@ data class ReceiptFailureDto(
     val memberId: String,
     val memberDisplayName: String,
     val mailboxId: String?,
+    // Defaulted, so a server from before image intake still reads as mail.
+    val source: String = "Mail",
+    @Serializable(with = InstantSerializer::class) val receivedAt: Instant? = null,
+    val hasTranscription: Boolean = false,
 )
 
 /** The status report has no error or enabled flag, so those come from the mailbox list. */
@@ -83,8 +88,19 @@ fun PipelineStatusDto.toPipelineStatus(): PipelineStatus = PipelineStatus(
     },
 )
 
-fun ReceiptFailureDto.toReceiptFailure(): ReceiptFailure =
-    ReceiptFailure(id, subject, from, mailDate, failedAt, error, attempts, memberDisplayName)
+fun ReceiptFailureDto.toReceiptFailure(): ReceiptFailure = ReceiptFailure(
+    id = id,
+    subject = subject,
+    from = from,
+    mailDate = mailDate,
+    failedAt = failedAt,
+    error = error,
+    attempts = attempts,
+    memberName = memberDisplayName,
+    source = FailureSource.entries.firstOrNull { it.name == source } ?: FailureSource.Unknown,
+    receivedAt = receivedAt ?: mailDate,
+    hasTranscription = hasTranscription,
+)
 
 class KtorPipelineRepository(private val api: ApiHttpClient) : PipelineRepository {
     override suspend fun status(): Result<PipelineStatus, ApiError> =

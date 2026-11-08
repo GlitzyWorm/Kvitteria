@@ -14,5 +14,7 @@ public record ReceiptDto(
 	List<ReceiptMealCoverageDto> ReceiptMealCoverage,
 	string? Error,
 	Guid? MemberId,
-	string? MemberDisplayName
+	string? MemberDisplayName,
+	bool HasImage,
+	Guid? PossibleDuplicateOfId
 );

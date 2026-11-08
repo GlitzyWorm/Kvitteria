@@ -8,7 +8,10 @@ package dev.jelshoj.kvitteria.core.data.receipt
 
 import dev.jelshoj.kvitteria.core.data.network.ApiHttpClient
 import dev.jelshoj.kvitteria.core.data.network.safeCall
+import dev.jelshoj.kvitteria.core.data.network.safeEmptyCall
 import dev.jelshoj.kvitteria.core.domain.ApiError
+import dev.jelshoj.kvitteria.core.domain.DataError
+import dev.jelshoj.kvitteria.core.domain.EmptyResult
 import dev.jelshoj.kvitteria.core.domain.Result
 import dev.jelshoj.kvitteria.core.domain.map
 import dev.jelshoj.kvitteria.core.domain.onSuccess
@@ -18,6 +21,7 @@ import dev.jelshoj.kvitteria.core.domain.receipt.Page
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptRepository
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
@@ -26,6 +30,9 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class KtorReceiptRepository(private val api: ApiHttpClient) : ReceiptRepository {
     /** Listed receipts, so that detail can paint at once. */
@@ -86,6 +93,22 @@ class KtorReceiptRepository(private val api: ApiHttpClient) : ReceiptRepository 
             }
         }.map { coverage -> coverage.map { it.toMealCoverage() } }
             .onSuccess { coverage -> cache.computeIfPresent(receiptId) { _, receipt -> receipt.copy(coverage = coverage) } }
+
+    private val _deleted = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    override val deleted: Flow<String> = _deleted.asSharedFlow()
+
+    override suspend fun delete(id: String): EmptyResult<ApiError> {
+        val result = safeEmptyCall { api.client.delete("/api/receipts/$id") }
+        val gone = result is Result.Success || (result as? Result.Error)?.error?.kind == DataError.Network.NOT_FOUND
+        if (gone) {
+            cache.remove(id)
+            _deleted.tryEmit(id)
+        }
+        return result
+    }
+
+    override suspend fun image(id: String): Result<ByteArray, ApiError> =
+        safeCall<ByteArray> { api.client.get("/api/receipts/$id/image") }
 
     private suspend inline fun <reified B> putLine(route: String, body: B): Result<ReceiptLine, ApiError> =
         safeCall<ReceiptLineDto> {

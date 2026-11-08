@@ -6,6 +6,7 @@
 
 package dev.jelshoj.kvitteria.feature.receipts.presentation
 
+import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
@@ -20,9 +21,10 @@ import org.koin.dsl.module
 fun EntryProviderScope<NavKey>.receiptsEntries(
     onOpenReceipt: (String) -> Unit,
     onBack: () -> Unit,
+    addReceipt: @Composable () -> Unit = {},
 ) {
-    entry<ReceiptsRoute> { ReceiptsRoot(onOpenReceipt = onOpenReceipt) }
-    entry<ReceiptDetailRoute> { route -> ReceiptDetailRoot(id = route.id, onBack = onBack) }
+    entry<ReceiptsRoute> { ReceiptsRoot(onOpenReceipt = onOpenReceipt, addReceipt = addReceipt) }
+    entry<ReceiptDetailRoute> { route -> ReceiptDetailRoot(id = route.id, onBack = onBack, onOpenReceipt = onOpenReceipt) }
 }
 
 val receiptsPresentationModule = module {

@@ -21,6 +21,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 	public DbSet<PipelineSettings> PipelineSettings => Set<PipelineSettings>();
 	public DbSet<Mailbox> Mailboxes => Set<Mailbox>();
 	public DbSet<ReceiptIntake> ReceiptIntakes => Set<ReceiptIntake>();
+	public DbSet<ReceiptImage> ReceiptImages => Set<ReceiptImage>();
 
 	/// <summary>
 	/// The Data Protection key ring, kept in this database so the keys and the ciphertext they protect
@@ -89,6 +90,25 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .OnDelete(DeleteBehavior.SetNull);
 
 			entity.HasIndex(e => e.MailboxId);
+
+			// Restrict: receipt delete removes the image itself, in the same transaction.
+			entity.HasOne(r => r.Image)
+			      .WithMany()
+			      .HasForeignKey(r => r.ImageId)
+			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasIndex(e => e.ImageId).IsUnique();
+
+			// SetNull: deleting the receipt a flag points to clears the flag, structurally.
+			entity.HasOne<Receipt>()
+			      .WithMany()
+			      .HasForeignKey(r => r.PossibleDuplicateOfId)
+			      .OnDelete(DeleteBehavior.SetNull);
+
+			entity.HasIndex(e => e.PossibleDuplicateOfId);
+
+			// Serves the duplicate check at ingestion.
+			entity.HasIndex(e => new { e.MerchantId, e.GrandTotal, e.PurchaseDate });
 
 			entity.HasMany(r => r.ReceiptLines)
 			      .WithOne(rl => rl.Receipt)
@@ -266,6 +286,7 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			entity.Property(e => e.Subject).HasMaxLength(RawNameLength);
 			entity.Property(e => e.BodySource).HasMaxLength(16);
 			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+			entity.Property(e => e.Source).HasConversion<string>().HasMaxLength(16);
 
 			// Backs up the fetcher's duplicate check. Filtered because a mail without a Message-ID
 			// cannot be matched, and several of those must be allowed.
@@ -285,6 +306,22 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .WithMany()
 			      .HasForeignKey(e => e.AppUserId)
 			      .OnDelete(DeleteBehavior.Restrict);
+
+			// Restrict: dismiss deletes the image explicitly, and ingestion moves it to the receipt.
+			entity.HasOne(e => e.Image)
+			      .WithMany()
+			      .HasForeignKey(e => e.ImageId)
+			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasIndex(e => e.ImageId).IsUnique();
+		});
+
+		modelBuilder.Entity<ReceiptImage>(entity => {
+			entity.HasKey(e => e.Id);
+
+			// The 409 for identical bytes comes from this index rejecting the insert.
+			entity.Property(e => e.Sha256).HasMaxLength(32);
+			entity.HasIndex(e => e.Sha256).IsUnique();
 		});
 	}
 }

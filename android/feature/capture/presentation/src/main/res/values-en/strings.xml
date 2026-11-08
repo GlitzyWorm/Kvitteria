@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<resources>
+    <string name="add_receipt">Add receipt</string>
+    <string name="add_receipt_scan">Scan a paper receipt</string>
+    <string name="add_receipt_scan_body">The camera finds the receipt, crops it and straightens it.</string>
+    <string name="add_receipt_choose">Choose an image</string>
+    <string name="add_receipt_choose_body">A photo, or a screenshot from the store’s app.</string>
+    <string name="capture_unreadable">The image couldn’t be read.</string>
+    <string name="capture_too_large">The image is too large to send, even scaled down.</string>
+    <string name="capture_scanner_unavailable">The scanner isn’t available on this device. Choose an image instead.</string>
+    <string name="capture_queued">Receipt sent. It’s being read now.</string>
+    <string name="capture_no_permission">You aren’t allowed to add receipts, so the shared image was discarded.</string>
+    <string name="confirm_title">Send receipt</string>
+    <string name="confirm_body">The image goes to the household’s server, which reads the receipt. It takes a few minutes.</string>
+    <string name="confirm_image">The image being sent</string>
+    <string name="confirm_upload">Upload</string>
+    <string name="confirm_discard">Discard</string>
+</resources>

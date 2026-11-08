@@ -143,8 +143,8 @@ culture-independence, the `CategoryTree` depth/height/descendant rules, the meal
 reorder guard, paging validation, the HTML-to-text converter, the user-provisioning decision,
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
 mailbox write validation, the mailbox secret round-trip, the rate-limit partition key and trusted private ranges, the Danish month helpers and `MonthKey`, the
-spending, category, price and meal-day rollups, receipt-search parsing, and release selection and the update
-status decisions. Run it from `Kvitteria`:
+spending, category, price and meal-day rollups, receipt-search parsing, release selection and the update
+status decisions, the JPEG header reader and image budget, the Danish day range, and the no-receipt sentinel. Run it from `Kvitteria`:
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
@@ -269,6 +269,44 @@ worker that lost its row changes nothing. Three rules follow from it:
   `try`/`catch`, so a database outage cannot end a worker. `PipelineError.Describe` joins the
   `InnerException` chain, because the extraction loop's own message ("failed after N attempts") hides
   the cause.
+
+### Image intake
+
+An upload is a second source feeding the same pipeline. `POST /api/receipts/uploads`
+(`Features/Endpoints/ReceiptUploadEndpoints.cs`) checks the JPEG against `ReceiptImageLimits`, asks Ollama
+whether the configured model has `vision`, records image and intake in one `SaveChanges`
+(`ReceiptIntakeStore.RecordUploadAsync`), and answers 202 once `TryEnqueue` takes it; a refused enqueue
+deletes both rows and answers 503. `ReceiptIntake.Source` (`Mail`/`Upload`, stored as its name) is the only
+thing that tells them apart downstream; an upload has empty `Subject`/`From`, no `SourceMessageId`,
+`BodySource = "image"`, and `MailDate = CapturedAt ?? ReceivedAt`, which is how `PurchaseDate.Resolve`'s
+existing fallback becomes "the capture time" with no code of its own. `ReceiptRecord.Label` is the
+subject for mail and `upload <id>` for an upload, and every worker log line uses it.
+
+`ExtractionWorker` transcribes an upload whose `BodyText` is empty (`OllamaClient.TranscribeAsync`, image in
+the message's `images`, no `format`, temperature 0), stores the text with `SaveTranscriptionAsync` (only
+while `Extracting`), then runs the unchanged retry loop with `ReceiptExtractionPrompt.PhotoSystemPrompt`
+instead of `SystemPrompt`. So the image costs one vision call: a retry, a user retry and restart recovery
+all reuse the stored text. Transcription is deliberately outside the extraction retry budget, and a
+transport failure fails the intake with zero attempts. There is no new `ReceiptStatus`; transcribing is
+`Extracting`. A model answering `NO_RECEIPT` (`ReceiptTranscription.IsNoReceipt`) fails the intake with a
+fixed error and stores no text, so a retry reads the image again.
+
+`ReceiptImage` is its own table, linked from the intake and then from the receipt (`Restrict` both ways;
+ingestion copies the key in its transaction, dismiss and `DELETE /api/receipts/{id}` delete the row
+explicitly). A table rather than a volume because files would be a second thing to back up and restore
+in step with the database, which is the Data Protection key-ring trap again, and a table rather than a
+column so the blob never rides along with a receipt or intake query. `Sha256` is uniquely indexed and the
+409 for identical bytes comes from that index rejecting the insert, like `SourceMessageId`.
+
+`ReceiptIngestionService` flags a possible duplicate for every source: the earliest receipt by
+`CreatedAt`, then `Id`, with the same merchant, the same `GrandTotal` and a `PurchaseDate` inside
+`DanishTime.DayRangeUtc`. `CreatedAt` exists because Npgsql's version 7 keys are random below the
+millisecond, so `Id` alone is not insertion order. `PossibleDuplicateOfId` is a self-FK with `SetNull`,
+which is what makes the flag disappear with the receipt it points to. The receipt is always stored.
+
+`PhotoSystemPrompt` is tuned behaviour exactly like `SystemPrompt`, and on four real receipts that
+are **kept out of the repository**: they carry a loyalty number, store addresses and a cashier's name, and
+the repository is public.
 
 Unreconciled receipts are **not** failures and not retryable: they are already stored, may already be
 categorized, and their mail text is gone. They are found with `GET /api/receipts?reconciled=false` and
@@ -442,8 +480,10 @@ other member — the same bargain every other read here already makes inside one
 
 `Permission` covers the writes —
 `CategorizeLines`, `ManageTaxonomy`, `EditReceipts` (also retry and dismiss on
-`/api/pipeline/failures/{id}`), `ManageUsers`, `ManageSettings`,
-`ManageMailboxes`. `Admin` holds all
+`/api/pipeline/failures/{id}`, and `DELETE /api/receipts/{id}`), `ManageUsers`, `ManageSettings`,
+`ManageMailboxes`, `AddReceipts` (uploading an image, separate from `EditReceipts` because adding your own
+receipt is ordinary use while correcting figures is not, and in the seeded member set; the
+`ReceiptImageIntake` migration appended it to existing households once). `Admin` holds all
 of them implicitly, so a new enum value never locks the admin out of it; `Member` holds
 `HouseholdSettings.MemberPermissions`, one row the admin edits through `PUT /api/settings/permissions`
 (see [Configuration](#configuration) for the sibling `PUT /api/settings/pipeline`, gated by the same
@@ -631,7 +671,7 @@ core/domain          shared models, Result, repository interfaces
 core/data            Ktor, session, shared repositories, money and date serializers
 core/presentation    UiText, formatting, pickers, Loader, screen states
 core/design-system   tokens, theme, components, fonts
-feature/{auth,sort,pipeline,settings}/{domain,data,presentation}
+feature/{auth,sort,pipeline,settings,capture}/{domain,data,presentation}
 feature/{overview,receipts,insights}/presentation
 ```
 
@@ -812,6 +852,16 @@ server's `detail` are never translated.
   has no error or enabled flag.
 - **Pickers** are bottom sheets, and the category sheet is grouped by parent, because a two-level tree
   needs no tree control.
+- **Capture** (`feature/capture`) is the image source. Scan (ML Kit document scanner through Play services,
+  no camera permission), pick (`PickVisualMedia`, no storage permission) and share (`ACTION_SEND image/*` on
+  `MainActivity`) all end in `AndroidImagePreparer`, which applies EXIF rotation, scales to the server's
+  1 MP budget (`PixelBudget`, the testable arithmetic) and re-encodes, which is what strips GPS. The result
+  waits in `PendingCapture` because routes carry IDs only; a share is read at once, since its read grant ends
+  with the activity, and `MainShell` opens the confirmation once a member is resolved, so a share made while
+  signed out appears after sign-in. Overview and Receipts get the plus action through a slot the app fills,
+  so neither feature depends on capture. `CaptureNotices` carries the outcome to the shell's toast, because
+  adding starts on one screen and is confirmed on another. `adb shell am start -a SEND` can't grant a
+  MediaStore read, so a by-hand share check goes through the Files app's share sheet.
 
 ### Tests
 
@@ -851,6 +901,18 @@ Style: tabs, Allman braces, explicit types over `var` where the type isn't obvio
 right-hand side, `CancellationToken ct` as the parameter name.
 
 ## Gotchas
+
+- **The image budget is 1 000 000 pixels and 2 MB, checked by reading the JPEG header** (`JpegHeader`),
+  never by decoding. On the home LXC, with `qwen3.5:4b` loaded, about 1.8 MP ran the 5 GB guest out of
+  memory and hung it, while 0.79 MP read every character. The app scales to the same numbers. Don't raise
+  the limit without measuring memory on the deployment, and don't add server-side resizing: decoding a
+  hostile image is its own memory risk.
+- **Receipt sample images are never committed.** The benchmark photos carry personal data and the
+  repository is public. Keep them in a folder outside the checkout.
+- `POST /api/receipts/uploads` carries `.DisableAntiforgery()`. A form-bound minimal API endpoint demands an
+  antiforgery token otherwise, and there is no cookie for one to protect: auth is a bearer token. Its
+  `RequestSizeLimit` makes Kestrel cut off an oversize body before buffering it, which surfaces as a 413
+  through `BadHttpRequestExceptionHandler`.
 
 - The `citext` Postgres extension is required (declared via `HasPostgresExtension`) for
   case-insensitive category names, and for matching a token's email against a pre-authorized `AppUser`.

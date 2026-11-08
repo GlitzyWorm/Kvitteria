@@ -40,6 +40,18 @@ public static class DanishTime
 		return (ToUtc(start), ToUtc(start.AddMonths(1)));
 	}
 
+	/// <summary>
+	/// The UTC instants bounding the Danish calendar day containing <paramref name="utc"/>: inclusive
+	/// start, exclusive end. 23 or 25 hours long on the days the clocks change.
+	/// </summary>
+	public static (DateTime StartUtc, DateTime EndUtc) DayRangeUtc(DateTime utc)
+	{
+		DateTime local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), Zone);
+		DateTime start = local.Date;
+
+		return (ToUtc(start), ToUtc(start.AddDays(1)));
+	}
+
 	/// <summary>The Danish calendar month an instant falls in.</summary>
 	public static (int Year, int Month) MonthOf(DateTime utc)
 	{

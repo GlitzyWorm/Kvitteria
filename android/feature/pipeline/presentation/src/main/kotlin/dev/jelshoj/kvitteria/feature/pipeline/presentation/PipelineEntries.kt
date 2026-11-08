@@ -8,6 +8,10 @@
 
 package dev.jelshoj.kvitteria.feature.pipeline.presentation
 
+import dev.jelshoj.kvitteria.core.designsystem.KvIcon
+import java.util.Locale
+import dev.jelshoj.kvitteria.core.presentation.UiText
+import dev.jelshoj.kvitteria.feature.pipeline.domain.FailureSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -183,7 +187,7 @@ fun PipelineScreen(
                 )
             },
         ) {
-            BasicText(failure.subject, style = KvType.small)
+            BasicText(failure.summary().title.asString(), style = KvType.small)
             BasicText(stringResource(R.string.dismiss_message), style = KvType.small.copy(color = KvColors.neutral400))
         }
     }
@@ -197,13 +201,33 @@ private fun StageCard(label: String, count: Int, tone: Color) {
     }
 }
 
+/**
+ * What a failure is called and what is said under it. Mail goes by subject and sender; an upload has
+ * neither, so it says it was an uploaded image, with who sent it and when.
+ */
+data class FailureSummary(val title: UiText, val meta: List<String>)
+
+fun ReceiptFailure.summary(locale: Locale = Locale.getDefault()): FailureSummary = when (source) {
+    FailureSource.Upload -> FailureSummary(
+        UiText.StringResource(R.string.failure_uploaded_image),
+        listOf(memberName, DanishTime.dateTime(receivedAt, locale)),
+    )
+    FailureSource.Mail, FailureSource.Unknown -> FailureSummary(
+        UiText.DynamicString(subject),
+        listOf(from, memberName, DanishTime.date(mailDate, locale)).filter { it.isNotBlank() },
+    )
+}
+
 @Composable
 private fun FailureCard(failure: ReceiptFailure, state: PipelineState, onAction: (PipelineAction) -> Unit) {
+    val summary = failure.summary()
     KvCard(Modifier.fillMaxWidth(), edge = KvColors.accent300) {
-        BasicText(failure.subject, style = KvType.control)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(KvSpace.s2)) {
+            if (failure.source == FailureSource.Upload) KvIcon(PhosphorIcons.Image, contentDescription = null)
+            BasicText(summary.title.asString(), style = KvType.control)
+        }
         BasicText(
-            listOf(failure.from, failure.memberName, DanishTime.date(failure.mailDate))
-                .joinToString(" · ") + " · " + stringResource(R.string.attempts, failure.attempts),
+            (summary.meta + stringResource(R.string.attempts, failure.attempts)).joinToString(" · "),
             style = KvType.hint,
         )
         BasicText(
