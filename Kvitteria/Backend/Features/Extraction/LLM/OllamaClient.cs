@@ -207,7 +207,7 @@ public sealed class OllamaClient(
 
 	/// <summary>The options every call shares, so transcription and extraction cannot drift apart.</summary>
 	private static OllamaChatOptions BuildOptions(PipelineSettings settings, double temperature) =>
-		new(temperature, settings.OllamaNumCtx);
+		new(temperature, settings.OllamaNumCtx, OllamaThreads.Current);
 
 	/// <summary>Names of the models Ollama has already pulled, so a settings update can be checked before saving.</summary>
 	public async Task<List<string>> GetAvailableModelsAsync(CancellationToken ct)
@@ -245,7 +245,10 @@ public sealed class OllamaClient(
 		string Content,
 		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<byte[]>? Images = null);
 
-	private sealed record OllamaChatOptions(double Temperature, int NumCtx);
+	private sealed record OllamaChatOptions(
+		double Temperature,
+		int NumCtx,
+		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NumThread);
 
 	private sealed record OllamaChatResponse(
 		OllamaChatMessage? Message,

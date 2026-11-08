@@ -193,6 +193,19 @@ Restarting the backend is safe: unfinished mail resumes by itself. Receipts that
 reconcile are not failures and cannot be retried; list them with
 `/api/receipts?reconciled=false` and correct them by hand.
 
+**A failure ending in `Ollama request timed out`** means generation was too slow, or stuck. A 20-line
+receipt takes about four minutes on four CPU cores. Check the thread count against the cores Ollama may
+actually use:
+
+```bash
+docker compose logs ollama | grep n_threads
+docker compose exec ollama nproc
+```
+
+The backend limits the threads itself when it runs on fewer CPUs than the machine has, so these should
+match. More threads than CPUs slows generation about twentyfold, and raising
+`OLLAMA_REQUEST_TIMEOUT_SECONDS` only hides that.
+
 **Mail lost before this feature existed** left no record anywhere. Mark it unread in the mail client
 and the next poll processes it as new, because nothing stored matches its message ID. The same mail
 marked unread after its receipt exists is skipped, not duplicated.
