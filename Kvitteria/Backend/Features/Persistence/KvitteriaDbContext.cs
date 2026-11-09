@@ -39,6 +39,8 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 
 	private const int NameLength = 200;
 	private const int RawNameLength = 300;
+	public const int RawNameMaxLength = RawNameLength;
+	public const int AcceptedNoteLength = 200;
 
 	/// <summary>Data-Protection ciphertext is base64 and carries a key header, so it needs room.</summary>
 	private const int SecretLength = 2_000;
@@ -63,6 +65,8 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 
 			entity.Property(e => e.GrandTotal).HasPrecision(MoneyPrecision, MoneyScale);
 			entity.Property(e => e.PantTotal).HasPrecision(MoneyPrecision, MoneyScale);
+			entity.Property(e => e.AcceptedDifference).HasPrecision(MoneyPrecision, MoneyScale);
+			entity.Property(e => e.AcceptedNote).HasMaxLength(AcceptedNoteLength);
 
 			// Stored as text so a database value is self-describing and independent of enum ordering.
 			entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
@@ -83,6 +87,13 @@ public sealed class KvitteriaDbContext(DbContextOptions<KvitteriaDbContext> opti
 			      .WithMany()
 			      .HasForeignKey(r => r.AppUserId)
 			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasOne(r => r.AcceptedBy)
+			      .WithMany()
+			      .HasForeignKey(r => r.AcceptedById)
+			      .OnDelete(DeleteBehavior.Restrict);
+
+			entity.HasIndex(e => e.AcceptedById);
 
 			entity.HasOne<Mailbox>()
 			      .WithMany()

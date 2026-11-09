@@ -1,4 +1,6 @@
-﻿using Backend.Features.Auth;
+﻿using System.Linq.Expressions;
+using Backend.Features.Auth;
+using Backend.Features.Extraction;
 using Backend.Features.Endpoints.Extensions;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Model.Receipts;
@@ -53,13 +55,20 @@ static class ReceiptEndpoints
 				            if (!ReceiptSearch.TryParse(search, out ReceiptSearchTerm? term, out IResult searchProblem))
 					            return searchProblem;
 
+				            decimal tolerance = await ReceiptReconciliation.ReadToleranceAsync(dbContext, ct);
+
 				            IQueryable<Receipt> query = dbContext.Receipts
 				                                                 .Where(r => (merchantId == null || r.MerchantId == merchantId) &&
 				                                                             (from == null || r.PurchaseDate >= from) &&
 				                                                             (to == null || r.PurchaseDate <= to) &&
-				                                                             (status == null || r.Status == status) &&
-				                                                             (reconciled == null || r.Reconciled == reconciled))
+				                                                             (status == null || r.Status == status))
 				                                                 .AsNoTracking();
+
+				            // false is "needs attention": unreconciled and not accepted. true is everything else.
+				            if (reconciled == true)
+					            query = query.Where(Not(ReceiptReconciliation.NeedsAttention(tolerance)));
+				            else if (reconciled == false)
+					            query = query.Where(ReceiptReconciliation.NeedsAttention(tolerance));
 
 				            if (term != null)
 				            {
@@ -85,6 +94,7 @@ static class ReceiptEndpoints
 				                                                 .Take(pageSize)
 				                                                 .Include(r => r.Merchant)
 				                                                 .Include(r => r.AppUser)
+				                                                 .Include(r => r.AcceptedBy)
 				                                                 .Include(r => r.ReceiptLines)
 				                                                 .ThenInclude(rl => rl.CanonicalItem)
 				                                                 .Include(r => r.ReceiptLines)
@@ -94,7 +104,7 @@ static class ReceiptEndpoints
 				                                                 .Include(r => r.MealCoverage)
 				                                                 .ThenInclude(c => c.Meal)
 				                                                 .AsSplitQuery()
-				                                                 .Select(r => r.ToDto())
+				                                                 .Select(r => r.ToDto(tolerance))
 				                                                 .ToListAsync(ct);
 
 				            return Results.Ok(new PagedResult<ReceiptDto>(receiptDtos, page, pageSize, totalCount));
@@ -105,25 +115,11 @@ static class ReceiptEndpoints
 
 			// GET /receipts/{id}
 			receiptGroup.MapGet("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
-				            Receipt? receipt = await dbContext.Receipts
-				                                              .Include(r => r.Merchant)
-				                                              .Include(r => r.AppUser)
-				                                              .Include(r => r.ReceiptLines)
-				                                              .ThenInclude(rl => rl.CanonicalItem)
-				                                              .Include(r => r.ReceiptLines)
-				                                              .ThenInclude(rl => rl.Meal)
-				                                              .Include(r => r.ReceiptLines)
-				                                              .ThenInclude(rl => rl.Category)
-				                                              .Include(r => r.MealCoverage)
-				                                              .ThenInclude(c => c.Meal)
-				                                              .AsNoTracking()
-				                                              .AsSplitQuery()
-				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
+				            ReceiptDto? dto = await LoadDtoAsync(dbContext, id, ct);
 
-				            if (receipt == null)
-					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
-
-				            return Results.Ok(receipt.ToDto());
+				            return dto == null
+					            ? Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found")
+					            : Results.Ok(dto);
 			            })
 			            .WithName("GetReceiptById")
 			            .Produces<ReceiptDto>()
@@ -200,6 +196,155 @@ static class ReceiptEndpoints
 			            .ProducesProblem(StatusCodes.Status404NotFound)
 			            .ProducesProblem(StatusCodes.Status409Conflict);
 
+			// PATCH /receipts/{id}
+			receiptGroup.MapPatch("/{id:guid}", async (Guid id, PatchReceiptDto patchDto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				            Receipt? receipt = await dbContext.Receipts.FirstOrDefaultAsync(r => r.Id == id, ct);
+
+				            if (receipt == null)
+					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
+
+				            // No sign validation: a return receipt is negative, and nothing else validates totals.
+				            if (patchDto.GrandTotal.HasValue)
+					            receipt.GrandTotal = patchDto.GrandTotal.Value;
+				            if (patchDto.PantTotal.HasValue)
+					            receipt.PantTotal = patchDto.PantTotal.Value;
+
+				            await dbContext.SaveChangesAsync(ct);
+
+				            return Results.Ok(await LoadDtoAsync(dbContext, id, ct));
+			            })
+			            .WithName("PatchReceipt")
+			            .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
+			            .Produces<ReceiptDto>()
+			            .ProducesProblem(StatusCodes.Status404NotFound);
+
+			// POST /receipts/{id}/lines
+			receiptGroup.MapPost("/{id:guid}/lines", async (Guid id, CreateReceiptLineDto dto, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				            string rawName = dto.RawName?.Trim() ?? "";
+
+				            if (rawName.Length == 0 || rawName.Length > KvitteriaDbContext.RawNameMaxLength)
+					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"The name is required and at most {KvitteriaDbContext.RawNameMaxLength} characters.");
+
+				            if (!await dbContext.Receipts.AnyAsync(r => r.Id == id, ct))
+					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
+
+				            var line = new ReceiptLine {
+					            ReceiptId = id,
+					            RawName = rawName,
+					            Quantity = dto.Quantity,
+					            UnitPrice = dto.UnitPrice,
+					            LineTotal = dto.LineTotal
+				            };
+
+				            await AliasLinking.LinkAsync(dbContext, [line], ct);
+
+				            dbContext.ReceiptLines.Add(line);
+				            await dbContext.SaveChangesAsync(ct);
+
+				            ReceiptLine created = await dbContext.ReceiptLines
+				                                                 .Include(rl => rl.CanonicalItem)
+				                                                 .Include(rl => rl.Meal)
+				                                                 .Include(rl => rl.Category)
+				                                                 .AsNoTracking()
+				                                                 .FirstAsync(rl => rl.Id == line.Id, ct);
+
+				            return Results.Created($"/api/receipt-lines/{created.Id}", created.ToDto());
+			            })
+			            .WithName("CreateReceiptLine")
+			            .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
+			            .Produces<ReceiptLineDto>(StatusCodes.Status201Created)
+			            .ProducesProblem(StatusCodes.Status400BadRequest)
+			            .ProducesProblem(StatusCodes.Status404NotFound);
+
+			// POST /receipts/{id}/accept-difference
+			receiptGroup.MapPost("/{id:guid}/accept-difference", async (
+				            Guid id,
+				            AcceptDifferenceDto dto,
+				            KvitteriaDbContext dbContext,
+				            CurrentUserService currentUserService,
+				            HttpContext http,
+				            CancellationToken ct) => {
+				            string? note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
+
+				            if (note != null && note.Length > KvitteriaDbContext.AcceptedNoteLength)
+					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"The note is at most {KvitteriaDbContext.AcceptedNoteLength} characters.");
+
+				            Receipt? receipt = await dbContext.Receipts
+				                                              .Include(r => r.ReceiptLines)
+				                                              .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+				            if (receipt == null)
+					            return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt with id {id} not found");
+
+				            decimal tolerance = await ReceiptReconciliation.ReadToleranceAsync(dbContext, ct);
+				            decimal delta = ReceiptReconciliation.Delta(receipt);
+
+				            if (Reconciliation.IsReconciled(delta, tolerance))
+					            return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:"The receipt already reconciles, so there is no difference to accept.");
+
+				            if (dto.Difference != delta)
+					            return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:$"The difference is now {delta:0.00} kr, not {dto.Difference:0.00} kr. The receipt changed since it was loaded.");
+
+				            CurrentUser? user = await currentUserService.ResolveAsync(http.User, ct);
+
+				            receipt.AcceptedDifference = delta;
+				            receipt.AcceptedAt = DateTime.UtcNow;
+				            receipt.AcceptedById = user?.Id;
+				            receipt.AcceptedNote = note;
+
+				            await dbContext.SaveChangesAsync(ct);
+
+				            return Results.Ok(await LoadDtoAsync(dbContext, id, ct));
+			            })
+			            .WithName("AcceptReceiptDifference")
+			            .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
+			            .Produces<ReceiptDto>()
+			            .ProducesProblem(StatusCodes.Status400BadRequest)
+			            .ProducesProblem(StatusCodes.Status404NotFound)
+			            .ProducesProblem(StatusCodes.Status409Conflict);
+
+			// DELETE /receipts/{id}/accept-difference
+			receiptGroup.MapDelete("/{id:guid}/accept-difference", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				            // 204 whether or not there was an acceptance to clear.
+				            await dbContext.Receipts
+				                           .Where(r => r.Id == id)
+				                           .ExecuteUpdateAsync(s => s
+				                                                    .SetProperty(r => r.AcceptedDifference, (decimal?)null)
+				                                                    .SetProperty(r => r.AcceptedAt, (DateTime?)null)
+				                                                    .SetProperty(r => r.AcceptedById, (Guid?)null)
+				                                                    .SetProperty(r => r.AcceptedNote, (string?)null), ct);
+
+				            return Results.NoContent();
+			            })
+			            .WithName("WithdrawReceiptDifferenceAcceptance")
+			            .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
+			            .Produces(StatusCodes.Status204NoContent);
 		}
+	}
+
+	private static Expression<Func<Receipt, bool>> Not(Expression<Func<Receipt, bool>> predicate) =>
+		Expression.Lambda<Func<Receipt, bool>>(Expression.Not(predicate.Body), predicate.Parameters);
+
+	private static async Task<ReceiptDto?> LoadDtoAsync(KvitteriaDbContext dbContext, Guid id, CancellationToken ct)
+	{
+			decimal tolerance = await ReceiptReconciliation.ReadToleranceAsync(dbContext, ct);
+
+			Receipt? receipt = await dbContext.Receipts
+			                                  .Include(r => r.Merchant)
+			                                  .Include(r => r.AppUser)
+			                                  .Include(r => r.AcceptedBy)
+			                                  .Include(r => r.ReceiptLines)
+			                                  .ThenInclude(rl => rl.CanonicalItem)
+			                                  .Include(r => r.ReceiptLines)
+			                                  .ThenInclude(rl => rl.Meal)
+			                                  .Include(r => r.ReceiptLines)
+			                                  .ThenInclude(rl => rl.Category)
+			                                  .Include(r => r.MealCoverage)
+			                                  .ThenInclude(c => c.Meal)
+			                                  .AsNoTracking()
+			                                  .AsSplitQuery()
+			                                  .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+		return receipt?.ToDto(tolerance);
 	}
 }

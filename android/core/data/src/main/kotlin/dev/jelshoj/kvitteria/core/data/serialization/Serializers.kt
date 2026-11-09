@@ -11,6 +11,7 @@ package dev.jelshoj.kvitteria.core.data.serialization
 import dev.jelshoj.kvitteria.core.domain.member.MemberStatus
 import dev.jelshoj.kvitteria.core.domain.member.Role
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptStatus
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDateTime
@@ -127,6 +128,12 @@ abstract class NamedEnumSerializer<T : Enum<T>>(
 
     override fun serialize(encoder: Encoder, value: T) = encoder.encodeString(value.name)
 }
+
+object ReconciliationStateSerializer : NamedEnumSerializer<ReconciliationState>(
+    "ReconciliationState",
+    ReconciliationState.entries.toTypedArray(),
+    ReconciliationState.Unknown,
+)
 
 object RoleSerializer : NamedEnumSerializer<Role>("Role", Role.entries.toTypedArray(), Role.Unknown)
 

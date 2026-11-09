@@ -36,4 +36,22 @@
     <string name="delete_receipt">Slet kvittering</string>
     <string name="delete_receipt_title">Slet kvitteringen?</string>
     <string name="delete_receipt_body">Kvitteringen, dens linjer, dækning og billede slettes for altid. Varer og det, linjerne har lært, beholdes.</string>
+    <string name="accepted">Afvigelse godkendt</string>
+    <string name="accepted_by">Godkendt: %1$s af %2$s, %3$s</string>
+    <string name="unknown_member">ukendt</string>
+    <string name="extraction_reported">Udtrækket meldte:</string>
+    <string name="accept_difference">Godkend afvigelsen</string>
+    <string name="accept_title">Godkend afvigelsen på %1$s?</string>
+    <string name="accept_body">Kvitteringen er trykt sådan, eller afvigelsen kan ikke rettes. Godkendelsen gælder kun, så længe afvigelsen er den samme.</string>
+    <string name="accept_note">Note (valgfri)</string>
+    <string name="accept">Godkend</string>
+    <string name="withdraw_acceptance">Træk godkendelsen tilbage</string>
+    <string name="edit_totals">Ret total og pant</string>
+    <string name="grand_total">Samlet total</string>
+    <string name="pant_total">Pant</string>
+    <string name="add_line">Tilføj linje</string>
+    <string name="name_required">Skriv et navn.</string>
+    <string name="delete_line">Slet linje</string>
+    <string name="delete_line_title">Slet linjen?</string>
+    <string name="delete_line_body">Linjen og dens dækning fjernes. Det, den har lært, beholdes. En kvitterings sidste linje kan ikke slettes.</string>
 </resources>

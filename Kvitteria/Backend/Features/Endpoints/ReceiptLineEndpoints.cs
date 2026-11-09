@@ -207,14 +207,29 @@ static class ReceiptLineEndpoints
 				                if (receiptLine == null)
 					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
 
+				                bool renamed = false;
+
 				                if (patchDto.RawName != null)
+				                {
+					                renamed = patchDto.RawName != receiptLine.RawName;
 					                receiptLine.RawName = patchDto.RawName;
+				                }
 				                if (patchDto.Quantity.HasValue)
 					                receiptLine.Quantity = patchDto.Quantity.Value;
 				                if (patchDto.UnitPrice.HasValue)
 					                receiptLine.UnitPrice = patchDto.UnitPrice.Value;
 				                if (patchDto.LineTotal.HasValue)
 					                receiptLine.LineTotal = patchDto.LineTotal.Value;
+
+				                // A corrected name can match what the household already taught. LinkAsync leaves a line
+				                // that has an item alone.
+				                if (renamed && receiptLine.CanonicalItemId == null)
+				                {
+					                await AliasLinking.LinkAsync(dbContext, [receiptLine], ct);
+
+					                if (receiptLine.CanonicalItemId != null)
+						                await dbContext.Entry(receiptLine).Reference(rl => rl.CanonicalItem).LoadAsync(ct);
+				                }
 
 				                await dbContext.SaveChangesAsync(ct);
 				                return Results.Ok(receiptLine.ToDto());
@@ -223,6 +238,35 @@ static class ReceiptLineEndpoints
 			                .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
 			                .Produces<ReceiptLineDto>()
 			                .ProducesProblem(StatusCodes.Status404NotFound);
+
+			// DELETE /receipt-lines/{id}
+			receiptLineGroup.MapDelete("/{id:guid}", async (Guid id, KvitteriaDbContext dbContext, CancellationToken ct) => {
+				                // ClearOrphanedAsync executes at once, so the whole thing is one transaction.
+				                await using IDbContextTransaction transaction = await dbContext.Database.BeginTransactionAsync(ct);
+
+				                ReceiptLine? receiptLine = await dbContext.ReceiptLines.FirstOrDefaultAsync(rl => rl.Id == id, ct);
+
+				                if (receiptLine == null)
+					                return Results.Problem(statusCode:StatusCodes.Status404NotFound, detail:$"Receipt line with id {id} not found");
+
+				                if (!await dbContext.ReceiptLines.AnyAsync(rl => rl.ReceiptId == receiptLine.ReceiptId && rl.Id != id, ct))
+					                return Results.Problem(statusCode:StatusCodes.Status409Conflict, detail:"This is the receipt's only line. Delete the receipt instead.");
+
+				                if (receiptLine.MealId is { } mealId)
+					                await MealCoverage.ClearOrphanedAsync(dbContext, receiptLine.ReceiptId, mealId, id, ct);
+
+				                // The alias, if any, belongs to the household and stays.
+				                dbContext.ReceiptLines.Remove(receiptLine);
+				                await dbContext.SaveChangesAsync(ct);
+				                await transaction.CommitAsync(ct);
+
+				                return Results.NoContent();
+			                })
+			                .WithName("DeleteReceiptLine")
+			                .RequireAuthorization(PermissionPolicies.Name(Permission.EditReceipts))
+			                .Produces(StatusCodes.Status204NoContent)
+			                .ProducesProblem(StatusCodes.Status404NotFound)
+			                .ProducesProblem(StatusCodes.Status409Conflict);
 
 			// PUT /receipt-lines/{id}/canonical-item
 			receiptLineGroup.MapPut("/{id:guid}/canonical-item", async (Guid id, PutCanonicalItemDto putCanonicalItemDto, KvitteriaDbContext dbContext, CancellationToken ct) => {

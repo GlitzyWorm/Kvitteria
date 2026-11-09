@@ -36,4 +36,22 @@
     <string name="delete_receipt">Delete receipt</string>
     <string name="delete_receipt_title">Delete this receipt?</string>
     <string name="delete_receipt_body">The receipt, its lines, coverage and image are deleted for good. Items and what the lines taught are kept.</string>
+    <string name="accepted">Difference accepted</string>
+    <string name="accepted_by">Accepted: %1$s by %2$s, %3$s</string>
+    <string name="unknown_member">unknown</string>
+    <string name="extraction_reported">Extraction reported:</string>
+    <string name="accept_difference">Accept the difference</string>
+    <string name="accept_title">Accept the difference of %1$s?</string>
+    <string name="accept_body">The receipt is printed this way, or the difference can\'t be fixed. The acceptance only holds while the difference stays the same.</string>
+    <string name="accept_note">Note (optional)</string>
+    <string name="accept">Accept</string>
+    <string name="withdraw_acceptance">Withdraw acceptance</string>
+    <string name="edit_totals">Edit total and pant</string>
+    <string name="grand_total">Grand total</string>
+    <string name="pant_total">Pant</string>
+    <string name="add_line">Add line</string>
+    <string name="name_required">Enter a name.</string>
+    <string name="delete_line">Delete line</string>
+    <string name="delete_line_title">Delete the line?</string>
+    <string name="delete_line_body">The line and its coverage are removed. What it taught is kept. A receipt\'s last line can\'t be deleted.</string>
 </resources>

@@ -46,7 +46,7 @@ class MappersTest {
 
     private val receiptJson = """
         {"id":"r1","merchant":"NETTO","purchaseDate":"2026-03-01T10:15:30Z","grandTotal":284.30,"pantTotal":3.00,
-         "reconciled":false,"status":3,"error":"Differs by 0,50 kr","memberId":null,"memberDisplayName":null,
+         "reconciliation":"Unreconciled","acceptance":null,"status":3,"error":"Differs by 0,50 kr","memberId":null,"memberDisplayName":null,
          "receiptLines":[{"id":"l1","rawName":"MÆLK","quantity":2,"unitPrice":10.75,"lineTotal":21.50,
            "canonicalItemId":"i1","canonicalItemDisplayName":"Mælk","mealId":null,"mealDisplayName":null,
            "categoryId":"c1","categoryDisplayName":"Mejeri"},

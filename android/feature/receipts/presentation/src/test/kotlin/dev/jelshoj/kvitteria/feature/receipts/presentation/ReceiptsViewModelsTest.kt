@@ -30,6 +30,10 @@ import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptRepository
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptStatus
+import dev.jelshoj.kvitteria.core.domain.receipt.Acceptance
+import dev.jelshoj.kvitteria.core.domain.receipt.NewLine
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
+import dev.jelshoj.kvitteria.core.domain.WorkCounts
 import dev.jelshoj.kvitteria.core.domain.session.SessionManager
 import dev.jelshoj.kvitteria.core.domain.session.SessionState
 import dev.jelshoj.kvitteria.core.domain.session.StoredSession
@@ -62,7 +66,7 @@ private fun line(id: String, mealId: String? = null, categoryId: String? = null)
 
 private fun sampleReceipt(id: String = "r", lines: List<ReceiptLine> = listOf(line("l1")), coverage: List<MealCoverage> = emptyList()) =
     Receipt(
-        id, "Netto", Instant.parse("2026-08-18T10:00:00Z"), BigDecimal.TEN, BigDecimal.ZERO, true,
+        id, "Netto", Instant.parse("2026-08-18T10:00:00Z"), BigDecimal.TEN, BigDecimal.ZERO, ReconciliationState.Reconciled, null,
         ReceiptStatus.Completed, lines, coverage, null, null, null,
     )
 
@@ -106,6 +110,48 @@ private class FakeReceipts : ReceiptRepository {
         return Result.Success(stored.coverage)
     }
 
+    var accepted: Result<Receipt, ApiError>? = null
+    val acceptedDifferences = mutableListOf<BigDecimal>()
+    val acceptedNotes = mutableListOf<String?>()
+    var withdrawals = 0
+    var deleteLineResult: EmptyResult<ApiError> = Result.Success(Unit)
+    val addedLines = mutableListOf<NewLine>()
+    var totalsSent: Pair<BigDecimal?, BigDecimal?>? = null
+
+    override suspend fun correctTotals(receiptId: String, grandTotal: BigDecimal?, pantTotal: BigDecimal?): Result<Receipt, ApiError> {
+        totalsSent = grandTotal to pantTotal
+        stored = stored.copy(grandTotal = grandTotal ?: stored.grandTotal, pantTotal = pantTotal ?: stored.pantTotal)
+        return Result.Success(stored)
+    }
+
+    override suspend fun addLine(receiptId: String, line: NewLine): Result<ReceiptLine, ApiError> {
+        addedLines += line
+        val added = ReceiptLine("new", line.rawName, line.quantity, line.unitPrice, line.lineTotal, null, null, null, null, null, null)
+        stored = stored.copy(lines = stored.lines + added)
+        return Result.Success(added)
+    }
+
+    override suspend fun deleteLine(lineId: String): EmptyResult<ApiError> {
+        if (deleteLineResult is Result.Success) stored = stored.copy(lines = stored.lines.filter { it.id != lineId })
+        return deleteLineResult
+    }
+
+    override suspend fun acceptDifference(receiptId: String, difference: BigDecimal, note: String?): Result<Receipt, ApiError> {
+        acceptedDifferences += difference
+        acceptedNotes += note
+        return accepted ?: Result.Success(
+            stored.copy(
+                reconciliation = ReconciliationState.Accepted,
+                acceptance = Acceptance(difference, "u", "A", Instant.parse("2026-11-09T10:00:00Z"), note),
+            ),
+        )
+    }
+
+    override suspend fun withdrawAcceptance(receiptId: String): EmptyResult<ApiError> {
+        withdrawals++
+        return Result.Success(Unit)
+    }
+
     var deleteResult: EmptyResult<ApiError> = Result.Success(Unit)
     val deletedIds = mutableListOf<String>()
     var imageResult: Result<ByteArray, ApiError> = Result.Success(byteArrayOf(1, 2, 3))
@@ -125,6 +171,20 @@ private class FakeReceipts : ReceiptRepository {
         imageFetches++
         return imageResult
     }
+}
+
+private class FakeCounts : WorkCounts {
+    override val unassignedLines = MutableStateFlow(0)
+    override val failedMail = MutableStateFlow(0)
+    var refreshes = 0
+
+    override suspend fun refresh() {
+        refreshes++
+    }
+
+    override fun setUnassignedLines(count: Int) = Unit
+
+    override fun setFailedMail(count: Int) = Unit
 }
 
 private class FakeTaxonomy : TaxonomyRepository {
@@ -173,6 +233,7 @@ private class FakeSessions : SessionManager {
 class ReceiptsViewModelsTest {
     private val dispatcher = StandardTestDispatcher()
     private val repository = FakeReceipts()
+    private val counts = FakeCounts()
 
     @BeforeEach
     fun setUp() {
@@ -187,7 +248,7 @@ class ReceiptsViewModelsTest {
     private fun TestScope.list() = ReceiptsViewModel(repository).also { advanceUntilIdle() }
 
     private fun TestScope.detail(): ReceiptDetailViewModel {
-        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), FakeSessions())
+        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), FakeSessions(), counts)
         advanceUntilIdle()
         return viewModel
     }
@@ -262,7 +323,7 @@ class ReceiptsViewModelsTest {
 
     @Test
     fun `detail paints at once from the cached copy`() = runTest(dispatcher) {
-        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), FakeSessions())
+        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), FakeSessions(), counts)
         assertThat(viewModel.state.value.receipt).isEqualTo(repository.stored)
         assertThat(viewModel.state.value.isLoading).isEqualTo(false)
     }
@@ -357,7 +418,7 @@ class ReceiptsViewModelsTest {
     fun `a confirmed delete closes detail and the list drops the receipt`() = runTest(dispatcher) {
         val listed = list()
         repository.stored = sampleReceipt("r1")
-        val viewModel = ReceiptDetailViewModel("r1", repository, FakeTaxonomy(), FakeMembers(), FakeSessions())
+        val viewModel = ReceiptDetailViewModel("r1", repository, FakeTaxonomy(), FakeMembers(), FakeSessions(), counts)
         advanceUntilIdle()
 
         // The server no longer lists it once it is gone.
@@ -398,7 +459,7 @@ class ReceiptsViewModelsTest {
         val sessions = FakeSessions().apply {
             member.value = member.value!!.copy(permissions = setOf(Permission.CategorizeLines))
         }
-        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), sessions)
+        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), sessions, counts)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.canDelete).isEqualTo(false)
@@ -439,5 +500,168 @@ class ReceiptsViewModelsTest {
             viewModel.onAction(ReceiptDetailAction.OnOpenDuplicate)
             assertThat(awaitItem()).isEqualTo(ReceiptDetailEvent.OpenReceipt("r0"))
         }
+    }
+
+    private fun unreconciled(vararg lines: ReceiptLine) = sampleReceipt(lines = lines.toList()).copy(
+        grandTotal = BigDecimal("12.00"),
+        reconciliation = ReconciliationState.Unreconciled,
+    )
+
+    @Test
+    fun `accepting sends the difference the member saw and shows the result`() = runTest(dispatcher) {
+        repository.stored = unreconciled(line("l1"))
+        val viewModel = detail()
+
+        viewModel.onAction(ReceiptDetailAction.OnAskAccept)
+        assertThat(viewModel.state.value.acceptDialog?.difference).isEqualTo(BigDecimal("2.00"))
+        viewModel.onAction(ReceiptDetailAction.OnAcceptNoteChange("Rounding"))
+        viewModel.onAction(ReceiptDetailAction.OnConfirmAccept)
+        advanceUntilIdle()
+
+        assertThat(repository.acceptedDifferences).containsExactly(BigDecimal("2.00"))
+        assertThat(repository.acceptedNotes).containsExactly("Rounding")
+        assertThat(viewModel.state.value.acceptDialog).isNull()
+        assertThat(viewModel.state.value.receipt?.reconciliation).isEqualTo(ReconciliationState.Accepted)
+    }
+
+    @Test
+    fun `a 409 on accept shows the server's message in the dialog and refreshes`() = runTest(dispatcher) {
+        repository.stored = unreconciled(line("l1"))
+        repository.accepted = Result.Error(ApiError(DataError.Network.CONFLICT, "The difference is now 3,00 kr."))
+        val viewModel = detail()
+        val fetchesBefore = repository.fetches
+
+        viewModel.onAction(ReceiptDetailAction.OnAskAccept)
+        viewModel.onAction(ReceiptDetailAction.OnConfirmAccept)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.acceptDialog?.error).isEqualTo(UiText.DynamicString("The difference is now 3,00 kr."))
+        assertThat(viewModel.state.value.acceptDialog?.isBusy).isEqualTo(false)
+        assertThat(repository.fetches).isEqualTo(fetchesBefore + 1)
+    }
+
+    @Test
+    fun `accepting is not offered without EditReceipts`() = runTest(dispatcher) {
+        repository.stored = unreconciled(line("l1"))
+        val sessions = FakeSessions().apply {
+            member.value = member.value!!.copy(permissions = setOf(Permission.CategorizeLines))
+        }
+        val viewModel = ReceiptDetailViewModel("r", repository, FakeTaxonomy(), FakeMembers(), sessions, counts)
+        advanceUntilIdle()
+
+        viewModel.onAction(ReceiptDetailAction.OnAskAccept)
+        viewModel.onAction(ReceiptDetailAction.OnConfirmAccept)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.acceptDialog).isNull()
+        assertThat(repository.acceptedDifferences).isEqualTo(emptyList())
+    }
+
+    @Test
+    fun `withdrawing clears the acceptance through the repository and refreshes`() = runTest(dispatcher) {
+        val viewModel = detail()
+        val fetchesBefore = repository.fetches
+
+        viewModel.onAction(ReceiptDetailAction.OnWithdrawAcceptance)
+        advanceUntilIdle()
+
+        assertThat(repository.withdrawals).isEqualTo(1)
+        assertThat(repository.fetches).isEqualTo(fetchesBefore + 1)
+    }
+
+    @Test
+    fun `totals are parsed with a decimal comma and an invalid number stays in the editor`() = runTest(dispatcher) {
+        val viewModel = detail()
+
+        viewModel.onAction(ReceiptDetailAction.OnOpenTotals)
+        viewModel.onAction(ReceiptDetailAction.OnTotalsChange(viewModel.state.value.totalsEditor!!.copy(pantTotal = "tre")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveTotals)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.totalsEditor?.pantTotalInvalid).isEqualTo(true)
+        assertThat(repository.totalsSent).isNull()
+
+        viewModel.onAction(ReceiptDetailAction.OnTotalsChange(viewModel.state.value.totalsEditor!!.copy(pantTotal = "3,50")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveTotals)
+        advanceUntilIdle()
+
+        assertThat(repository.totalsSent?.second).isEqualTo(BigDecimal("3.50"))
+        assertThat(viewModel.state.value.totalsEditor).isNull()
+        assertThat(viewModel.state.value.receipt?.pantTotal).isEqualTo(BigDecimal("3.50"))
+    }
+
+    @Test
+    fun `a new line needs a name`() = runTest(dispatcher) {
+        val viewModel = detail()
+
+        viewModel.onAction(ReceiptDetailAction.OnAddLine)
+        assertThat(viewModel.state.value.editor?.lineId).isNull()
+        viewModel.onAction(ReceiptDetailAction.OnEditorChange(viewModel.state.value.editor!!.copy(rawName = "  ", unitPrice = "2", lineTotal = "2")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveEditor)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.editor?.rawNameInvalid).isEqualTo(true)
+        assertThat(repository.addedLines).isEqualTo(emptyList())
+    }
+
+    @Test
+    fun `adding a line refreshes the receipt and the sort badge`() = runTest(dispatcher) {
+        val viewModel = detail()
+
+        viewModel.onAction(ReceiptDetailAction.OnAddLine)
+        viewModel.onAction(ReceiptDetailAction.OnEditorChange(viewModel.state.value.editor!!.copy(rawName = "Cola", unitPrice = "12,50", lineTotal = "12,50")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveEditor)
+        advanceUntilIdle()
+
+        assertThat(repository.addedLines.single().lineTotal).isEqualTo(BigDecimal("12.50"))
+        assertThat(viewModel.state.value.editor).isNull()
+        assertThat(viewModel.state.value.receipt?.lines.orEmpty().map { it.rawName }).containsExactly("RAW l1", "Cola")
+        assertThat(counts.refreshes).isEqualTo(1)
+    }
+
+    @Test
+    fun `renaming a line refreshes the sort badge but changing a figure does not`() = runTest(dispatcher) {
+        val viewModel = detail()
+        val original = viewModel.state.value.receipt!!.lines.single()
+
+        viewModel.onAction(ReceiptDetailAction.OnOpenEditor(original))
+        viewModel.onAction(ReceiptDetailAction.OnEditorChange(viewModel.state.value.editor!!.copy(lineTotal = "11")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveEditor)
+        advanceUntilIdle()
+        assertThat(counts.refreshes).isEqualTo(0)
+
+        viewModel.onAction(ReceiptDetailAction.OnOpenEditor(original))
+        viewModel.onAction(ReceiptDetailAction.OnEditorChange(viewModel.state.value.editor!!.copy(rawName = "COLA")))
+        viewModel.onAction(ReceiptDetailAction.OnSaveEditor)
+        advanceUntilIdle()
+        assertThat(counts.refreshes).isEqualTo(1)
+    }
+
+    @Test
+    fun `deleting a line asks first, then refreshes the receipt and the badge`() = runTest(dispatcher) {
+        repository.stored = sampleReceipt(lines = listOf(line("l1"), line("l2")))
+        val viewModel = detail()
+
+        viewModel.onAction(ReceiptDetailAction.OnAskDeleteLine("l2"))
+        assertThat(viewModel.state.value.confirmingDeleteLine).isEqualTo("l2")
+        viewModel.onAction(ReceiptDetailAction.OnConfirmDeleteLine)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.confirmingDeleteLine).isNull()
+        assertThat(viewModel.state.value.receipt?.lines.orEmpty().map { it.id }).containsExactly("l1")
+        assertThat(counts.refreshes).isEqualTo(1)
+    }
+
+    @Test
+    fun `deleting the only line shows the server's message`() = runTest(dispatcher) {
+        repository.deleteLineResult = Result.Error(ApiError(DataError.Network.CONFLICT, "This is the receipt's only line."))
+        val viewModel = detail()
+
+        viewModel.messages.test {
+            viewModel.onAction(ReceiptDetailAction.OnAskDeleteLine("l1"))
+            viewModel.onAction(ReceiptDetailAction.OnConfirmDeleteLine)
+            advanceUntilIdle()
+            assertThat(awaitItem()).isEqualTo(UiText.DynamicString("This is the receipt's only line."))
+        }
+        assertThat(viewModel.state.value.receipt?.lines.orEmpty().map { it.id }).containsExactly("l1")
     }
 }

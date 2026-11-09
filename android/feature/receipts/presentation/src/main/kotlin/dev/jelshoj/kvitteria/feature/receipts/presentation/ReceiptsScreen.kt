@@ -55,6 +55,7 @@ import dev.jelshoj.kvitteria.core.designsystem.KvitteriaTheme
 import dev.jelshoj.kvitteria.core.designsystem.PhosphorIcons
 import dev.jelshoj.kvitteria.core.designsystem.rememberKvToastState
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptStatus
 import dev.jelshoj.kvitteria.core.presentation.DanishTime
 import dev.jelshoj.kvitteria.core.presentation.ErrorState
@@ -101,7 +102,7 @@ private fun ReceiptRow(receipt: Receipt, onOpen: () -> Unit) {
                 BasicText(receipt.merchant, style = KvType.control, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 BasicText(DanishTime.date(receipt.purchaseDate), style = KvType.hint)
             }
-            if (!receipt.reconciled) KvTag(stringResource(R.string.unreconciled), style = KvTagStyle.Outline)
+            if (receipt.reconciliation == ReconciliationState.Unreconciled) KvTag(stringResource(R.string.unreconciled), style = KvTagStyle.Outline)
             KvAmount(KrFormat.amount(receipt.grandTotal))
         }
         KvRule(color = KvColors.textWash8)
@@ -192,7 +193,7 @@ fun ReceiptsScreen(
 @Composable
 private fun ReceiptsScreenPreview() {
     val receipt = Receipt(
-        "r1", "Netto", Instant.parse("2026-08-18T10:00:00Z"), BigDecimal("284.30"), BigDecimal("3.00"), false,
+        "r1", "Netto", Instant.parse("2026-08-18T10:00:00Z"), BigDecimal("284.30"), BigDecimal("3.00"), ReconciliationState.Unreconciled, null,
         ReceiptStatus.Completed, emptyList(), emptyList(), null, null, null,
     )
     KvitteriaTheme {
