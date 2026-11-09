@@ -8,7 +8,10 @@ public record ReceiptDto(
 	DateTime PurchaseDate,
 	decimal GrandTotal,
 	decimal PantTotal,
-	bool Reconciled,
+	/// <summary>Reconciled, Accepted or Unreconciled, by name.</summary>
+	string Reconciliation,
+	/// <summary>Set only while Reconciliation is Accepted.</summary>
+	ReceiptAcceptanceDto? Acceptance,
 	ReceiptStatus Status,
 	List<ReceiptLineDto> ReceiptLines,
 	List<ReceiptMealCoverageDto> ReceiptMealCoverage,

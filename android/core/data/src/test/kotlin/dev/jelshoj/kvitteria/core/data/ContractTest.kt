@@ -22,7 +22,11 @@ import dev.jelshoj.kvitteria.core.data.insights.SpendingSummaryDto
 import dev.jelshoj.kvitteria.core.data.insights.SpendingTrendMonthDto
 import dev.jelshoj.kvitteria.core.data.member.AppUserDto
 import dev.jelshoj.kvitteria.core.data.member.CurrentUserDto
+import dev.jelshoj.kvitteria.core.data.receipt.AcceptDifferenceDto
+import dev.jelshoj.kvitteria.core.data.receipt.CreateReceiptLineDto
 import dev.jelshoj.kvitteria.core.data.receipt.MealCoverageEntryDto
+import dev.jelshoj.kvitteria.core.data.receipt.PatchReceiptDto
+import dev.jelshoj.kvitteria.core.data.receipt.ReceiptAcceptanceDto
 import dev.jelshoj.kvitteria.core.data.receipt.PagedResultDto
 import dev.jelshoj.kvitteria.core.data.receipt.PatchReceiptLineDto
 import dev.jelshoj.kvitteria.core.data.receipt.PutReceiptLineCategoryDto
@@ -86,6 +90,10 @@ class ContractTest {
     private val models = listOf(
         Model("ReceiptDto", ReceiptDto.serializer()),
         Model("ReceiptLineDto", ReceiptLineDto.serializer()),
+        Model("ReceiptAcceptanceDto", ReceiptAcceptanceDto.serializer()),
+        sent("PatchReceiptDto", PatchReceiptDto.serializer()),
+        sent("CreateReceiptLineDto", CreateReceiptLineDto.serializer()),
+        sent("AcceptDifferenceDto", AcceptDifferenceDto.serializer()),
         Model("ReceiptMealCoverageDto", ReceiptMealCoverageDto.serializer()),
         Model("PagedResultOfReceiptDto", PagedResultDto.serializer(ReceiptDto.serializer())),
         Model("PagedResultOfCanonicalItemDto", PagedResultDto.serializer(CanonicalItemDto.serializer())),

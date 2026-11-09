@@ -12,12 +12,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.jelshoj.kvitteria.core.domain.ApiError
 import dev.jelshoj.kvitteria.core.domain.Result
+import dev.jelshoj.kvitteria.core.domain.WorkCounts
 import dev.jelshoj.kvitteria.core.domain.member.MemberRepository
 import dev.jelshoj.kvitteria.core.domain.member.Permission
 import dev.jelshoj.kvitteria.core.domain.receipt.LineCorrection
+import dev.jelshoj.kvitteria.core.domain.receipt.NewLine
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptRepository
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
 import dev.jelshoj.kvitteria.core.domain.session.SessionManager
 import dev.jelshoj.kvitteria.core.domain.taxonomy.Category
 import dev.jelshoj.kvitteria.core.domain.taxonomy.Meal
@@ -38,16 +41,38 @@ import kotlinx.coroutines.launch
 
 enum class LinePicker { Category, Meal }
 
-/** The line editor. Figures are text, because a half-typed number isn't one. */
+/**
+ * The line editor. Figures are text, because a half-typed number isn't one. A null [lineId] is add mode: the
+ * line doesn't exist until it is saved.
+ */
 data class LineEditor(
-    val lineId: String,
+    val lineId: String?,
     val rawName: String,
     val quantity: String,
     val unitPrice: String,
     val lineTotal: String,
+    val rawNameInvalid: Boolean = false,
     val quantityInvalid: Boolean = false,
     val unitPriceInvalid: Boolean = false,
     val lineTotalInvalid: Boolean = false,
+    val isBusy: Boolean = false,
+    val error: UiText? = null,
+)
+
+/** The grand total and pant editor. Text for the same reason as [LineEditor]. */
+data class TotalsEditor(
+    val grandTotal: String,
+    val pantTotal: String,
+    val grandTotalInvalid: Boolean = false,
+    val pantTotalInvalid: Boolean = false,
+    val isBusy: Boolean = false,
+    val error: UiText? = null,
+)
+
+/** The confirmation for accepting the receipt's current [difference]. */
+data class AcceptDialog(
+    val difference: BigDecimal,
+    val note: String = "",
     val isBusy: Boolean = false,
     val error: UiText? = null,
 )
@@ -71,6 +96,12 @@ data class ReceiptDetailState(
     val coverage: Map<String, Int> = emptyMap(),
     val picking: Pair<String, LinePicker>? = null,
     val editor: LineEditor? = null,
+    val totalsEditor: TotalsEditor? = null,
+    val acceptDialog: AcceptDialog? = null,
+    val isWithdrawing: Boolean = false,
+    /** The line a confirmation is open for. */
+    val confirmingDeleteLine: String? = null,
+    val isDeletingLine: Boolean = false,
     val canCategorize: Boolean = false,
     val canEdit: Boolean = false,
     val image: ReceiptImage = ReceiptImage.None,
@@ -104,6 +135,19 @@ sealed interface ReceiptDetailAction {
     data class OnEditorChange(val editor: LineEditor) : ReceiptDetailAction
     data object OnDismissEditor : ReceiptDetailAction
     data object OnSaveEditor : ReceiptDetailAction
+    data object OnAddLine : ReceiptDetailAction
+    data class OnAskDeleteLine(val lineId: String) : ReceiptDetailAction
+    data object OnDismissDeleteLine : ReceiptDetailAction
+    data object OnConfirmDeleteLine : ReceiptDetailAction
+    data object OnOpenTotals : ReceiptDetailAction
+    data class OnTotalsChange(val editor: TotalsEditor) : ReceiptDetailAction
+    data object OnDismissTotals : ReceiptDetailAction
+    data object OnSaveTotals : ReceiptDetailAction
+    data object OnAskAccept : ReceiptDetailAction
+    data class OnAcceptNoteChange(val note: String) : ReceiptDetailAction
+    data object OnDismissAccept : ReceiptDetailAction
+    data object OnConfirmAccept : ReceiptDetailAction
+    data object OnWithdrawAcceptance : ReceiptDetailAction
     data object OnRetryImage : ReceiptDetailAction
     data object OnOpenImage : ReceiptDetailAction
     data object OnCloseImage : ReceiptDetailAction
@@ -128,6 +172,7 @@ class ReceiptDetailViewModel(
     private val taxonomy: TaxonomyRepository,
     private val members: MemberRepository,
     private val sessions: SessionManager,
+    private val counts: WorkCounts,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         // Paints at once from the list's copy, then the refresh replaces it.
@@ -255,6 +300,44 @@ class ReceiptDetailViewModel(
             is ReceiptDetailAction.OnEditorChange -> _state.update { it.copy(editor = action.editor.copy(error = null)) }
             ReceiptDetailAction.OnDismissEditor -> _state.update { it.copy(editor = null) }
             ReceiptDetailAction.OnSaveEditor -> saveEditor()
+            ReceiptDetailAction.OnAddLine -> _state.update {
+                if (!it.canEdit) it else it.copy(editor = LineEditor(null, "", "1", "", ""))
+            }
+            is ReceiptDetailAction.OnAskDeleteLine -> _state.update {
+                it.copy(confirmingDeleteLine = action.lineId.takeIf { _ -> it.canEdit })
+            }
+            ReceiptDetailAction.OnDismissDeleteLine -> _state.update { it.copy(confirmingDeleteLine = null) }
+            ReceiptDetailAction.OnConfirmDeleteLine -> deleteLine()
+            ReceiptDetailAction.OnOpenTotals -> _state.update { state ->
+                val receipt = state.receipt
+                if (!state.canEdit || receipt == null) {
+                    state
+                } else {
+                    state.copy(
+                        totalsEditor = TotalsEditor(
+                            grandTotal = KrFormat.editable(receipt.grandTotal),
+                            pantTotal = KrFormat.editable(receipt.pantTotal),
+                        ),
+                    )
+                }
+            }
+            is ReceiptDetailAction.OnTotalsChange -> _state.update { it.copy(totalsEditor = action.editor.copy(error = null)) }
+            ReceiptDetailAction.OnDismissTotals -> _state.update { it.copy(totalsEditor = null) }
+            ReceiptDetailAction.OnSaveTotals -> saveTotals()
+            ReceiptDetailAction.OnAskAccept -> _state.update { state ->
+                val receipt = state.receipt
+                if (!state.canEdit || receipt == null || receipt.reconciliation != ReconciliationState.Unreconciled) {
+                    state
+                } else {
+                    state.copy(acceptDialog = AcceptDialog(receipt.difference))
+                }
+            }
+            is ReceiptDetailAction.OnAcceptNoteChange -> _state.update {
+                it.copy(acceptDialog = it.acceptDialog?.copy(note = action.note, error = null))
+            }
+            ReceiptDetailAction.OnDismissAccept -> _state.update { it.copy(acceptDialog = null) }
+            ReceiptDetailAction.OnConfirmAccept -> accept()
+            ReceiptDetailAction.OnWithdrawAcceptance -> withdraw()
             ReceiptDetailAction.OnRetryImage -> {
                 _state.update { it.copy(image = ReceiptImage.None) }
                 loadImageIfNeeded()
@@ -348,13 +431,15 @@ class ReceiptDetailViewModel(
         val editor = _state.value.editor ?: return
         if (editor.isBusy) return
 
+        val name = editor.rawName.trim()
         val quantity = KrFormat.parse(editor.quantity)
         val unitPrice = KrFormat.parse(editor.unitPrice)
         val lineTotal = KrFormat.parse(editor.lineTotal)
-        if (quantity == null || unitPrice == null || lineTotal == null) {
+        if (name.isEmpty() || quantity == null || unitPrice == null || lineTotal == null) {
             _state.update {
                 it.copy(
                     editor = editor.copy(
+                        rawNameInvalid = name.isEmpty(),
                         quantityInvalid = quantity == null,
                         unitPriceInvalid = unitPrice == null,
                         lineTotalInvalid = lineTotal == null,
@@ -366,18 +451,121 @@ class ReceiptDetailViewModel(
 
         _state.update { it.copy(editor = editor.copy(isBusy = true)) }
         viewModelScope.launch {
-            val correction = LineCorrection(editor.rawName.trim(), quantity, unitPrice, lineTotal)
-            when (val result = receipts.correctLine(editor.lineId, correction)) {
+            val lineId = editor.lineId
+            if (lineId == null) {
+                when (val result = receipts.addLine(receiptId, NewLine(name, quantity, unitPrice, lineTotal))) {
+                    is Result.Success -> {
+                        _state.update { it.copy(editor = null) }
+                        refresh()
+                        counts.refresh()
+                    }
+                    is Result.Error -> editorFailed(result.error)
+                }
+                return@launch
+            }
+
+            val renamed = _state.value.receipt?.lines?.firstOrNull { it.id == lineId }?.rawName != name
+            when (val result = receipts.correctLine(lineId, LineCorrection(name, quantity, unitPrice, lineTotal))) {
                 is Result.Success -> {
-                    replaceLine(editor.lineId) { result.data }
+                    replaceLine(lineId) { result.data }
                     _state.update { it.copy(editor = null) }
+                    refresh()
+                    // A new name can match an alias, which assigns the line.
+                    if (renamed) counts.refresh()
+                }
+                is Result.Error -> editorFailed(result.error)
+            }
+        }
+    }
+
+    private suspend fun editorFailed(error: ApiError) {
+        _state.update { it.copy(editor = it.editor?.copy(isBusy = false, error = error.toUiText())) }
+        members.refreshIfForbidden(error)
+    }
+
+    private fun deleteLine() {
+        val state = _state.value
+        val lineId = state.confirmingDeleteLine ?: return
+        if (state.isDeletingLine) return
+        _state.update { it.copy(isDeletingLine = true) }
+        viewModelScope.launch {
+            val result = receipts.deleteLine(lineId)
+            _state.update { it.copy(isDeletingLine = false, confirmingDeleteLine = null) }
+            when (result) {
+                is Result.Success -> {
+                    _state.update { it.copy(editor = null) }
+                    refresh()
+                    counts.refresh()
+                }
+                is Result.Error -> {
+                    // The server's own words: the only line of a receipt can't go.
+                    fail(result.error)
+                    if (result.error.kind == DataError.Network.NOT_FOUND) refresh()
+                }
+            }
+        }
+    }
+
+    private fun saveTotals() {
+        val editor = _state.value.totalsEditor ?: return
+        if (editor.isBusy) return
+
+        val grandTotal = KrFormat.parse(editor.grandTotal)
+        val pantTotal = KrFormat.parse(editor.pantTotal)
+        if (grandTotal == null || pantTotal == null) {
+            _state.update {
+                it.copy(
+                    totalsEditor = editor.copy(
+                        grandTotalInvalid = grandTotal == null,
+                        pantTotalInvalid = pantTotal == null,
+                    ),
+                )
+            }
+            return
+        }
+
+        _state.update { it.copy(totalsEditor = editor.copy(isBusy = true)) }
+        viewModelScope.launch {
+            when (val result = receipts.correctTotals(receiptId, grandTotal, pantTotal)) {
+                is Result.Success -> {
+                    _state.update { it.copy(receipt = result.data, totalsEditor = null) }
                     refresh()
                 }
                 is Result.Error -> {
-                    _state.update { it.copy(editor = it.editor?.copy(isBusy = false, error = result.error.toUiText())) }
+                    _state.update { it.copy(totalsEditor = it.totalsEditor?.copy(isBusy = false, error = result.error.toUiText())) }
                     members.refreshIfForbidden(result.error)
                 }
             }
+        }
+    }
+
+    private fun accept() {
+        val dialog = _state.value.acceptDialog ?: return
+        if (dialog.isBusy || !_state.value.canEdit) return
+
+        _state.update { it.copy(acceptDialog = dialog.copy(isBusy = true)) }
+        viewModelScope.launch {
+            when (val result = receipts.acceptDifference(receiptId, dialog.difference, dialog.note.trim())) {
+                is Result.Success -> _state.update { it.copy(receipt = result.data, acceptDialog = null) }
+                is Result.Error -> {
+                    _state.update { it.copy(acceptDialog = it.acceptDialog?.copy(isBusy = false, error = result.error.toUiText())) }
+                    members.refreshIfForbidden(result.error)
+                    // 409: the figures moved, so what the member saw is out of date.
+                    if (result.error.kind == DataError.Network.CONFLICT) refresh()
+                }
+            }
+        }
+    }
+
+    private fun withdraw() {
+        val state = _state.value
+        if (state.isWithdrawing || !state.canEdit) return
+        _state.update { it.copy(isWithdrawing = true) }
+        viewModelScope.launch {
+            val result = receipts.withdrawAcceptance(receiptId)
+            _state.update { it.copy(isWithdrawing = false) }
+            if (result is Result.Error) fail(result.error)
+            refresh()
         }
     }
 }

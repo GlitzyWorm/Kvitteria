@@ -144,7 +144,7 @@ reorder guard, paging validation, the HTML-to-text converter, the user-provision
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
 mailbox write validation, the mailbox secret round-trip, the rate-limit partition key and trusted private ranges, the Danish month helpers and `MonthKey`, the
 spending, category, price and meal-day rollups, receipt-search parsing, release selection and the update
-status decisions, the JPEG header reader and image budget, the Danish day range, and the no-receipt sentinel. Run it from `Kvitteria`:
+status decisions, the JPEG header reader and image budget, the Danish day range, the no-receipt sentinel, and the reconciliation states. Run it from `Kvitteria`:
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
@@ -309,8 +309,21 @@ are **kept out of the repository**: they carry a loyalty number, store addresses
 the repository is public.
 
 Unreconciled receipts are **not** failures and not retryable: they are already stored, may already be
-categorized, and their mail text is gone. They are found with `GET /api/receipts?reconciled=false` and
-corrected by hand. `Receipt` carries `AppUserId` and `MailboxId` copied from the intake row (the
+categorized, and their mail text is gone. They are corrected by hand, and **the state is derived, not stored**:
+`ReceiptReconciliation` (`Features/Receipts`) classifies the stored figures on every read as `Reconciled`,
+`Accepted` or `Unreconciled`, with the tolerance currently in `PipelineSettings` (read once per request). The
+rule exists as `Classify` (what the tests cover) and as the `NeedsAttention` EF expression behind
+`GET /api/receipts?reconciled=false` and the pipeline status count, side by side in one file; the test
+compiles the expression to hold them together. `Receipt.Reconciled` no longer exists, so a correction takes
+effect by itself and a changed tolerance reaches old receipts. `Error` stays as what extraction reported.
+
+A difference is accepted with `POST /receipts/{id}/accept-difference`, which states the difference the member
+saw (409 when the figures moved since). The acceptance is four nullable columns and holds only while the
+delta still equals `AcceptedDifference` exactly, so no write path has to clear it; a lapsed one stays in the
+row, is never sent, and comes back if edits restore that exact difference. `DELETE` withdraws it. Figures are
+corrected with `PATCH /receipts/{id}` (total and pant), `POST /receipts/{id}/lines` and `DELETE
+/receipt-lines/{id}` (refused for the last line; clears orphaned meal coverage in a transaction), all
+`EditReceipts`. `Receipt` carries `AppUserId` and `MailboxId` copied from the intake row (the
 mailbox is `SetNull` on delete, the member `Restrict`), read at ingestion from the row rather than the
 in-memory record so a mailbox deleted mid-flight cannot violate the foreign key.
 
@@ -524,7 +537,9 @@ defaults (`CategoryId`, `DefaultMealId`) that the `SetAsDefault` flags on the li
 back to, and that ingestion reads back onto a line it links through an alias.
 
 **An automatic write only fills empty fields.** `AliasLearning.FillGaps` (`Features/Receipts`) is the
-one place that rule lives, shared by ingestion and by `POST /receipt-lines/{id}/sort`: a category or
+one place that rule lives, shared by ingestion and by `POST /receipt-lines/{id}/sort`. `AliasLinking.LinkAsync`
+beside it links lines without an item through aliases for ingestion, a hand-added line and a renamed
+unassigned line: a category or
 meal a person already chose is never replaced by an item's default. That sort endpoint is the
 atomic save behind the Sort screen — one transaction for the line, an optional new `CanonicalItem`,
 its defaults and the alias. It rejects a line that already has an item (409), and when it remembers

@@ -15,6 +15,21 @@ import kotlinx.coroutines.flow.Flow
 
 enum class ReceiptStatus { Queued, Extracting, Extracted, Completed, Failed, Unknown }
 
+/**
+ * Derived by the server from the stored figures on every read. [Accepted] is an unreconciled receipt whose
+ * difference a member has accepted; only [Unreconciled] needs attention.
+ */
+enum class ReconciliationState { Reconciled, Accepted, Unreconciled, Unknown }
+
+/** A member's acceptance of the receipt's current difference. */
+data class Acceptance(
+    val difference: BigDecimal,
+    val memberId: String?,
+    val memberName: String?,
+    val acceptedAt: Instant,
+    val note: String?,
+)
+
 data class ReceiptLine(
     val id: String,
     val rawName: String,
@@ -41,11 +56,13 @@ data class Receipt(
     val purchaseDate: Instant,
     val grandTotal: BigDecimal,
     val pantTotal: BigDecimal,
-    val reconciled: Boolean,
+    val reconciliation: ReconciliationState,
+    /** Set only while [reconciliation] is [ReconciliationState.Accepted]. */
+    val acceptance: Acceptance?,
     val status: ReceiptStatus,
     val lines: List<ReceiptLine>,
     val coverage: List<MealCoverage>,
-    /** The server's stored note on why this receipt didn't reconcile. */
+    /** What extraction reported about this receipt. History, not the current state: see [reconciliation]. */
     val warning: String?,
     val memberId: String?,
     val memberName: String?,
@@ -75,6 +92,13 @@ data class LineCorrection(
     val lineTotal: BigDecimal,
 )
 
+data class NewLine(
+    val rawName: String,
+    val quantity: BigDecimal,
+    val unitPrice: BigDecimal,
+    val lineTotal: BigDecimal,
+)
+
 interface ReceiptRepository {
     suspend fun receipts(
         page: Int,
@@ -93,6 +117,22 @@ interface ReceiptRepository {
     suspend fun setLineMeal(lineId: String, mealId: String?): Result<ReceiptLine, ApiError>
 
     suspend fun correctLine(lineId: String, correction: LineCorrection): Result<ReceiptLine, ApiError>
+
+    /** Corrects the grand total and/or pant. Answers the receipt as it now reads. */
+    suspend fun correctTotals(
+        receiptId: String,
+        grandTotal: BigDecimal?,
+        pantTotal: BigDecimal?,
+    ): Result<Receipt, ApiError>
+
+    suspend fun addLine(receiptId: String, line: NewLine): Result<ReceiptLine, ApiError>
+
+    suspend fun deleteLine(lineId: String): EmptyResult<ApiError>
+
+    /** Accepts [difference], the figure the member saw; the server refuses it when the figures moved since. */
+    suspend fun acceptDifference(receiptId: String, difference: BigDecimal, note: String?): Result<Receipt, ApiError>
+
+    suspend fun withdrawAcceptance(receiptId: String): EmptyResult<ApiError>
 
     /** The endpoint replaces the receipt's whole coverage, so [days] is the full set. */
     suspend fun setCoverage(receiptId: String, days: Map<String, Int>): Result<List<MealCoverage>, ApiError>

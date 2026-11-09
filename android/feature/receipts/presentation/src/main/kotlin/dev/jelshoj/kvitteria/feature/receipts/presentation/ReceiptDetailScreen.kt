@@ -63,6 +63,7 @@ import dev.jelshoj.kvitteria.core.designsystem.PhosphorIcons
 import dev.jelshoj.kvitteria.core.designsystem.rememberKvToastState
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
 import dev.jelshoj.kvitteria.core.domain.taxonomy.Meal
 import dev.jelshoj.kvitteria.core.presentation.CategoryPickerSheet
 import dev.jelshoj.kvitteria.core.presentation.DanishTime
@@ -158,7 +159,16 @@ fun ReceiptDetailScreen(
         }
     }
 
-    state.editor?.let { LineEditorDialog(it, onAction) }
+    state.editor?.let { LineEditorDialog(it, state.canEdit, onAction) }
+    state.totalsEditor?.let { TotalsEditorDialog(it, onAction) }
+    state.acceptDialog?.let { AcceptDifferenceDialog(it, onAction) }
+    if (state.confirmingDeleteLine != null) {
+        DeleteLineDialog(
+            isDeleting = state.isDeletingLine,
+            onConfirm = { onAction(ReceiptDetailAction.OnConfirmDeleteLine) },
+            onDismiss = { onAction(ReceiptDetailAction.OnDismissDeleteLine) },
+        )
+    }
 
     val image = state.image
     if (state.isViewerOpen && image is ReceiptImage.Loaded) {
@@ -184,7 +194,7 @@ private fun DetailContent(
         contentPadding = PaddingValues(horizontal = KvSpace.gutter, vertical = KvSpace.s3),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item { Header(receipt) }
+        item { Header(receipt, state.canEdit, state.isWithdrawing, onAction) }
         if (receipt.possibleDuplicateOfId != null) {
             item { PossibleDuplicateMark(onOpen = { onAction(ReceiptDetailAction.OnOpenDuplicate) }) }
         }
@@ -198,12 +208,27 @@ private fun DetailContent(
             }
         }
         items(receipt.lines, key = { it.id }) { line -> LineCard(line, state, onAction) }
+        if (state.canEdit) {
+            item {
+                KvButton(
+                    stringResource(R.string.add_line),
+                    { onAction(ReceiptDetailAction.OnAddLine) },
+                    glyph = PhosphorIcons.Plus,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
         item { CoverageCard(state, onAction) }
     }
 }
 
 @Composable
-private fun Header(receipt: Receipt) {
+private fun Header(
+    receipt: Receipt,
+    canEdit: Boolean,
+    isWithdrawing: Boolean,
+    onAction: (ReceiptDetailAction) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(KvSpace.s3), modifier = Modifier.padding(bottom = KvSpace.s3)) {
         BasicText(DanishTime.date(receipt.purchaseDate).uppercase(), style = KvType.kicker.copy(fontSize = KvType.meta.fontSize))
         KvHeading(receipt.merchant, style = KvType.h3)
@@ -212,24 +237,67 @@ private fun Header(receipt: Receipt) {
             listOfNotNull(receipt.memberName, lines).joinToString(" · "),
             style = KvType.small.copy(color = KvColors.neutral400),
         )
-        KvAmount(KrFormat.amount(receipt.grandTotal), style = KvType.amountLarge, modifier = Modifier.fillMaxWidth())
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            KvAmount(KrFormat.amount(receipt.grandTotal), style = KvType.amountLarge, modifier = Modifier.weight(1f))
+            if (canEdit) {
+                KvIconButton(
+                    PhosphorIcons.PencilSimple,
+                    stringResource(R.string.edit_totals),
+                    { onAction(ReceiptDetailAction.OnOpenTotals) },
+                    tint = KvColors.neutral400,
+                )
+            }
+        }
         KvAmount(
             stringResource(R.string.pant_amount, KrFormat.amount(receipt.pantTotal)),
             style = KvType.hint,
             modifier = Modifier.fillMaxWidth(),
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(KvSpace.s3), verticalArrangement = Arrangement.spacedBy(KvSpace.s2)) {
-            if (receipt.reconciled) {
-                KvTag(stringResource(R.string.reconciled), style = KvTagStyle.Accent)
-            } else {
-                KvTag(stringResource(R.string.unreconciled), style = KvTagStyle.Outline)
-                BasicText(
-                    stringResource(R.string.difference, KrFormat.amount(receipt.difference)),
-                    style = KvType.label.copy(color = KvColors.neutral400),
+            when (receipt.reconciliation) {
+                ReconciliationState.Reconciled -> KvTag(stringResource(R.string.reconciled), style = KvTagStyle.Accent)
+                ReconciliationState.Accepted -> KvTag(stringResource(R.string.accepted), style = KvTagStyle.Accent)
+                ReconciliationState.Unreconciled, ReconciliationState.Unknown -> {
+                    KvTag(stringResource(R.string.unreconciled), style = KvTagStyle.Outline)
+                    BasicText(
+                        stringResource(R.string.difference, KrFormat.amount(receipt.difference)),
+                        style = KvType.label.copy(color = KvColors.neutral400),
+                    )
+                }
+            }
+        }
+        receipt.acceptance?.let { acceptance ->
+            val who = acceptance.memberName ?: stringResource(R.string.unknown_member)
+            BasicText(
+                stringResource(
+                    R.string.accepted_by,
+                    KrFormat.amount(acceptance.difference),
+                    who,
+                    DanishTime.dateTime(acceptance.acceptedAt),
+                ),
+                style = KvType.label.copy(color = KvColors.neutral400),
+            )
+            if (!acceptance.note.isNullOrBlank()) KvCallout(acceptance.note.orEmpty())
+            if (canEdit) {
+                KvButton(
+                    stringResource(R.string.withdraw_acceptance),
+                    { onAction(ReceiptDetailAction.OnWithdrawAcceptance) },
+                    busy = isWithdrawing,
                 )
             }
         }
-        if (!receipt.reconciled && !receipt.warning.isNullOrBlank()) KvCallout(receipt.warning.orEmpty())
+        if (receipt.reconciliation == ReconciliationState.Unreconciled) {
+            if (!receipt.warning.isNullOrBlank()) {
+                BasicText(
+                    stringResource(R.string.extraction_reported),
+                    style = KvType.hint.copy(color = KvColors.neutral500),
+                )
+                KvCallout(receipt.warning.orEmpty())
+            }
+            if (canEdit) {
+                KvButton(stringResource(R.string.accept_difference), { onAction(ReceiptDetailAction.OnAskAccept) })
+            }
+        }
     }
 }
 
@@ -361,15 +429,23 @@ private fun CoverageCard(state: ReceiptDetailState, onAction: (ReceiptDetailActi
 }
 
 @Composable
-private fun LineEditorDialog(editor: LineEditor, onAction: (ReceiptDetailAction) -> Unit) {
+private fun LineEditorDialog(editor: LineEditor, canEdit: Boolean, onAction: (ReceiptDetailAction) -> Unit) {
     val change: (LineEditor) -> Unit = { onAction(ReceiptDetailAction.OnEditorChange(it)) }
     val decimal = KeyboardOptions(keyboardType = KeyboardType.Decimal)
     val invalid = stringResource(R.string.invalid_number)
 
     KvDialog(
-        title = stringResource(R.string.edit_line),
+        title = stringResource(if (editor.lineId == null) R.string.add_line else R.string.edit_line),
         onDismiss = { onAction(ReceiptDetailAction.OnDismissEditor) },
         actions = {
+            if (editor.lineId != null && canEdit) {
+                KvIconButton(
+                    PhosphorIcons.Trash,
+                    stringResource(R.string.delete_line),
+                    { onAction(ReceiptDetailAction.OnAskDeleteLine(editor.lineId)) },
+                    tint = KvColors.neutral300,
+                )
+            }
             KvButton(
                 stringResource(CoreR.string.cancel),
                 { onAction(ReceiptDetailAction.OnDismissEditor) },
@@ -386,7 +462,8 @@ private fun LineEditorDialog(editor: LineEditor, onAction: (ReceiptDetailAction)
         KvField(
             label = stringResource(R.string.raw_name),
             value = editor.rawName,
-            onValueChange = { change(editor.copy(rawName = it)) },
+            onValueChange = { change(editor.copy(rawName = it, rawNameInvalid = false)) },
+            error = stringResource(R.string.name_required).takeIf { editor.rawNameInvalid },
             modifier = Modifier.fillMaxWidth(),
         )
         KvField(
@@ -414,5 +491,99 @@ private fun LineEditorDialog(editor: LineEditor, onAction: (ReceiptDetailAction)
             modifier = Modifier.fillMaxWidth(),
         )
         editor.error?.let { KvCallout(it.asString()) }
+    }
+}
+
+@Composable
+private fun TotalsEditorDialog(editor: TotalsEditor, onAction: (ReceiptDetailAction) -> Unit) {
+    val change: (TotalsEditor) -> Unit = { onAction(ReceiptDetailAction.OnTotalsChange(it)) }
+    val decimal = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+    val invalid = stringResource(R.string.invalid_number)
+
+    KvDialog(
+        title = stringResource(R.string.edit_totals),
+        onDismiss = { onAction(ReceiptDetailAction.OnDismissTotals) },
+        actions = {
+            KvButton(
+                stringResource(CoreR.string.cancel),
+                { onAction(ReceiptDetailAction.OnDismissTotals) },
+                style = KvButtonStyle.Ghost,
+            )
+            KvButton(
+                stringResource(CoreR.string.save),
+                { onAction(ReceiptDetailAction.OnSaveTotals) },
+                style = KvButtonStyle.Primary,
+                busy = editor.isBusy,
+            )
+        },
+    ) {
+        KvField(
+            label = stringResource(R.string.grand_total),
+            value = editor.grandTotal,
+            onValueChange = { change(editor.copy(grandTotal = it, grandTotalInvalid = false)) },
+            error = invalid.takeIf { editor.grandTotalInvalid },
+            keyboardOptions = decimal,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        KvField(
+            label = stringResource(R.string.pant_total),
+            value = editor.pantTotal,
+            onValueChange = { change(editor.copy(pantTotal = it, pantTotalInvalid = false)) },
+            error = invalid.takeIf { editor.pantTotalInvalid },
+            keyboardOptions = decimal,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        editor.error?.let { KvCallout(it.asString()) }
+    }
+}
+
+@Composable
+private fun AcceptDifferenceDialog(dialog: AcceptDialog, onAction: (ReceiptDetailAction) -> Unit) {
+    KvDialog(
+        title = stringResource(R.string.accept_title, KrFormat.amount(dialog.difference)),
+        onDismiss = { onAction(ReceiptDetailAction.OnDismissAccept) },
+        actions = {
+            KvButton(
+                stringResource(CoreR.string.cancel),
+                { onAction(ReceiptDetailAction.OnDismissAccept) },
+                style = KvButtonStyle.Ghost,
+                enabled = !dialog.isBusy,
+            )
+            KvButton(
+                stringResource(R.string.accept),
+                { onAction(ReceiptDetailAction.OnConfirmAccept) },
+                style = KvButtonStyle.Primary,
+                busy = dialog.isBusy,
+            )
+        },
+    ) {
+        BasicText(stringResource(R.string.accept_body), style = KvType.body.copy(color = KvColors.neutral300))
+        KvField(
+            label = stringResource(R.string.accept_note),
+            value = dialog.note,
+            onValueChange = { onAction(ReceiptDetailAction.OnAcceptNoteChange(it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        dialog.error?.let { KvCallout(it.asString()) }
+    }
+}
+
+@Composable
+private fun DeleteLineDialog(isDeleting: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    KvDialog(
+        title = stringResource(R.string.delete_line_title),
+        onDismiss = onDismiss,
+        actions = {
+            KvButton(stringResource(CoreR.string.cancel), onDismiss, style = KvButtonStyle.Ghost, enabled = !isDeleting)
+            KvButton(
+                stringResource(R.string.delete_line),
+                onConfirm,
+                style = KvButtonStyle.Primary,
+                glyph = PhosphorIcons.Trash,
+                busy = isDeleting,
+            )
+        },
+    ) {
+        BasicText(stringResource(R.string.delete_line_body), style = KvType.body.copy(color = KvColors.neutral300))
     }
 }

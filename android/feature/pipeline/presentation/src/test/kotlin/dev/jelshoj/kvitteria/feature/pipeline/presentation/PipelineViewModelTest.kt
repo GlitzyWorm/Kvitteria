@@ -90,6 +90,16 @@ private class NoReceipts : ReceiptRepository {
 
     override suspend fun setCoverage(receiptId: String, days: Map<String, Int>): Result<List<MealCoverage>, ApiError> = error("unused")
 
+    override suspend fun correctTotals(receiptId: String, grandTotal: java.math.BigDecimal?, pantTotal: java.math.BigDecimal?): Result<Receipt, ApiError> = error("unused")
+
+    override suspend fun addLine(receiptId: String, line: dev.jelshoj.kvitteria.core.domain.receipt.NewLine): Result<ReceiptLine, ApiError> = error("unused")
+
+    override suspend fun deleteLine(lineId: String): Result<Unit, ApiError> = error("unused")
+
+    override suspend fun acceptDifference(receiptId: String, difference: java.math.BigDecimal, note: String?): Result<Receipt, ApiError> = error("unused")
+
+    override suspend fun withdrawAcceptance(receiptId: String): Result<Unit, ApiError> = error("unused")
+
     override suspend fun delete(id: String): Result<Unit, ApiError> = error("unused")
 
     override suspend fun image(id: String): Result<ByteArray, ApiError> = error("unused")

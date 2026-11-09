@@ -52,7 +52,6 @@ public sealed class ReceiptIngestionService(
 			PurchaseDate = purchaseDate,
 			GrandTotal = extracted.GrandTotal,
 			PantTotal = extracted.PantTotal,
-			Reconciled = record.Reconciled,
 			Status = ReceiptStatus.Completed,
 			SourceMessageId = record.MessageId,
 			AppUserId = intake.AppUserId,
@@ -70,7 +69,14 @@ public sealed class ReceiptIngestionService(
 			}).ToList()
 		};
 
-		await LinkCanonicalItemsAsync(receipt, ct);
+		int linked = await AliasLinking.LinkAsync(dbContext, receipt.ReceiptLines, ct);
+
+		if (linked < receipt.ReceiptLines.Count)
+		{
+			logger.LogInformation(
+				"{UnmatchedCount}/{LineCount} lines have no canonical item yet.",
+				receipt.ReceiptLines.Count - linked, receipt.ReceiptLines.Count);
+		}
 
 		dbContext.Receipts.Add(receipt);
 
@@ -121,41 +127,4 @@ public sealed class ReceiptIngestionService(
 
 		return merchant.Id;
 	}
-
-	private async Task LinkCanonicalItemsAsync(Receipt receipt, CancellationToken ct)
-	{
-		List<(ReceiptLine Line, string Normalized)> lines = receipt.ReceiptLines
-			.Select(l => (Line: l, Normalized: l.RawName.NormalizeString()))
-			.ToList();
-
-		List<string> normalizedNames = lines.Select(l => l.Normalized).Distinct().ToList();
-
-		Dictionary<string, AliasTarget> targetByAlias = await dbContext.ItemAliases
-			.AsNoTracking()
-			.Where(a => normalizedNames.Contains(a.RawName))
-			.Select(a => new { a.RawName, Target = new AliasTarget(a.CanonicalItemId, a.CanonicalItem!.CategoryId, a.CanonicalItem.DefaultMealId) })
-			.ToDictionaryAsync(a => a.RawName, a => a.Target, ct);
-
-		var unmatched = new List<string>();
-
-		foreach ((ReceiptLine line, string normalized) in lines)
-		{
-			if (targetByAlias.TryGetValue(normalized, out AliasTarget? target))
-			{
-				line.CanonicalItemId = target.CanonicalItemId;
-				AliasLearning.FillGaps(line, target.CategoryId, target.DefaultMealId);
-			}
-			else
-				unmatched.Add(line.RawName);
-		}
-
-		if (unmatched.Count > 0)
-		{
-			logger.LogInformation(
-				"{UnmatchedCount}/{LineCount} lines have no canonical item yet: {RawNames}",
-				unmatched.Count, lines.Count, unmatched);
-		}
-	}
-
-	private sealed record AliasTarget(Guid CanonicalItemId, Guid? CategoryId, Guid? DefaultMealId);
 }

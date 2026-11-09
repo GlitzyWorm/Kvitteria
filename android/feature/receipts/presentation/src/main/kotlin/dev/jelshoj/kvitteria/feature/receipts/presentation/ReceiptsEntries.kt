@@ -29,5 +29,5 @@ fun EntryProviderScope<NavKey>.receiptsEntries(
 
 val receiptsPresentationModule = module {
     viewModelOf(::ReceiptsViewModel)
-    viewModel { params -> ReceiptDetailViewModel(params.get(), get(), get(), get(), get()) }
+    viewModel { params -> ReceiptDetailViewModel(params.get(), get(), get(), get(), get(), get()) }
 }

@@ -17,6 +17,7 @@ import dev.jelshoj.kvitteria.core.domain.map
 import dev.jelshoj.kvitteria.core.domain.onSuccess
 import dev.jelshoj.kvitteria.core.domain.receipt.LineCorrection
 import dev.jelshoj.kvitteria.core.domain.receipt.MealCoverage
+import dev.jelshoj.kvitteria.core.domain.receipt.NewLine
 import dev.jelshoj.kvitteria.core.domain.receipt.Page
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
@@ -25,10 +26,12 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
+import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -81,6 +84,55 @@ class KtorReceiptRepository(private val api: ApiHttpClient) : ReceiptRepository 
                 )
             }
         }.map { it.toReceiptLine() }.onSuccess(::remember)
+
+    override suspend fun correctTotals(
+        receiptId: String,
+        grandTotal: BigDecimal?,
+        pantTotal: BigDecimal?,
+    ): Result<Receipt, ApiError> =
+        safeCall<ReceiptDto> {
+            api.client.patch("/api/receipts/$receiptId") {
+                contentType(ContentType.Application.Json)
+                setBody(PatchReceiptDto(grandTotal, pantTotal))
+            }
+        }.map { it.toReceipt() }.onSuccess { cache[it.id] = it }
+
+    override suspend fun addLine(receiptId: String, line: NewLine): Result<ReceiptLine, ApiError> =
+        safeCall<ReceiptLineDto> {
+            api.client.post("/api/receipts/$receiptId/lines") {
+                contentType(ContentType.Application.Json)
+                setBody(CreateReceiptLineDto(line.rawName, line.quantity, line.unitPrice, line.lineTotal))
+            }
+        }.map { it.toReceiptLine() }.onSuccess { added ->
+            cache.computeIfPresent(receiptId) { _, receipt -> receipt.copy(lines = receipt.lines + added) }
+        }
+
+    override suspend fun deleteLine(lineId: String): EmptyResult<ApiError> {
+        val result = safeEmptyCall { api.client.delete("/api/receipt-lines/$lineId") }
+        if (result is Result.Success) {
+            cache.replaceAll { _, receipt -> receipt.copy(lines = receipt.lines.filter { it.id != lineId }) }
+        }
+        return result
+    }
+
+    override suspend fun acceptDifference(
+        receiptId: String,
+        difference: BigDecimal,
+        note: String?,
+    ): Result<Receipt, ApiError> =
+        safeCall<ReceiptDto> {
+            api.client.post("/api/receipts/$receiptId/accept-difference") {
+                contentType(ContentType.Application.Json)
+                setBody(AcceptDifferenceDto(difference, note?.takeIf { it.isNotBlank() }))
+            }
+        }.map { it.toReceipt() }.onSuccess { cache[it.id] = it }
+
+    override suspend fun withdrawAcceptance(receiptId: String): EmptyResult<ApiError> {
+        val result = safeEmptyCall { api.client.delete("/api/receipts/$receiptId/accept-difference") }
+        // The state is the server's to derive, so the copy kept here is dropped rather than patched.
+        if (result is Result.Success) cache.remove(receiptId)
+        return result
+    }
 
     override suspend fun setCoverage(
         receiptId: String,

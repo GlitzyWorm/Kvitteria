@@ -10,7 +10,6 @@ public sealed class Receipt
 	public DateTime PurchaseDate { get; set; }
 	public decimal GrandTotal { get; set; }
 	public decimal PantTotal { get; set; }
-	public bool Reconciled { get; set; }
 	public ReceiptStatus Status { get; set; }
 
 	/// <summary>
@@ -49,6 +48,18 @@ public sealed class Receipt
 	/// column existed share the migration's time and fall back to the key.
 	/// </summary>
 	public DateTime CreatedAt { get; set; }
+
+	/// <summary>
+	/// The difference (grand total less lines less pant) a member accepted. It holds only while the receipt's
+	/// difference still equals it exactly, so nothing has to clear it when a figure changes.
+	/// </summary>
+	public decimal? AcceptedDifference { get; set; }
+	public DateTime? AcceptedAt { get; set; }
+
+	/// <summary>Who accepted. Restrict on delete, like <see cref="AppUserId"/>.</summary>
+	public Guid? AcceptedById { get; set; }
+	public AppUser? AcceptedBy { get; set; }
+	public string? AcceptedNote { get; set; }
 
 	public List<ReceiptMealCoverage> MealCoverage { get; set; } = [];
 

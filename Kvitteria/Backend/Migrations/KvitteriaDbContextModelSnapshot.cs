@@ -375,6 +375,20 @@ namespace Backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AcceptedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("AcceptedDifference")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("AcceptedNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<Guid?>("AppUserId")
                         .HasColumnType("uuid");
 
@@ -407,9 +421,6 @@ namespace Backend.Migrations
                     b.Property<DateTime>("PurchaseDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("Reconciled")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("SourceMessageId")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
@@ -420,6 +431,8 @@ namespace Backend.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AcceptedById");
 
                     b.HasIndex("AppUserId");
 
@@ -670,6 +683,11 @@ namespace Backend.Migrations
 
             modelBuilder.Entity("Backend.Features.Persistence.Model.Receipts.Receipt", b =>
                 {
+                    b.HasOne("Backend.Features.Persistence.Model.Users.AppUser", "AcceptedBy")
+                        .WithMany()
+                        .HasForeignKey("AcceptedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Backend.Features.Persistence.Model.Users.AppUser", "AppUser")
                         .WithMany()
                         .HasForeignKey("AppUserId")
@@ -695,6 +713,8 @@ namespace Backend.Migrations
                         .WithMany()
                         .HasForeignKey("PossibleDuplicateOfId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AcceptedBy");
 
                     b.Navigation("AppUser");
 

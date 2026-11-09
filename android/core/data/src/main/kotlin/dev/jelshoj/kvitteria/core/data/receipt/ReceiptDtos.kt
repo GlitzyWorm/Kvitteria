@@ -9,11 +9,14 @@ package dev.jelshoj.kvitteria.core.data.receipt
 import dev.jelshoj.kvitteria.core.data.serialization.InstantSerializer
 import dev.jelshoj.kvitteria.core.data.serialization.MoneySerializer
 import dev.jelshoj.kvitteria.core.data.serialization.ReceiptStatusSerializer
+import dev.jelshoj.kvitteria.core.data.serialization.ReconciliationStateSerializer
+import dev.jelshoj.kvitteria.core.domain.receipt.Acceptance
 import dev.jelshoj.kvitteria.core.domain.receipt.MealCoverage
 import dev.jelshoj.kvitteria.core.domain.receipt.Page
 import dev.jelshoj.kvitteria.core.domain.receipt.Receipt
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptLine
 import dev.jelshoj.kvitteria.core.domain.receipt.ReceiptStatus
+import dev.jelshoj.kvitteria.core.domain.receipt.ReconciliationState
 import java.math.BigDecimal
 import java.time.Instant
 import kotlinx.serialization.Serializable
@@ -51,13 +54,26 @@ data class ReceiptMealCoverageDto(
 )
 
 @Serializable
+data class ReceiptAcceptanceDto(
+    @Serializable(with = MoneySerializer::class) val difference: BigDecimal,
+    val memberId: String?,
+    val memberDisplayName: String?,
+    @Serializable(with = InstantSerializer::class) val acceptedAt: Instant,
+    val note: String?,
+)
+
+fun ReceiptAcceptanceDto.toAcceptance(): Acceptance =
+    Acceptance(difference, memberId, memberDisplayName, acceptedAt, note)
+
+@Serializable
 data class ReceiptDto(
     val id: String,
     val merchant: String,
     @Serializable(with = InstantSerializer::class) val purchaseDate: Instant,
     @Serializable(with = MoneySerializer::class) val grandTotal: BigDecimal,
     @Serializable(with = MoneySerializer::class) val pantTotal: BigDecimal,
-    val reconciled: Boolean,
+    @Serializable(with = ReconciliationStateSerializer::class) val reconciliation: ReconciliationState,
+    val acceptance: ReceiptAcceptanceDto? = null,
     @Serializable(with = ReceiptStatusSerializer::class) val status: ReceiptStatus,
     val receiptLines: List<ReceiptLineDto>,
     val receiptMealCoverage: List<ReceiptMealCoverageDto>,
@@ -81,6 +97,26 @@ data class PatchReceiptLineDto(
     @Serializable(with = MoneySerializer::class) val quantity: BigDecimal?,
     @Serializable(with = MoneySerializer::class) val unitPrice: BigDecimal?,
     @Serializable(with = MoneySerializer::class) val lineTotal: BigDecimal?,
+)
+
+@Serializable
+data class PatchReceiptDto(
+    @Serializable(with = MoneySerializer::class) val grandTotal: BigDecimal?,
+    @Serializable(with = MoneySerializer::class) val pantTotal: BigDecimal?,
+)
+
+@Serializable
+data class CreateReceiptLineDto(
+    val rawName: String,
+    @Serializable(with = MoneySerializer::class) val quantity: BigDecimal,
+    @Serializable(with = MoneySerializer::class) val unitPrice: BigDecimal,
+    @Serializable(with = MoneySerializer::class) val lineTotal: BigDecimal,
+)
+
+@Serializable
+data class AcceptDifferenceDto(
+    @Serializable(with = MoneySerializer::class) val difference: BigDecimal,
+    val note: String?,
 )
 
 @Serializable
@@ -111,7 +147,8 @@ fun ReceiptDto.toReceipt(): Receipt = Receipt(
     purchaseDate = purchaseDate,
     grandTotal = grandTotal,
     pantTotal = pantTotal,
-    reconciled = reconciled,
+    reconciliation = reconciliation,
+    acceptance = acceptance?.toAcceptance(),
     status = status,
     lines = receiptLines.map { it.toReceiptLine() },
     coverage = receiptMealCoverage.map { it.toMealCoverage() },

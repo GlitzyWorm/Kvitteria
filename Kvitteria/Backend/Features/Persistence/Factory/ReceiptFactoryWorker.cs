@@ -44,6 +44,6 @@ public sealed class ReceiptFactoryWorker(
 
 		logger.LogInformation(
 			"Persisted receipt {ReceiptId} for '{Subject}': {LineCount} lines, total {GrandTotal}, reconciled={Reconciled}",
-			receipt.Id, record.Label, receipt.ReceiptLines.Count, receipt.GrandTotal, receipt.Reconciled);
+			receipt.Id, record.Label, receipt.ReceiptLines.Count, receipt.GrandTotal, record.Reconciled);
 	}
 }

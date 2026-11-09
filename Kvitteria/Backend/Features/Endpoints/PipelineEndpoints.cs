@@ -5,6 +5,7 @@ using Backend.Features.Mail;
 using Backend.Features.Persistence;
 using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Model;
+using Backend.Features.Receipts;
 using Backend.Features.Shared;
 using Kvitteria.Contracts.DTO;
 using Kvitteria.Contracts.Shared;
@@ -29,7 +30,8 @@ static class PipelineEndpoints
 				                                                                     .Select(g => new { Status = g.Key, Count = g.Count() })
 				                                                                     .ToDictionaryAsync(g => g.Status, g => g.Count, ct);
 
-				             int unreconciled = await dbContext.Receipts.CountAsync(r => !r.Reconciled, ct);
+				             decimal tolerance = await ReceiptReconciliation.ReadToleranceAsync(dbContext, ct);
+				             int unreconciled = await dbContext.Receipts.CountAsync(ReceiptReconciliation.NeedsAttention(tolerance), ct);
 
 				             int pollInterval = await dbContext.PipelineSettings
 				                                               .AsNoTracking()
