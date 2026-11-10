@@ -16,11 +16,33 @@ public static class PurchaseDate
 		"yyyy-MM-dd"
 	];
 
-	/// <summary>Parses the extracted date, falling back to the mail's own timestamp.</summary>
+	/// <summary>
+	/// A purchase may be photographed or opened well after it happened, but not before it happened, so the
+	/// window is wide on the past side and one day on the future side (clock and time-zone slack).
+	/// </summary>
+	private static readonly TimeSpan MaxAfterSource = TimeSpan.FromDays(1);
+	private static readonly TimeSpan MaxBeforeSource = TimeSpan.FromDays(365);
+
+	/// <summary>
+	/// Parses the extracted date, falling back to the source's own time when it is unparseable or
+	/// implausible against it.
+	/// </summary>
 	public static DateTime Resolve(string extracted, DateTimeOffset mailDate, ILogger logger, string subject)
 	{
 		if (TryParseLocal(extracted, out DateTime localDate))
-			return ToUtc(localDate);
+		{
+			DateTime utc = ToUtc(localDate);
+			DateTime source = mailDate.UtcDateTime;
+
+			if (utc <= source + MaxAfterSource && utc >= source - MaxBeforeSource)
+				return utc;
+
+			logger.LogWarning(
+				"Implausible purchase date '{PurchaseDate}' for '{Subject}'; falling back to the source date {MailDate}.",
+				extracted, subject, mailDate);
+
+			return source;
+		}
 
 		logger.LogWarning(
 			"Unparseable purchase date '{PurchaseDate}' for '{Subject}'; falling back to the mail date {MailDate}.",

@@ -58,4 +58,28 @@ public class PurchaseDateTests
 
 		Assert.Equal(DateTimeKind.Utc, resolved.Kind);
 	}
+
+	[Fact]
+	public void Falls_back_when_the_date_is_years_before_the_source()
+	{
+		DateTime resolved = PurchaseDate.Resolve("2024-08-09 11:17:40", MailDate, NullLogger.Instance, "Kvittering");
+
+		Assert.Equal(MailDate.UtcDateTime, resolved);
+	}
+
+	[Fact]
+	public void Accepts_a_receipt_photographed_two_weeks_later()
+	{
+		DateTime resolved = PurchaseDate.Resolve("2026-07-26 13:07:00", MailDate, NullLogger.Instance, "Kvittering");
+
+		Assert.Equal(new DateTime(2026, 7, 26, 11, 7, 0, DateTimeKind.Utc), resolved);
+	}
+
+	[Fact]
+	public void Falls_back_when_the_date_is_30_hours_after_the_source()
+	{
+		DateTime resolved = PurchaseDate.Resolve("2026-08-10 17:17:40", MailDate, NullLogger.Instance, "Kvittering");
+
+		Assert.Equal(MailDate.UtcDateTime, resolved);
+	}
 }

@@ -144,7 +144,7 @@ reorder guard, paging validation, the HTML-to-text converter, the user-provision
 effective permissions and the last-admin guard, permission-name parsing, the auth options rules,
 mailbox write validation, the mailbox secret round-trip, the rate-limit partition key and trusted private ranges, the Danish month helpers and `MonthKey`, the
 spending, category, price and meal-day rollups, receipt-search parsing, release selection and the update
-status decisions, the JPEG header reader and image budget, the Danish day range, the no-receipt sentinel, and the reconciliation states. Run it from `Kvitteria`:
+status decisions, the JPEG header reader and image budget, the Danish day range, the no-receipt sentinel, the reconciliation states, Danish amounts, the printed purchase date, the chain match, the row mapper and the extraction schema. Run it from `Kvitteria`:
 
 ```bash
 dotnet test Backend.Tests/Backend.Tests.csproj
@@ -284,8 +284,8 @@ subject for mail and `upload <id>` for an upload, and every worker log line uses
 
 `ExtractionWorker` transcribes an upload whose `BodyText` is empty (`OllamaClient.TranscribeAsync`, image in
 the message's `images`, no `format`, temperature 0), stores the text with `SaveTranscriptionAsync` (only
-while `Extracting`), then runs the unchanged retry loop with `ReceiptExtractionPrompt.PhotoSystemPrompt`
-instead of `SystemPrompt`. So the image costs one vision call: a retry, a user retry and restart recovery
+while `Extracting`), then runs the unchanged retry loop with the same `ReceiptExtractionPrompt.ExtractionPrompt` a mail uses,
+so the same printed receipt gives the same figures whichever way it arrived. So the image costs one vision call: a retry, a user retry and restart recovery
 all reuse the stored text. Transcription is deliberately outside the extraction retry budget, and a
 transport failure fails the intake with zero attempts. There is no new `ReceiptStatus`; transcribing is
 `Extracting`. A model answering `NO_RECEIPT` (`ReceiptTranscription.IsNoReceipt`) fails the intake with a
@@ -304,7 +304,7 @@ column so the blob never rides along with a receipt or intake query. `Sha256` is
 millisecond, so `Id` alone is not insertion order. `PossibleDuplicateOfId` is a self-FK with `SetNull`,
 which is what makes the flag disappear with the receipt it points to. The receipt is always stored.
 
-`PhotoSystemPrompt` is tuned behaviour exactly like `SystemPrompt`, and on four real receipts that
+`ExtractionPrompt` is tuned behaviour, evaluated on real receipts that
 are **kept out of the repository**: they carry a loyalty number, store addresses and a cashier's name, and
 the repository is public.
 
@@ -350,7 +350,8 @@ remembered. `MailWorker` is a poller, not a consumer, and stands alone.
    untouched rather than recorded as polled. An empty table logs and returns; it is how every household
    starts, not a failure.
 2. **`ExtractionWorker`** — calls `OllamaClient` (`/api/chat`, non-streaming, JSON-schema-constrained
-   output from `ReceiptExtractionPrompt.Schema`). Retries up to `PipelineSettings.OllamaMaxExtractionAttempts`
+   output from `ReceiptExtractionPrompt.Schema`: labelled `rows`, which `ReceiptRows.ToExtracted` maps to the
+   `ExtractedReceipt` the rest of the pipeline uses, so an unmappable answer is an `OllamaResponseException`). Retries up to `PipelineSettings.OllamaMaxExtractionAttempts`
    times: attempt 1 at temperature 0, retries at `OllamaRetryTemperature`. Success = **reconciliation**:
    `Reconciliation.IsReconciled`, i.e. `grand_total - sum(line_totals) - pant_total` within
    `OllamaReconciliationToleranceKr` of zero (default 0.01 — Danish receipts round to øre, and exact
@@ -379,9 +380,22 @@ hosted services are singletons. `ExtractionWorker` resolves `OllamaClient` per i
 is a transient typed `HttpClient`, and holding one in a singleton would pin its pooled handler for
 the process lifetime.
 
-`ReceiptExtractionPrompt.SystemPrompt` encodes hard-won Danish-receipt rules (printed amounts are
+`ReceiptExtractionPrompt.ExtractionPrompt` encodes hard-won Danish-receipt rules (printed amounts are
 line totals not unit prices, the `HERAF PANT IALT` / `HERAF MOMS` / `I ALT` label-then-amount
-ordering, decimal commas). Treat it as tuned behavior: changing wording changes extraction accuracy.
+ordering, decimal commas). Treat it as tuned behavior: changing wording changes extraction accuracy. What the
+evaluation of the earlier prompts taught:
+
+- **Classify, don't filter.** Told to leave out what isn't a product, a 4B model also left out discounts and
+  the first product. Told to label every line with an amount (`ReceiptRows`' `kind`), it kept them, and
+  code decides which kinds count, forces discounts negative, sums deposits and takes the absolute paid amount.
+- **Amounts are patterned strings.** As JSON numbers `29,95` came out as `29` (no decimal comma in JSON); as
+  free strings the model returned `2 x 10,05` or `""`. The schema pattern (a grammar in Ollama) fixed both,
+  and `DanishAmount.TryParse` rejecting anything else turns an ignored pattern into a retry.
+- **Dates and chains are code.** The model's `purchase_date` was wrong whenever register numbers preceded the
+  date. `PrintedDate.Find` reads it from the text and `MerchantChains.Match` names the chain (one spelling per
+  chain; the model's name is only a fallback). `PurchaseDate.Resolve` falls back to the source time when the
+  date is more than a day after it or more than 365 days before it.
+- A row that is only a quantity (`2 x 12,00`) is an unusable answer, retried like malformed JSON.
 
 ## Authentication and authorization
 

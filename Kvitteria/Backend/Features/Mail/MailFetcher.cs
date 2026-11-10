@@ -1,5 +1,4 @@
-﻿using System.Text.RegularExpressions;
-using Backend.Features.Persistence;
+﻿using Backend.Features.Persistence;
 using Backend.Features.Persistence.Factory;
 using Backend.Features.Persistence.Model;
 using MailKit;
@@ -220,30 +219,11 @@ public sealed partial class MailFetcher(
 
 	private string ExtractBody(MimeMessage message, out string bodySource)
 	{
-		if (!string.IsNullOrWhiteSpace(message.TextBody))
-		{
-			bodySource = "text";
-			return NormalizeWhitespace(message.TextBody);
-		}
+		string body = MailBody.From(message, out bodySource);
 
-		if (!string.IsNullOrWhiteSpace(message.HtmlBody))
-		{
-			bodySource = "html";
-			return NormalizeWhitespace(HtmlToPlainText.Convert(message.HtmlBody));
-		}
+		if (bodySource == "none")
+			logger.LogWarning("Message '{Subject}' has no text or HTML body; skipping body extraction", message.Subject);
 
-		logger.LogWarning("Message '{Subject}' has no text or HTML body; skipping body extraction", message.Subject);
-		bodySource = "none";
-		return "";
+		return body;
 	}
-
-	private static string NormalizeWhitespace(string text)
-	{
-		string[] lines = text.ReplaceLineEndings("\n").Split('\n');
-		string joined = string.Join('\n', lines.Select(l => l.TrimEnd()));
-		return ExcessNewlines().Replace(joined, "\n\n").Trim();
-	}
-
-	[GeneratedRegex(@"\n{3,}")]
-	private static partial Regex ExcessNewlines();
 }

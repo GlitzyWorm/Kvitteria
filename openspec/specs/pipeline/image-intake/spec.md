@@ -65,8 +65,7 @@ with a stored receipt, with a 409 problem response.
 
 ### Requirement: An image is transcribed once, then extracted from its text
 The system SHALL transcribe an uploaded image to plain text and store it before extracting. Extraction SHALL
-use the reconciliation and retry rules mail uses, but with instructions suited to photographed and
-screenshotted receipts, and SHALL NOT change how mail is extracted.
+use the same instructions, reconciliation and retry rules as mail.
 
 #### Scenario: Transcription stored
 - **WHEN** an uploaded image has been transcribed
@@ -97,8 +96,8 @@ with an error saying so, without attempting extraction.
 - **THEN** the intake is failed with an error stating that no receipt was found, and no receipt is stored
 
 ### Requirement: The purchase date falls back to the capture time
-When the extracted purchase date cannot be parsed, an image-sourced receipt SHALL use the capture time sent
-with the upload, or the upload time when none was sent.
+When no plausible purchase date can be read from the transcription, an image-sourced receipt SHALL use the
+capture time sent with the upload, or the upload time when none was sent.
 
 #### Scenario: Unreadable date with capture time
 - **WHEN** the date on an uploaded receipt cannot be read and the upload carried a capture time
@@ -107,3 +106,7 @@ with the upload, or the upload time when none was sent.
 #### Scenario: Unreadable date without capture time
 - **WHEN** the date cannot be read and no capture time was sent
 - **THEN** the receipt's purchase date is the upload time
+
+#### Scenario: No date printed
+- **WHEN** an uploaded screenshot prints no date and the upload carried a capture time
+- **THEN** the receipt's purchase date is that capture time
