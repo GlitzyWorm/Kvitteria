@@ -46,15 +46,24 @@ data class TrendMonth(
     val changePercent: BigDecimal?,
 )
 
+data class PricedName(
+    /** The normalized form, sent back to the server as `name`. */
+    val key: String,
+    val label: String,
+    val purchaseCount: Int,
+)
+
 data class PricedItem(
     val id: String,
     val name: String,
     val purchaseCount: Int,
+    val names: List<PricedName>,
 )
 
 data class PriceMonth(
     val month: YearMonth,
     val price: BigDecimal?,
+    val purchaseCount: Int,
 )
 
 data class PriceHistory(
@@ -64,6 +73,9 @@ data class PriceHistory(
     val latestPrice: BigDecimal?,
     val lowestPrice: BigDecimal?,
     val changePercent: BigDecimal?,
+    /** Set only when the history was narrowed to one raw name. */
+    val nameKey: String?,
+    val nameLabel: String?,
 )
 
 data class MealCoverageMonth(
@@ -92,7 +104,7 @@ interface InsightsRepository {
 
     suspend fun pricedItems(page: Int, pageSize: Int): Result<Page<PricedItem>, ApiError>
 
-    suspend fun priceHistory(itemId: String, months: Int): Result<PriceHistory, ApiError>
+    suspend fun priceHistory(itemId: String, months: Int, name: String? = null): Result<PriceHistory, ApiError>
 
     suspend fun mealCoverage(endMonth: YearMonth, months: Int): Result<List<MealCoverageStats>, ApiError>
 }

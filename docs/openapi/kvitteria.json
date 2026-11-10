@@ -2825,6 +2825,13 @@
             }
           },
           {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "months",
             "in": "query",
             "schema": {
@@ -4194,7 +4201,8 @@
         "required": [
           "id",
           "displayName",
-          "purchaseCount"
+          "purchaseCount",
+          "names"
         ],
         "type": "object",
         "properties": {
@@ -4203,6 +4211,36 @@
             "format": "uuid"
           },
           "displayName": {
+            "type": "string"
+          },
+          "purchaseCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricedNameDto"
+            }
+          }
+        }
+      },
+      "PricedNameDto": {
+        "required": [
+          "key",
+          "label",
+          "purchaseCount"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
             "type": "string"
           },
           "purchaseCount": {
@@ -4222,7 +4260,9 @@
           "months",
           "latestPrice",
           "lowestPrice",
-          "changePercent"
+          "changePercent",
+          "rawNameKey",
+          "rawNameLabel"
         ],
         "type": "object",
         "properties": {
@@ -4265,13 +4305,26 @@
               "string"
             ],
             "format": "double"
+          },
+          "rawNameKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rawNameLabel": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
       "PriceMonthDto": {
         "required": [
           "month",
-          "price"
+          "price",
+          "purchaseCount"
         ],
         "type": "object",
         "properties": {
@@ -4286,6 +4339,14 @@
               "string"
             ],
             "format": "double"
+          },
+          "purchaseCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

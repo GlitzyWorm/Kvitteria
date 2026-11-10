@@ -609,6 +609,14 @@ negative quantity or total are excluded so a discount cannot look like a price d
 same rule in SQL, so an item is listed only if it has a price to show. `Quantity` counts packs, so a generic
 item that mixes pack sizes mixes them here too.
 
+**Raw names are grouped in memory** (`RawNames.Group`), never in SQL, for the same reason as the unassigned queue:
+`lower(btrim(...))` would follow the database locale for `Æ`, `Ø` and `Å` and could disagree with the C#
+`NormalizeString` that aliases are keyed by. `GET /prices` attaches each item's names (key = normalized form,
+label = most common spelling) for the page's items only. `GET /prices/{itemId}?name=` filters the item's lines by
+that key in memory, so the same printed name sorted to another item never counts, and answers `RawNameKey` and
+`RawNameLabel` (null without `name`, which is also how an app spots an older server that ignored it). The label
+is taken from the item's all-time lines so the heading matches the sheet. Each month carries `PurchaseCount`.
+
 **Meal statistics divide all spend on the meal by the days covered.** Spend on receipts with no coverage stays
 in the numerator, so the spend figure matches the lines that carry the meal; the cost per day is high for a
 household that fills coverage in only sometimes.

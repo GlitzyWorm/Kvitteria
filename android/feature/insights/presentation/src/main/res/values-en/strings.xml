@@ -36,6 +36,12 @@
     <string name="days_short">Days</string>
     <string name="no_data_title">No data yet</string>
     <string name="no_data_body">Figures appear here once the first receipts have been read.</string>
+    <string name="search_prices">Search items or names</string>
+    <string name="no_matching_prices">No items match</string>
+    <plurals name="purchase_count">
+        <item quantity="one">%d purchase</item>
+        <item quantity="other">%d purchases</item>
+    </plurals>
     <string name="no_prices_title">No prices yet</string>
     <string name="no_prices_body">Prices show for items with at least one purchase.</string>
     <string name="no_tracking_title">No meal tracks days</string>

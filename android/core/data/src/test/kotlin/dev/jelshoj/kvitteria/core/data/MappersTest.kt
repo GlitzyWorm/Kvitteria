@@ -16,10 +16,12 @@ import assertk.assertions.isTrue
 import dev.jelshoj.kvitteria.core.data.insights.CategoryBreakdownDto
 import dev.jelshoj.kvitteria.core.data.insights.MealCoverageStatsDto
 import dev.jelshoj.kvitteria.core.data.insights.PriceHistoryDto
+import dev.jelshoj.kvitteria.core.data.insights.PricedItemDto
 import dev.jelshoj.kvitteria.core.data.insights.SpendingSummaryDto
 import dev.jelshoj.kvitteria.core.data.insights.toCategoryBreakdown
 import dev.jelshoj.kvitteria.core.data.insights.toMealCoverageStats
 import dev.jelshoj.kvitteria.core.data.insights.toPriceHistory
+import dev.jelshoj.kvitteria.core.data.insights.toPricedItem
 import dev.jelshoj.kvitteria.core.data.insights.toSpendingSummary
 import dev.jelshoj.kvitteria.core.data.member.AppUserDto
 import dev.jelshoj.kvitteria.core.data.member.CurrentUserDto
@@ -150,10 +152,37 @@ class MappersTest {
     fun `a price gap stays a null rather than a zero`() {
         val history = decode<PriceHistoryDto>(
             """{"itemId":"i","displayName":"Mælk","latestPrice":10.75,"lowestPrice":9.95,"changePercent":2.4,
-                "months":[{"month":"2026-02","price":null},{"month":"2026-03","price":10.75}]}""",
+                "rawNameKey":null,"rawNameLabel":null,
+                "months":[{"month":"2026-02","price":null,"purchaseCount":0},
+                          {"month":"2026-03","price":10.75,"purchaseCount":3}]}""",
         ).toPriceHistory()
 
         assertThat(history.months.map { it.price }).containsExactly(null, BigDecimal("10.75"))
+        assertThat(history.months.map { it.purchaseCount }).containsExactly(0, 3)
+        assertThat(history.nameKey).isNull()
+    }
+
+    @Test
+    fun `a narrowed history carries its raw name`() {
+        val history = decode<PriceHistoryDto>(
+            """{"itemId":"i","displayName":"Mælk","latestPrice":null,"lowestPrice":null,"changePercent":null,
+                "rawNameKey":"arla letmælk 1l","rawNameLabel":"ARLA LETMÆLK 1L","months":[]}""",
+        ).toPriceHistory()
+
+        assertThat(history.nameKey).isEqualTo("arla letmælk 1l")
+        assertThat(history.nameLabel).isEqualTo("ARLA LETMÆLK 1L")
+    }
+
+    @Test
+    fun `a priced item lists its raw names`() {
+        val item = decode<PricedItemDto>(
+            """{"id":"i","displayName":"Mælk","purchaseCount":5,
+                "names":[{"key":"arla letmælk 1l","label":"ARLA LETMÆLK 1L","purchaseCount":3},
+                         {"key":"minimælk","label":"Minimælk","purchaseCount":2}]}""",
+        ).toPricedItem()
+
+        assertThat(item.names.map { it.label }).containsExactly("ARLA LETMÆLK 1L", "Minimælk")
+        assertThat(item.names.first().key).isEqualTo("arla letmælk 1l")
     }
 
     @Test

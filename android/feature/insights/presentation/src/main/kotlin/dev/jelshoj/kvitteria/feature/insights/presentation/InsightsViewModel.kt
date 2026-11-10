@@ -8,6 +8,7 @@ package dev.jelshoj.kvitteria.feature.insights.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.jelshoj.kvitteria.core.domain.ApiError
 import dev.jelshoj.kvitteria.core.domain.Result
 import dev.jelshoj.kvitteria.core.domain.insights.CategoryAmount
 import dev.jelshoj.kvitteria.core.domain.insights.CategoryBreakdown
@@ -84,7 +85,10 @@ data class InsightsSelections(
     val sort: CategorySort = CategorySort.Size,
     val drill: CategoryAmount? = null,
     val trendMonth: YearMonth,
-    val priceItemId: String? = null,
+    val price: PriceSelection? = null,
+    /** The month tapped on the price chart. Picking another item or name clears it. */
+    val priceMonth: YearMonth? = null,
+    val priceSearch: String = "",
     val mealId: String? = null,
     val picker: InsightsPicker? = null,
     val dialog: CategoryDialog? = null,
@@ -111,7 +115,9 @@ sealed interface InsightsAction {
     data class OnSort(val sort: CategorySort) : InsightsAction
     data class OnDrill(val row: CategoryAmount?) : InsightsAction
     data class OnTrendMonth(val month: YearMonth) : InsightsAction
-    data class OnPriceItem(val id: String) : InsightsAction
+    data class OnPrice(val selection: PriceSelection) : InsightsAction
+    data class OnPriceMonth(val month: YearMonth) : InsightsAction
+    data class OnPriceSearch(val query: String) : InsightsAction
     data class OnMeal(val id: String) : InsightsAction
     data object OnNewCategory : InsightsAction
     data class OnEditCategory(val categoryId: String) : InsightsAction
@@ -141,10 +147,10 @@ class InsightsViewModel(
         insights.categories(chosen.month, chosen.compareTo, chosen.drill?.categoryId)
     }
     private val trend = Loader(viewModelScope) { insights.trend(current, RUN) }
-    private val priceItems = Loader(viewModelScope) { insights.pricedItems(1, PRICED_ITEMS).map { it.items } }
+    private val priceItems = Loader(viewModelScope) { allPricedItems() }
     private val history = Loader(viewModelScope) {
-        val id = selections.value.priceItemId
-        if (id == null) Result.Success(emptyHistory) else insights.priceHistory(id, RUN)
+        val chosen = selections.value.price
+        if (chosen == null) Result.Success(emptyHistory) else insights.priceHistory(chosen.itemId, RUN, chosen.nameKey)
     }
     private val dinner = Loader(viewModelScope) { insights.mealCoverage(current, RUN) }
 
@@ -197,10 +203,27 @@ class InsightsViewModel(
         priceItems.refresh()
         viewModelScope.launch {
             val items = priceItems.state.first { !it.isLoading }.data ?: return@launch
-            if (selections.value.priceItemId == null) {
-                selections.update { it.copy(priceItemId = items.firstOrNull()?.id) }
+            selections.update { chosen ->
+                val resolved = resolve(chosen.price, items)
+                chosen.copy(price = resolved, priceMonth = if (resolved == chosen.price) chosen.priceMonth else null)
             }
             history.refresh()
+        }
+    }
+
+    /** Every page, so the sheet's search covers all items rather than only the first hundred. */
+    private suspend fun allPricedItems(): Result<List<PricedItem>, ApiError> {
+        val all = mutableListOf<PricedItem>()
+        var page = 1
+        while (true) {
+            when (val result = insights.pricedItems(page, PRICED_ITEMS)) {
+                is Result.Error -> return result
+                is Result.Success -> {
+                    all += result.data.items
+                    if (result.data.items.isEmpty() || all.size >= result.data.totalCount) return Result.Success(all)
+                    page++
+                }
+            }
         }
     }
 
@@ -211,7 +234,9 @@ class InsightsViewModel(
                 selections.update { it.copy(view = action.view) }
                 refresh()
             }
-            is InsightsAction.OnPicker -> selections.update { it.copy(picker = action.picker) }
+            is InsightsAction.OnPicker -> selections.update {
+                it.copy(picker = action.picker, priceSearch = if (action.picker == null) "" else it.priceSearch)
+            }
             is InsightsAction.OnMonth -> {
                 selections.update {
                     it.copy(
@@ -239,10 +264,17 @@ class InsightsViewModel(
                 breakdown.refresh()
             }
             is InsightsAction.OnTrendMonth -> selections.update { it.copy(trendMonth = action.month) }
-            is InsightsAction.OnPriceItem -> {
-                selections.update { it.copy(priceItemId = action.id, picker = null) }
+            is InsightsAction.OnPrice -> {
+                selections.update {
+                    it.copy(price = action.selection, priceMonth = null, picker = null, priceSearch = "")
+                }
                 history.refresh()
             }
+            // Tapping the selected month again clears it.
+            is InsightsAction.OnPriceMonth -> selections.update {
+                it.copy(priceMonth = action.month.takeIf { month -> month != it.priceMonth })
+            }
+            is InsightsAction.OnPriceSearch -> selections.update { it.copy(priceSearch = action.query) }
             is InsightsAction.OnMeal -> selections.update { it.copy(mealId = action.id) }
             InsightsAction.OnNewCategory -> selections.update {
                 it.copy(dialog = CategoryDialog(parentId = it.drill?.categoryId))
@@ -305,6 +337,16 @@ class InsightsViewModel(
     )
 
     private companion object {
-        val emptyHistory = PriceHistory("", "", emptyList(), null, null, null)
+        val emptyHistory = PriceHistory("", "", emptyList(), null, null, null, null, null)
+
+        /**
+         * What a reload keeps of a selection: a name that left its item falls back to the item, and an item
+         * that is gone falls back to the first one.
+         */
+        fun resolve(chosen: PriceSelection?, items: List<PricedItem>): PriceSelection? {
+            val item = items.firstOrNull { it.id == chosen?.itemId } ?: return items.firstOrNull()?.let { PriceSelection(it.id) }
+            val key = chosen?.nameKey?.takeIf { key -> item.names.any { it.key == key } }
+            return PriceSelection(item.id, key)
+        }
     }
 }

@@ -17,17 +17,21 @@ public static class PriceHistory
 		Guid itemId,
 		string displayName,
 		IReadOnlyList<MonthKey> run,
-		IEnumerable<PricedLine> lines)
+		IEnumerable<PricedLine> lines,
+		string? rawNameKey,
+		string? rawNameLabel)
 	{
-		Dictionary<MonthKey, decimal> prices = lines
-		                                       .Where(l => IsPriced(l.Quantity, l.LineTotal))
-		                                       .GroupBy(l => MonthKey.Of(l.PurchaseDate))
-		                                       .ToDictionary(
-			                                       g => g.Key,
-			                                       g => Math.Round(g.Sum(l => l.LineTotal) / g.Sum(l => l.Quantity), 2, MidpointRounding.AwayFromZero));
+		Dictionary<MonthKey, (decimal Price, int Count)> prices = lines
+		                                                          .Where(l => IsPriced(l.Quantity, l.LineTotal))
+		                                                          .GroupBy(l => MonthKey.Of(l.PurchaseDate))
+		                                                          .ToDictionary(
+			                                                          g => g.Key,
+			                                                          g => (Math.Round(g.Sum(l => l.LineTotal) / g.Sum(l => l.Quantity), 2, MidpointRounding.AwayFromZero), g.Count()));
 
 		List<PriceMonthDto> months = run
-		                             .Select(m => new PriceMonthDto(m.ToString(), prices.TryGetValue(m, out decimal price) ? price : null))
+		                             .Select(m => prices.TryGetValue(m, out (decimal Price, int Count) p)
+			                             ? new PriceMonthDto(m.ToString(), p.Price, p.Count)
+			                             : new PriceMonthDto(m.ToString(), null, 0))
 		                             .ToList();
 
 		List<decimal> priced = months.Where(m => m.Price != null).Select(m => m.Price!.Value).ToList();
@@ -38,6 +42,8 @@ public static class PriceHistory
 			months,
 			priced.Count == 0 ? null : priced[^1],
 			priced.Count == 0 ? null : priced.Min(),
-			priced.Count < 2 ? null : Percent.Change(priced[0], priced[^1]));
+			priced.Count < 2 ? null : Percent.Change(priced[0], priced[^1]),
+			rawNameKey,
+			rawNameLabel);
 	}
 }

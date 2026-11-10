@@ -18,6 +18,7 @@ import dev.jelshoj.kvitteria.core.data.insights.MealCoverageStatsDto
 import dev.jelshoj.kvitteria.core.data.insights.PriceHistoryDto
 import dev.jelshoj.kvitteria.core.data.insights.PriceMonthDto
 import dev.jelshoj.kvitteria.core.data.insights.PricedItemDto
+import dev.jelshoj.kvitteria.core.data.insights.PricedNameDto
 import dev.jelshoj.kvitteria.core.data.insights.SpendingSummaryDto
 import dev.jelshoj.kvitteria.core.data.insights.SpendingTrendMonthDto
 import dev.jelshoj.kvitteria.core.data.member.AppUserDto
@@ -115,6 +116,7 @@ class ContractTest {
         Model("CategoryBreakdownDto", CategoryBreakdownDto.serializer()),
         Model("SpendingTrendMonthDto", SpendingTrendMonthDto.serializer()),
         Model("PricedItemDto", PricedItemDto.serializer()),
+        Model("PricedNameDto", PricedNameDto.serializer()),
         Model("PriceMonthDto", PriceMonthDto.serializer()),
         Model("PriceHistoryDto", PriceHistoryDto.serializer()),
         Model("MealCoverageMonthDto", MealCoverageMonthDto.serializer()),
