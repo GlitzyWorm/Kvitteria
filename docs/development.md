@@ -163,6 +163,47 @@ Note `Backend.csproj` sets `TreatWarningsAsErrors`, and `Backend.Tests.csproj` d
 promoting the first xUnit analyzer suggestion to an error would break `dotnet test` for a reason that
 has nothing to do with the tests. Do not hoist it into `Directory.Build.props`.
 
+## Evaluating extraction
+
+`Kvitteria/Backend.Eval` runs the real extraction code (prompt, schema, row mapper, date and chain matching, and
+the same reconciliation retry loop with the production defaults) over a folder of receipts and compares each
+result with an expected file. Use it before changing `ExtractionPrompt`, and to compare models. It needs an
+Ollama with the model pulled and no database.
+
+```bash
+cd Kvitteria
+dotnet run --project Backend.Eval -- /path/to/samples --url http://localhost:11434 --runs 3
+```
+
+Options: `--url` (Ollama, default `http://localhost:11434`), `--model` (default `qwen3.5:4b`), `--runs` (per
+sample, default 3), `--threads` (sent as `num_thread`) and `--only` (samples whose name contains the text). The
+exit code is 1 when any run is wrong or a sample has no expected file.
+
+**Samples stay outside the repository.** Real receipts carry loyalty numbers, store addresses and cashier names,
+and the repository is public. Keep the folder anywhere else, and never commit it.
+
+A sample is one of `<name>.txt`, `<name>.eml` or `<name>.html` (read the way the poller reads a mail), or
+`<name>.jpg` (transcribed once and cached as `<name>.transcript.txt`, so later runs skip the vision call; a JPEG
+over the upload budget is refused, scale it first). Beside it goes `<name>.expected.json`, where every field is
+optional and an absent one is not compared:
+
+```json
+{ "merchant": "Netto", "purchaseDate": "2026-10-26 13:07:00", "total": 69.50, "pant": 1.50, "lineCount": 6 }
+```
+
+`purchaseDate` is the date as printed, in local time; use `""` for a receipt that prints none. `lineCount`
+counts products and discounts, not pant.
+
+Iterate on a GPU container, then accept on a CPU container limited to the household server's 4 cores, because
+GPU and CPU inference differ:
+
+```bash
+docker run -d --name ollama-eval --gpus all -p 11434:11434 -v ollama:/root/.ollama ollama/ollama
+docker run -d --name ollama-cpu --cpus=4 --cpuset-cpus=0-3 -p 11435:11434 -v ollama:/root/.ollama ollama/ollama
+docker exec ollama-cpu ollama pull qwen3.5:4b
+dotnet run --project Backend.Eval -- /path/to/samples --url http://localhost:11435 --threads 4 --runs 3
+```
+
 ## Migrations
 
 Applied at startup, so there is normally nothing to run. To add one:

@@ -48,12 +48,8 @@ public sealed class ExtractionWorker(
 		var dbContext = scope.ServiceProvider.GetRequiredService<KvitteriaDbContext>();
 		PipelineSettings settings = await dbContext.PipelineSettings.AsNoTracking().FirstAsync(ct);
 
-		string systemPrompt = ReceiptExtractionPrompt.SystemPrompt;
-
 		if (mail.Source == IntakeSource.Upload)
 		{
-			systemPrompt = ReceiptExtractionPrompt.PhotoSystemPrompt;
-
 			// A stored transcription is reused by a retry and by restart recovery, so the image is read once.
 			if (mail.BodyText.Length == 0 && !await TranscribeAsync(client, mail, ct))
 				return;
@@ -63,7 +59,7 @@ public sealed class ExtractionWorker(
 
 		try
 		{
-			outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, systemPrompt, mail.Label, ct);
+			outcome = await ExtractWithRetriesAsync(client, settings, mail.BodyText, ReceiptExtractionPrompt.ExtractionPrompt, mail.Label, ct);
 		}
 		catch (ExtractionExhaustedException ex)
 		{

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Nullable and ImplicitUsings come from ../Directory.Build.props. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The extraction code under evaluation returns IResult from its limits helpers, so the tool needs the
+         same shared framework as the app it references, as the test project does. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Backend\Backend.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -11,10 +11,7 @@ public sealed class OllamaClient(
 	KvitteriaDbContext dbContext,
 	ILogger<OllamaClient> logger)
 {
-	private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-	{
-		PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-	};
+	private static readonly JsonSerializerOptions JsonOptions = OllamaWire.JsonOptions;
 
 	private const long NanosecondsPerMillisecond = 1_000_000;
 
@@ -22,9 +19,10 @@ public sealed class OllamaClient(
 	private const int MaxQuotedLength = 2_000;
 
 	/// <summary>
-	/// Extracts the receipt in <paramref name="receiptText"/> as schema-constrained JSON, following
-	/// <paramref name="systemPrompt"/>: <see cref="ReceiptExtractionPrompt.SystemPrompt"/> for mail,
-	/// <see cref="ReceiptExtractionPrompt.PhotoSystemPrompt"/> for a transcribed image.
+	/// Extracts the receipt in <paramref name="receiptText"/> as schema-constrained, labelled rows following
+	/// <paramref name="systemPrompt"/> (<see cref="ReceiptExtractionPrompt.ExtractionPrompt"/>), and maps
+	/// them with <see cref="ReceiptRows.ToExtracted"/>. A row answer that cannot be mapped surfaces as an
+	/// <see cref="OllamaResponseException"/>, like malformed JSON.
 	/// </summary>
 	public async Task<ExtractedReceipt> ExtractAsync(
 		string receiptText,
@@ -57,8 +55,10 @@ public sealed class OllamaClient(
 		try
 		{
 			// The caller owns the retry decision and logs the failure.
-			return JsonSerializer.Deserialize<ExtractedReceipt>(content, JsonOptions)
+			ReceiptRowsAnswer answer = JsonSerializer.Deserialize<ReceiptRowsAnswer>(content, JsonOptions)
 				?? throw new OllamaResponseException("Ollama message content was the JSON literal null.");
+
+			return ReceiptRows.ToExtracted(answer, receiptText);
 		}
 		catch (JsonException ex)
 		{
@@ -229,31 +229,4 @@ public sealed class OllamaClient(
 	private sealed record OllamaShowRequest(string Model);
 
 	private sealed record OllamaShowResponse(List<string>? Capabilities);
-
-	private sealed record OllamaChatRequest(
-		string Model,
-		IReadOnlyList<OllamaChatMessage> Messages,
-		bool Think,
-		bool Stream,
-		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] JsonElement? Format,
-		OllamaChatOptions Options,
-		string KeepAlive);
-
-	/// <summary><c>Images</c> serialize as base64, which is what Ollama expects, and are omitted when null.</summary>
-	private sealed record OllamaChatMessage(
-		string Role,
-		string Content,
-		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<byte[]>? Images = null);
-
-	private sealed record OllamaChatOptions(
-		double Temperature,
-		int NumCtx,
-		[property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? NumThread);
-
-	private sealed record OllamaChatResponse(
-		OllamaChatMessage? Message,
-		bool Done,
-		string? DoneReason,
-		long? TotalDuration,
-		int? EvalCount);
 }
