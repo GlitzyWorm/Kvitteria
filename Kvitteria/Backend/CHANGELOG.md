@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.3.0...backend-v1.4.0) (2026-11-10)
+
+
+### Features
+
+* correct unreconciled receipts and accept a difference ([#23](https://github.com/GlitzyWorm/Kvitteria/issues/23)) ([61fb5b3](https://github.com/GlitzyWorm/Kvitteria/commit/61fb5b3894fd364526acaeb15b76f8fb83a240c3))
+* extract receipts as labelled rows with one shared prompt ([#26](https://github.com/GlitzyWorm/Kvitteria/issues/26)) ([d41b573](https://github.com/GlitzyWorm/Kvitteria/commit/d41b573e56cffb0758ad0e54e87247c15671186b))
+* show raw names and a labelled chart in Prices ([#25](https://github.com/GlitzyWorm/Kvitteria/issues/25)) ([9c15bf3](https://github.com/GlitzyWorm/Kvitteria/commit/9c15bf3731867404f67dd83d067068df5940adaa))
+
 ## [1.3.0](https://github.com/GlitzyWorm/Kvitteria/compare/backend-v1.2.0...backend-v1.3.0) (2026-11-08)
 
 
