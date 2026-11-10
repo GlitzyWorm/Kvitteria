@@ -18,7 +18,7 @@ android {
         applicationId = "dev.jelshoj.kvitteria"
         // versionCode only ever increases; CI passes the run number.
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = "0.0.0" // x-release-please-version
+        versionName = "1.0.0" // x-release-please-version
     }
 
     buildTypes {
