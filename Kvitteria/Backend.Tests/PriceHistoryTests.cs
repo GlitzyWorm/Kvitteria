@@ -12,7 +12,7 @@ public class PriceHistoryTests
 		new(new DateTime(2026, month, 10, 12, 0, 0, DateTimeKind.Utc), quantity, total);
 
 	private static PriceHistoryDto Build(int months, params PricedLine[] lines) =>
-		PriceHistory.Build(Item, "Hakket oksekød", Aug.RunEndingHere(months), lines);
+		PriceHistory.Build(Item, "Hakket oksekød", Aug.RunEndingHere(months), lines, null, null);
 
 	[Fact]
 	public void A_weighed_item_is_total_over_quantity_not_an_average_of_unit_prices()
@@ -95,6 +95,27 @@ public class PriceHistoryTests
 	[Fact]
 	public void Purchases_outside_the_run_are_ignored() =>
 		Assert.Null(Build(2, Line(5, 1m, 10m)).LatestPrice);
+
+	[Fact]
+	public void A_month_counts_its_priced_lines_and_not_the_discount()
+	{
+		PriceHistoryDto dto = Build(1, Line(8, 1m, 10m), Line(8, 1m, 11m), Line(8, 1m, 12m), Line(8, 1m, -3m));
+
+		Assert.Equal(3, dto.Months[0].PurchaseCount);
+	}
+
+	[Fact]
+	public void A_gap_has_a_count_of_zero() =>
+		Assert.Equal([1, 0, 0], Build(3, Line(6, 1m, 10m)).Months.Select(m => m.PurchaseCount));
+
+	[Fact]
+	public void The_raw_name_is_carried_when_given()
+	{
+		PriceHistoryDto dto = PriceHistory.Build(Item, "Mælk", Aug.RunEndingHere(1), [], "arla", "ARLA");
+
+		Assert.Equal("arla", dto.RawNameKey);
+		Assert.Equal("ARLA", dto.RawNameLabel);
+	}
 
 	[Fact]
 	public void Carries_the_item_identity()

@@ -36,6 +36,12 @@
     <string name="days_short">Dage</string>
     <string name="no_data_title">Ingen data endnu</string>
     <string name="no_data_body">Her dukker tal op, når de første kvitteringer er læst.</string>
+    <string name="search_prices">Søg efter vare eller varenavn</string>
+    <string name="no_matching_prices">Ingen varer matcher</string>
+    <plurals name="purchase_count">
+        <item quantity="one">%d køb</item>
+        <item quantity="other">%d køb</item>
+    </plurals>
     <string name="no_prices_title">Ingen priser endnu</string>
     <string name="no_prices_body">Priser vises for varer med mindst ét køb.</string>
     <string name="no_tracking_title">Intet måltid følger dage</string>

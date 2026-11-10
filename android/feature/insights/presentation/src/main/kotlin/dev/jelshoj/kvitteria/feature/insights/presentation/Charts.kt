@@ -22,8 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
@@ -31,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import dev.jelshoj.kvitteria.core.designsystem.KvColors
 import dev.jelshoj.kvitteria.core.designsystem.KvRadius
 import dev.jelshoj.kvitteria.core.designsystem.KvType
-import dev.jelshoj.kvitteria.core.domain.insights.PriceMonth
 import dev.jelshoj.kvitteria.core.domain.insights.TrendMonth
 import dev.jelshoj.kvitteria.core.presentation.DanishTime
 import dev.jelshoj.kvitteria.core.presentation.KrFormat
@@ -79,53 +76,6 @@ internal fun TrendChart(months: List<TrendMonth>, selected: YearMonth, onSelect:
                         color = if (isSelected) KvColors.accent else KvColors.neutral500,
                         textAlign = TextAlign.Center,
                     ),
-                )
-            }
-        }
-    }
-}
-
-/** One line per run of priced months, so a month with no price breaks it rather than dropping to zero. */
-@Composable
-internal fun PriceChart(months: List<PriceMonth>) {
-    val prices = months.mapNotNull { it.price?.toFloat() }
-    val low = prices.minOrNull() ?: 0f
-    val high = prices.maxOrNull() ?: 1f
-    val span = (high - low).takeIf { it > 0f } ?: 1f
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Canvas(Modifier.fillMaxWidth().height(150.dp).clearAndSetSemantics {}) {
-            val inset = 8.dp.toPx()
-            val step = size.width / months.size.coerceAtLeast(1)
-            val point = { index: Int, price: Float ->
-                val y = inset + (size.height - inset * 2) * (1f - (price - low) / span)
-                Offset(step * (index + 0.5f), y)
-            }
-
-            val path = Path()
-            var drawing = false
-            months.forEachIndexed { index, month ->
-                val price = month.price?.toFloat()
-                if (price == null) {
-                    drawing = false
-                } else {
-                    val at = point(index, price)
-                    if (drawing) path.lineTo(at.x, at.y) else path.moveTo(at.x, at.y)
-                    drawing = true
-                }
-            }
-            drawPath(path, KvColors.accent, style = Stroke(width = 2.dp.toPx()))
-
-            months.forEachIndexed { index, month ->
-                month.price?.toFloat()?.let { drawCircle(KvColors.accent, radius = 3.dp.toPx(), center = point(index, it)) }
-            }
-        }
-        Row(Modifier.fillMaxWidth()) {
-            months.forEach { month ->
-                BasicText(
-                    DanishTime.shortMonth(month.month),
-                    style = KvType.meta.copy(color = KvColors.neutral500, textAlign = TextAlign.Center),
-                    modifier = Modifier.weight(1f),
                 )
             }
         }

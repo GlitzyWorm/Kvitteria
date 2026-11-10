@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.jelshoj.kvitteria.core.designsystem.KvColors
+import dev.jelshoj.kvitteria.core.designsystem.KvField
 import dev.jelshoj.kvitteria.core.designsystem.KvHeading
 import dev.jelshoj.kvitteria.core.designsystem.KvIcon
 import dev.jelshoj.kvitteria.core.designsystem.KvRule
@@ -49,6 +50,18 @@ sealed interface PickerRow<out T> {
     data class Option<T>(val value: T, val label: String, val indented: Boolean = false) : PickerRow<T>
 }
 
+/**
+ * A search field above a picker's rows. The sheet only draws it: the caller owns the query and filters the
+ * rows, so each picker decides what a match is.
+ */
+@Immutable
+data class PickerSearch(
+    val query: String,
+    val onQueryChange: (String) -> Unit,
+    val label: String,
+    val emptyLabel: String,
+)
+
 /** The choice list used wherever a field would be a dropdown. Results stay inside the calling screen. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +72,7 @@ fun <T> PickerSheet(
     onPick: (T) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    search: PickerSearch? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -66,14 +80,35 @@ fun <T> PickerSheet(
         containerColor = KvColors.bg,
         modifier = modifier,
     ) {
-        PickerList(title, rows, selected, onPick)
+        PickerList(title, rows, selected, onPick, search)
     }
 }
 
 @Composable
-private fun <T> PickerList(title: String, rows: List<PickerRow<T>>, selected: T?, onPick: (T) -> Unit) {
+private fun <T> PickerList(
+    title: String,
+    rows: List<PickerRow<T>>,
+    selected: T?,
+    onPick: (T) -> Unit,
+    search: PickerSearch? = null,
+) {
     Column(Modifier.navigationBarsPadding()) {
         KvHeading(title, Modifier.padding(horizontal = KvSpace.gutter, vertical = KvSpace.s3))
+        if (search != null) {
+            KvField(
+                label = search.label,
+                value = search.query,
+                onValueChange = search.onQueryChange,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = KvSpace.gutter),
+            )
+            if (rows.isEmpty()) {
+                BasicText(
+                    search.emptyLabel,
+                    style = KvType.hint,
+                    modifier = Modifier.padding(horizontal = KvSpace.gutter, vertical = KvSpace.s4),
+                )
+            }
+        }
         LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = KvSpace.s6)) {
             items(rows) { row ->
                 when (row) {

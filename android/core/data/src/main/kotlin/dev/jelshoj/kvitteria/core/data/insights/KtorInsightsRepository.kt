@@ -22,6 +22,7 @@ import dev.jelshoj.kvitteria.core.domain.insights.MealCoverageStats
 import dev.jelshoj.kvitteria.core.domain.insights.PriceHistory
 import dev.jelshoj.kvitteria.core.domain.insights.PriceMonth
 import dev.jelshoj.kvitteria.core.domain.insights.PricedItem
+import dev.jelshoj.kvitteria.core.domain.insights.PricedName
 import dev.jelshoj.kvitteria.core.domain.insights.SpendingSummary
 import dev.jelshoj.kvitteria.core.domain.insights.TrendMonth
 import dev.jelshoj.kvitteria.core.domain.map
@@ -74,10 +75,18 @@ data class SpendingTrendMonthDto(
 )
 
 @Serializable
-data class PricedItemDto(val id: String, val displayName: String, val purchaseCount: Int)
+data class PricedNameDto(val key: String, val label: String, val purchaseCount: Int)
 
 @Serializable
-data class PriceMonthDto(val month: WireMonth, val price: Money?)
+data class PricedItemDto(
+    val id: String,
+    val displayName: String,
+    val purchaseCount: Int,
+    val names: List<PricedNameDto>,
+)
+
+@Serializable
+data class PriceMonthDto(val month: WireMonth, val price: Money?, val purchaseCount: Int)
 
 @Serializable
 data class PriceHistoryDto(
@@ -87,6 +96,8 @@ data class PriceHistoryDto(
     val latestPrice: Money?,
     val lowestPrice: Money?,
     val changePercent: Money?,
+    val rawNameKey: String?,
+    val rawNameLabel: String?,
 )
 
 @Serializable
@@ -121,15 +132,22 @@ fun CategoryBreakdownDto.toCategoryBreakdown(): CategoryBreakdown = CategoryBrea
 
 fun SpendingTrendMonthDto.toTrendMonth(): TrendMonth = TrendMonth(month, total, receiptCount, changePercent)
 
-fun PricedItemDto.toPricedItem(): PricedItem = PricedItem(id, displayName, purchaseCount)
+fun PricedItemDto.toPricedItem(): PricedItem = PricedItem(
+    id = id,
+    name = displayName,
+    purchaseCount = purchaseCount,
+    names = names.map { PricedName(it.key, it.label, it.purchaseCount) },
+)
 
 fun PriceHistoryDto.toPriceHistory(): PriceHistory = PriceHistory(
     itemId = itemId,
     name = displayName,
-    months = months.map { PriceMonth(it.month, it.price) },
+    months = months.map { PriceMonth(it.month, it.price, it.purchaseCount) },
     latestPrice = latestPrice,
     lowestPrice = lowestPrice,
     changePercent = changePercent,
+    nameKey = rawNameKey,
+    nameLabel = rawNameLabel,
 )
 
 fun MealCoverageStatsDto.toMealCoverageStats(): MealCoverageStats = MealCoverageStats(
@@ -173,9 +191,13 @@ class KtorInsightsRepository(private val api: ApiHttpClient) : InsightsRepositor
             }
         }.map { result -> result.toPage { it.toPricedItem() } }
 
-    override suspend fun priceHistory(itemId: String, months: Int): Result<PriceHistory, ApiError> =
+    override suspend fun priceHistory(itemId: String, months: Int, name: String?): Result<PriceHistory, ApiError> =
         safeCall<PriceHistoryDto> {
-            api.client.get("/api/insights/prices/$itemId") { parameter("months", months) }
+            api.client.get("/api/insights/prices/$itemId") {
+                parameter("months", months)
+                // Ktor leaves a null parameter out of the query, so an unnarrowed history sends no `name`.
+                parameter("name", name)
+            }
         }.map { it.toPriceHistory() }
 
     override suspend fun mealCoverage(endMonth: YearMonth, months: Int): Result<List<MealCoverageStats>, ApiError> =

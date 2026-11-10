@@ -139,13 +139,27 @@ static class InsightsEndpoints
 
 				            int totalCount = await query.CountAsync(ct);
 
-				            List<PricedItemDto> items = await query
-				                                              .OrderByDescending(i => i.PurchaseCount)
-				                                              .ThenBy(i => i.DisplayName)
-				                                              .Skip((page-1)*pageSize)
-				                                              .Take(pageSize)
-				                                              .Select(i => new PricedItemDto(i.Id, i.DisplayName, i.PurchaseCount))
-				                                              .ToListAsync(ct);
+				            var pagedItems = await query
+				                                   .OrderByDescending(i => i.PurchaseCount)
+				                                   .ThenBy(i => i.DisplayName)
+				                                   .Skip((page-1)*pageSize)
+				                                   .Take(pageSize)
+				                                   .ToListAsync(ct);
+
+				            // Raw names are grouped in memory (see RawNames), for this page's items only.
+				            List<Guid> ids = pagedItems.Select(i => i.Id).ToList();
+
+				            var named = await dbContext.ReceiptLines
+				                                       .AsNoTracking()
+				                                       .Where(l => l.CanonicalItemId != null && ids.Contains(l.CanonicalItemId.Value) && l.Quantity > 0 && l.LineTotal > 0)
+				                                       .Select(l => new { ItemId = l.CanonicalItemId!.Value, l.RawName, l.Quantity, l.LineTotal })
+				                                       .ToListAsync(ct);
+
+				            ILookup<Guid, NamedLine> byItem = named.ToLookup(l => l.ItemId, l => new NamedLine(l.RawName, l.Quantity, l.LineTotal));
+
+				            List<PricedItemDto> items = pagedItems
+				                                        .Select(i => new PricedItemDto(i.Id, i.DisplayName, i.PurchaseCount, RawNames.Group(byItem[i.Id])))
+				                                        .ToList();
 
 				            return Results.Ok(new PagedResult<PricedItemDto>(items, page, pageSize, totalCount));
 			            })
@@ -153,14 +167,18 @@ static class InsightsEndpoints
 			            .Produces<PagedResult<PricedItemDto>>()
 			            .ProducesProblem(StatusCodes.Status400BadRequest);
 
-			// GET /insights/prices/{itemId}?months=
+			// GET /insights/prices/{itemId}?months=&name=
 			insights.MapGet("/prices/{itemId:guid}", async (
 				            Guid itemId,
+				            string? name,
 				            KvitteriaDbContext dbContext,
 				            CancellationToken ct,
 				            int months = MonthKey.DefaultRun) => {
 				            if (!MonthKey.TryValidateRun(null, months, out MonthKey end, out IResult problem))
 					            return problem;
+
+				            if (name != null && name.Length > KvitteriaDbContext.RawNameMaxLength)
+					            return Results.Problem(statusCode:StatusCodes.Status400BadRequest, detail:$"name must be at most {KvitteriaDbContext.RawNameMaxLength} characters.");
 
 				            CanonicalItem? item = await dbContext.CanonicalItems
 				                                                 .AsNoTracking()
@@ -173,13 +191,33 @@ static class InsightsEndpoints
 				            DateTime start = run[0].RangeUtc().StartUtc;
 				            DateTime stop = end.RangeUtc().EndUtc;
 
-				            List<PricedLine> lines = await dbContext.ReceiptLines
-				                                                    .AsNoTracking()
-				                                                    .Where(l => l.CanonicalItemId == itemId && l.Receipt!.PurchaseDate >= start && l.Receipt.PurchaseDate < stop)
-				                                                    .Select(l => new PricedLine(l.Receipt!.PurchaseDate, l.Quantity, l.LineTotal))
-				                                                    .ToListAsync(ct);
+				            var rows = await dbContext.ReceiptLines
+				                                      .AsNoTracking()
+				                                      .Where(l => l.CanonicalItemId == itemId && l.Receipt!.PurchaseDate >= start && l.Receipt.PurchaseDate < stop)
+				                                      .Select(l => new { l.RawName, l.Receipt!.PurchaseDate, l.Quantity, l.LineTotal })
+				                                      .ToListAsync(ct);
 
-				            return Results.Ok(PriceHistory.Build(item.Id, item.DisplayName, run, lines));
+				            if (string.IsNullOrWhiteSpace(name))
+					            return Results.Ok(PriceHistory.Build(item.Id, item.DisplayName, run, rows.Select(r => new PricedLine(r.PurchaseDate, r.Quantity, r.LineTotal)), null, null));
+
+				            // Matched in memory with NormalizeString, scoped to this item: the same name sorted elsewhere doesn't count.
+				            string key = name.NormalizeString();
+				            List<PricedLine> narrowed = rows
+				                                        .Where(r => r.RawName.NormalizeString() == key)
+				                                        .Select(r => new PricedLine(r.PurchaseDate, r.Quantity, r.LineTotal))
+				                                        .ToList();
+
+				            // The label comes from all time, so the heading matches the sheet's label for the same name.
+				            var everyName = await dbContext.ReceiptLines
+				                                           .AsNoTracking()
+				                                           .Where(l => l.CanonicalItemId == itemId && l.Quantity > 0 && l.LineTotal > 0)
+				                                           .Select(l => new { l.RawName, l.Quantity, l.LineTotal })
+				                                           .ToListAsync(ct);
+
+				            string label = RawNames.Group(everyName.Select(l => new NamedLine(l.RawName, l.Quantity, l.LineTotal)))
+				                                   .FirstOrDefault(n => n.Key == key)?.Label ?? key;
+
+				            return Results.Ok(PriceHistory.Build(item.Id, item.DisplayName, run, narrowed, key, label));
 			            })
 			            .WithName("GetPriceHistory")
 			            .Produces<PriceHistoryDto>()

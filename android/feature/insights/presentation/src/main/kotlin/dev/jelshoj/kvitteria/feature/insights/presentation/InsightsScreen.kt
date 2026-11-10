@@ -67,6 +67,7 @@ import dev.jelshoj.kvitteria.core.presentation.MessageState
 import dev.jelshoj.kvitteria.core.presentation.ObserveAsEvents
 import dev.jelshoj.kvitteria.core.presentation.OnStart
 import dev.jelshoj.kvitteria.core.presentation.PickerRow
+import dev.jelshoj.kvitteria.core.presentation.PickerSearch
 import dev.jelshoj.kvitteria.core.presentation.PickerSheet
 import dev.jelshoj.kvitteria.core.presentation.R as CoreR
 import java.math.BigDecimal
@@ -363,17 +364,24 @@ private fun TrendView(months: List<TrendMonth>, state: InsightsState, onAction: 
 @Composable
 private fun PricesView(state: InsightsState, onAction: (InsightsAction) -> Unit) {
     val items = state.priceItems.data.orEmpty()
-    val chosen = items.firstOrNull { it.id == state.selections.priceItemId }
+    val price = state.selections.price
+    val chosen = items.firstOrNull { it.id == price?.itemId }
+    val nameLabel = chosen?.names?.firstOrNull { it.key == price?.nameKey }?.label
 
     ViewColumn {
         KvSelectField(
             label = stringResource(R.string.item),
-            value = chosen?.name.orEmpty(),
+            // The heading names the selection: the item, or the item and its raw name.
+            value = listOfNotNull(chosen?.name, nameLabel).joinToString(" · "),
             onClick = { onAction(InsightsAction.OnPicker(InsightsPicker.PriceItem)) },
             modifier = Modifier.fillMaxWidth(),
         )
         LoadableContent(state.history, onRefresh = { onAction(InsightsAction.OnRefresh) }, modifier = Modifier.height(380.dp)) { history ->
-            PriceFigures(history)
+            PriceFigures(
+                history,
+                state.selections.priceMonth,
+                onSelectMonth = { onAction(InsightsAction.OnPriceMonth(it)) },
+            )
         }
     }
 }
@@ -387,7 +395,7 @@ private fun PriceFigure(label: String, value: String, color: Color, modifier: Mo
 }
 
 @Composable
-private fun PriceFigures(history: PriceHistory) {
+private fun PriceFigures(history: PriceHistory, selected: YearMonth?, onSelectMonth: (YearMonth) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(KvSpace.s6)) {
         Row(horizontalArrangement = Arrangement.spacedBy(KvSpace.s3)) {
             PriceFigure(stringResource(R.string.price_now), KrFormat.amount(history.latestPrice), KvColors.text, Modifier.weight(1f))
@@ -399,7 +407,7 @@ private fun PriceFigures(history: PriceHistory) {
             )
             PriceFigure(stringResource(R.string.price_lowest), KrFormat.amount(history.lowestPrice), KvColors.text, Modifier.weight(1f))
         }
-        PriceChart(history.months)
+        PriceChart(history.months, selected, onSelectMonth)
         BasicText(stringResource(R.string.price_note), style = KvType.label.copy(color = KvColors.neutral500))
     }
 }
@@ -472,10 +480,16 @@ private fun Pickers(state: InsightsState, onAction: (InsightsAction) -> Unit) {
         )
         InsightsPicker.PriceItem -> PickerSheet(
             title = stringResource(R.string.item),
-            rows = state.priceItems.data.orEmpty().map { PickerRow.Option(it.id, it.name) },
-            selected = state.selections.priceItemId,
-            onPick = { onAction(InsightsAction.OnPriceItem(it)) },
+            rows = PriceItemRows.rows(state.priceItems.data.orEmpty(), state.selections.priceSearch),
+            selected = state.selections.price,
+            onPick = { onAction(InsightsAction.OnPrice(it)) },
             onDismiss = dismiss,
+            search = PickerSearch(
+                query = state.selections.priceSearch,
+                onQueryChange = { onAction(InsightsAction.OnPriceSearch(it)) },
+                label = stringResource(R.string.search_prices),
+                emptyLabel = stringResource(R.string.no_matching_prices),
+            ),
         )
         InsightsPicker.Parent -> {
             val dialog = state.selections.dialog
